@@ -1,17 +1,26 @@
 import { db } from "@/lib/db";
-import { results } from "@/lib/db/schema";
+import { results, users } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
+    const cookieStore = await cookies();
+    const authEmail = cookieStore.get("auth_user")?.value;
+
+    let createdByUserId: string | null = null;
+    if (authEmail) {
+      const [creator] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, authEmail))
+        .limit(1);
+      createdByUserId = creator?.id ?? null;
+    }
+
     const body = await req.json();
-    console.log("Received body in API route:", body);
-
     const { video_uri, container_type, model, region_name } = body;
-
-    // Based on working curl:
-    // Content-Type: application/x-www-form-urlencoded
-    // Keys: video_uri, container_type, model, region_name, frames_bucket, frames_prefix, presigned_expiry_seconds
 
     const params = new URLSearchParams();
     params.append("video_uri", video_uri || "");
@@ -21,8 +30,6 @@ export async function POST(req: Request) {
     params.append("frames_bucket", "");
     params.append("frames_prefix", "");
     params.append("presigned_expiry_seconds", "");
-
-    console.log("Hitting Lambda with URLSearchParams:", params.toString());
 
     const response = await fetch(process.env.LAMBDA_ENDPOINT!, {
       method: "POST",
@@ -34,13 +41,11 @@ export async function POST(req: Request) {
     });
 
     const responseText = await response.text();
-    console.log("Raw Lambda response:", responseText);
 
     let lambdaData;
     try {
       lambdaData = JSON.parse(responseText);
-    } catch (e) {
-      console.error("Failed to parse Lambda response as JSON:", responseText);
+    } catch {
       return NextResponse.json(
         { error: "Invalid Lambda response", details: responseText },
         { status: 500 },
@@ -48,11 +53,6 @@ export async function POST(req: Request) {
     }
 
     if (!response.ok) {
-      console.error(
-        "Lambda returned error status:",
-        response.status,
-        lambdaData,
-      );
       return NextResponse.json(
         { error: "Lambda error", details: lambdaData },
         { status: response.status },
@@ -68,6 +68,7 @@ export async function POST(req: Request) {
         videoId: videoId,
         status: status,
         json: lambdaData,
+        createdByUserId,
       })
       .returning();
 
@@ -75,7 +76,6 @@ export async function POST(req: Request) {
   } catch (error: unknown) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
-    console.error("Error processing video:", errorMessage);
     return NextResponse.json(
       {
         error: "Failed to process video",

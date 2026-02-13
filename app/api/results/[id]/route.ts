@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { results } from "@/lib/db/schema";
+import { results, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getPresignedUrl } from "@/lib/s3";
@@ -47,15 +47,25 @@ async function processS3Uris(obj: unknown): Promise<unknown> {
 }
 
 export async function GET(
-  req: Request,
+  _req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const { id } = await params;
 
     const [result] = await db
-      .select()
+      .select({
+        id: results.id,
+        videoId: results.videoId,
+        status: results.status,
+        json: results.json,
+        createdByUserId: results.createdByUserId,
+        createdByName: users.name,
+        createdByEmail: users.email,
+        createdAt: results.createdAt,
+      })
       .from(results)
+      .leftJoin(users, eq(results.createdByUserId, users.id))
       .where(eq(results.id, id))
       .limit(1);
 

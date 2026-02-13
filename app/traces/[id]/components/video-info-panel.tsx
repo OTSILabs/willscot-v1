@@ -1,0 +1,79 @@
+"use client";
+
+import { Badge } from "@/components/ui/badge";
+import { ResultDetail } from "./types";
+import { cn } from "@/lib/utils";
+
+interface VideoInfoPanelProps {
+  result: ResultDetail;
+}
+
+function formatValue(value?: string | null) {
+  if (!value || value.trim().length === 0) return "N/A";
+  return value;
+}
+
+export function VideoInfoPanel({ result }: VideoInfoPanelProps) {
+  const videoInfo = result.json.video || {};
+
+  const items = [
+    {
+      label: "S3 URI",
+      value: formatValue(videoInfo.s3_uri || result.videoId),
+      mono: true,
+    },
+    {
+      label: "Region",
+      value: formatValue(videoInfo.region),
+    },
+    {
+      label: "Container Type",
+      value: formatValue(videoInfo.container_type),
+    },
+    {
+      label: "Created At",
+      value: new Date(result.createdAt).toLocaleString(),
+    },
+    {
+      label: "Created By",
+      value: `${result.createdByName || "Unknown"} (${result.createdByEmail || "N/A"})`,
+    },
+  ];
+
+  return (
+    <>
+      {items.map((item) => (
+        <div key={item.label} className="space-y-1">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {item.label}
+          </p>
+          <p
+            className={
+              cn(
+                "max-w-60 truncate",
+                item.mono
+                  ? "break-all font-mono text-xs leading-5"
+                  : "text-xs leading-5"
+              )
+
+            }
+          >
+            {item.value}
+          </p>
+        </div>
+      ))}
+      <div className="space-y-1">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Status
+        </p>
+        <Badge
+          variant={result.status === "completed" ? "default" : "secondary"}
+          className="h-5 text-xs capitalize"
+        >
+          {result.status}
+        </Badge>
+      </div>
+    </>
+  );
+}
+

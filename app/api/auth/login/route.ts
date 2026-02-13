@@ -1,0 +1,54 @@
+import { db } from "@/lib/db";
+import { users } from "@/lib/db/schema";
+import { and, eq } from "drizzle-orm";
+import { createHash } from "crypto";
+import { NextResponse } from "next/server";
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const email = String(body?.email || "").trim().toLowerCase();
+    const password = String(body?.password || "");
+
+    if (!email || !password) {
+      return NextResponse.json(
+        { error: "Email and password are required" },
+        { status: 400 },
+      );
+    }
+
+    const passwordHash = createHash("md5").update(password).digest("hex");
+
+    const [user] = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        role: users.role,
+      })
+      .from(users)
+      .where(and(eq(users.email, email), eq(users.passwordHash, passwordHash)))
+      .limit(1);
+
+    if (!user) {
+      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    }
+
+    const response = NextResponse.json({ user });
+    response.cookies.set("auth_user", user.email, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    return response;
+  } catch (error: unknown) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    console.error("Login failed:", errorMessage);
+    return NextResponse.json({ error: "Login failed" }, { status: 500 });
+  }
+}
+

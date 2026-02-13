@@ -1,0 +1,142 @@
+{
+    "id": "20c0402b-791d-4ca3-a32b-7dd6f2317cca",
+    "videoId": "s3://ws-s3-unit-attribute-capture-nova/TRAILER/20260127_123935.mp4",
+    "status": "completed",
+    "json": {
+        "video": {
+            "region": "us-west-2",
+            "s3_uri": "s3://ws-s3-unit-attribute-capture-nova/TRAILER/20260127_123935.mp4",
+            "s3_uri_url": "https://ws-s3-unit-attribute-capture-nova.s3.us-west-2.amazonaws.com/TRAILER/20260127_123935.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=ASIAXTORPHZPWTYEXSLA%2F20260213%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20260213T124138Z&X-Amz-Expires=3600&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEB4aCXVzLWVhc3QtMSJHMEUCIQDT0STHRr2ct89Kj%2BtA7wSCUBDRv2rNX3aWSvdxqadHCgIgMug%2FhUhcnw8%2F7%2BLvaz3Hr35yucsaGbMbnY7yEA%2BjHM4qnAMI5%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FARAAGgw1MjI4MTQ3MDExNTEiDGpHsQWRk3XrTQF7VCrwAsK1ceGzTaPzbsiK8o2DaKteyCuNONFQ7bljePKI1QYF4p4z8p99tpDb73T5REXaDcnt9DYXBUEp%2BrScH0dMKdPPSFYubBNc81zn1LFG0djhA6ZEUfmFBFC7XSP6ETjrU8ISgL5iA0v7jFIPJXyjTUHOFrRNT4YSMUeEL%2FiXYYAnyZ22y0DY3UQa1jJyrGeRRvThfZBkTEhgbtC1o7VagebQ7yZR1rBrGcEbGT1S%2BK5VDckV7WbfAvJjkm2Pq0Te4%2FNIbuULr0jkwcVTXoOV3YDOQ%2FT15fbPgtLhs1qwRiCXoY7AlwKatKYIgtI2C1dhSD8RLVldCPwoa2FcIV6UI6qb%2Fl7W9EjUkyhMcgK5hngTVahEzrmbfLnEbxtPchJ%2B2xOioOLCs0doxXXzUGEBSYlbF6auc7TApOUMAQSf7Wkcoru8gAjRCcGNzQ7p8DPljr5%2B7MTNtvPZOnDyEFRB2bm0JMsaoTuPwiTLxRldWB1RMOzquswGOqQBbjKABxQUr6Y8J2JEWioeTn6ibXQOhamD8shNHHXWhM5IEBpWKSDbErEqx5QiT8zS5PJVMN5kCYJKc6IpTBhnMJInCV7cowVO7O1Xshi5GbLcYjehRXEbobDnC%2F1zdWc3b8Ol7SiEmGZ89xdtLiZGR0NLVfQht6y7lcPTbdhyhRElW%2F2ek8I24uZBwAYPWv5bRFXnBKMaYrPEMVXV5dgsHPxzHEM%3D&X-Amz-Signature=0dfd935e9985b7be8fcd65f2b5bb5cd96c41ff48abec820388669b16ffe4a4cb&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject",
+            "model_id": "arn:aws:bedrock:us-west-2:522814701151:inference-profile/us.amazon.nova-2-omni-v1:0",
+            "prompt_docx": "/var/task/Trailer_final_prompt.docx",
+            "container_type": "trailer",
+            "frames_root_dir": "/tmp/targeted_frame_processing_bd2bm9el/20260127_123935.mp4_frames",
+            "downloaded_video": "/tmp/targeted_frame_processing_bd2bm9el/20260127_123935.mp4",
+            "local_video_path": "/tmp/targeted_frame_processing_bd2bm9el/20260127_123935.mp4"
+        },
+        "attributes": [
+            {
+                "error": "No frame numbers found for extraction.",
+                "value": "None",
+                "evidence": null,
+                "pipeline": "roof_assembly",
+                "attribute": null,
+                "frame_s3_uri": null,
+                "timestamp_seconds": null,
+                "timestamp_milliseconds": null
+            },
+            {
+                "error": "No frame numbers found for extraction.",
+                "value": "None",
+                "evidence": null,
+                "pipeline": "interior_assembly",
+                "attribute": null,
+                "frame_s3_uri": null,
+                "timestamp_seconds": null,
+                "timestamp_milliseconds": null
+            },
+            {
+                "error": null,
+                "value": "None",
+                "evidence": null,
+                "pipeline": "flooring_frame_type",
+                "attribute": "flooring",
+                "frame_s3_uri": "s3://ws-s3-unit-attribute-capture-nova/targeted-frame-runs/20260127_123935/trailer/1770986442/flooring_frame_type/0001_frame_0001.jpg",
+                "frame_s3_uri_url": "https://ws-s3-unit-attribute-capture-nova.s3.us-west-2.amazonaws.com/targeted-frame-runs/20260127_123935/trailer/1770986442/flooring_frame_type/0001_frame_0001.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=ASIAXTORPHZPWTYEXSLA%2F20260213%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20260213T124138Z&X-Amz-Expires=3600&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEB4aCXVzLWVhc3QtMSJHMEUCIQDT0STHRr2ct89Kj%2BtA7wSCUBDRv2rNX3aWSvdxqadHCgIgMug%2FhUhcnw8%2F7%2BLvaz3Hr35yucsaGbMbnY7yEA%2BjHM4qnAMI5%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FARAAGgw1MjI4MTQ3MDExNTEiDGpHsQWRk3XrTQF7VCrwAsK1ceGzTaPzbsiK8o2DaKteyCuNONFQ7bljePKI1QYF4p4z8p99tpDb73T5REXaDcnt9DYXBUEp%2BrScH0dMKdPPSFYubBNc81zn1LFG0djhA6ZEUfmFBFC7XSP6ETjrU8ISgL5iA0v7jFIPJXyjTUHOFrRNT4YSMUeEL%2FiXYYAnyZ22y0DY3UQa1jJyrGeRRvThfZBkTEhgbtC1o7VagebQ7yZR1rBrGcEbGT1S%2BK5VDckV7WbfAvJjkm2Pq0Te4%2FNIbuULr0jkwcVTXoOV3YDOQ%2FT15fbPgtLhs1qwRiCXoY7AlwKatKYIgtI2C1dhSD8RLVldCPwoa2FcIV6UI6qb%2Fl7W9EjUkyhMcgK5hngTVahEzrmbfLnEbxtPchJ%2B2xOioOLCs0doxXXzUGEBSYlbF6auc7TApOUMAQSf7Wkcoru8gAjRCcGNzQ7p8DPljr5%2B7MTNtvPZOnDyEFRB2bm0JMsaoTuPwiTLxRldWB1RMOzquswGOqQBbjKABxQUr6Y8J2JEWioeTn6ibXQOhamD8shNHHXWhM5IEBpWKSDbErEqx5QiT8zS5PJVMN5kCYJKc6IpTBhnMJInCV7cowVO7O1Xshi5GbLcYjehRXEbobDnC%2F1zdWc3b8Ol7SiEmGZ89xdtLiZGR0NLVfQht6y7lcPTbdhyhRElW%2F2ek8I24uZBwAYPWv5bRFXnBKMaYrPEMVXV5dgsHPxzHEM%3D&X-Amz-Signature=3fa45bdd6297f83689521a5d1f3c3059f6e720b69b72aef14a12e7608cb323cf&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject",
+                "timestamp_seconds": 5,
+                "timestamp_milliseconds": 5000
+            },
+            {
+                "error": null,
+                "value": "None",
+                "evidence": null,
+                "pipeline": "flooring_frame_type",
+                "attribute": "Frame_Type",
+                "frame_s3_uri": "s3://ws-s3-unit-attribute-capture-nova/targeted-frame-runs/20260127_123935/trailer/1770986442/flooring_frame_type/0001_frame_0001.jpg",
+                "frame_s3_uri_url": "https://ws-s3-unit-attribute-capture-nova.s3.us-west-2.amazonaws.com/targeted-frame-runs/20260127_123935/trailer/1770986442/flooring_frame_type/0001_frame_0001.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=ASIAXTORPHZPWTYEXSLA%2F20260213%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20260213T124138Z&X-Amz-Expires=3600&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEB4aCXVzLWVhc3QtMSJHMEUCIQDT0STHRr2ct89Kj%2BtA7wSCUBDRv2rNX3aWSvdxqadHCgIgMug%2FhUhcnw8%2F7%2BLvaz3Hr35yucsaGbMbnY7yEA%2BjHM4qnAMI5%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FARAAGgw1MjI4MTQ3MDExNTEiDGpHsQWRk3XrTQF7VCrwAsK1ceGzTaPzbsiK8o2DaKteyCuNONFQ7bljePKI1QYF4p4z8p99tpDb73T5REXaDcnt9DYXBUEp%2BrScH0dMKdPPSFYubBNc81zn1LFG0djhA6ZEUfmFBFC7XSP6ETjrU8ISgL5iA0v7jFIPJXyjTUHOFrRNT4YSMUeEL%2FiXYYAnyZ22y0DY3UQa1jJyrGeRRvThfZBkTEhgbtC1o7VagebQ7yZR1rBrGcEbGT1S%2BK5VDckV7WbfAvJjkm2Pq0Te4%2FNIbuULr0jkwcVTXoOV3YDOQ%2FT15fbPgtLhs1qwRiCXoY7AlwKatKYIgtI2C1dhSD8RLVldCPwoa2FcIV6UI6qb%2Fl7W9EjUkyhMcgK5hngTVahEzrmbfLnEbxtPchJ%2B2xOioOLCs0doxXXzUGEBSYlbF6auc7TApOUMAQSf7Wkcoru8gAjRCcGNzQ7p8DPljr5%2B7MTNtvPZOnDyEFRB2bm0JMsaoTuPwiTLxRldWB1RMOzquswGOqQBbjKABxQUr6Y8J2JEWioeTn6ibXQOhamD8shNHHXWhM5IEBpWKSDbErEqx5QiT8zS5PJVMN5kCYJKc6IpTBhnMJInCV7cowVO7O1Xshi5GbLcYjehRXEbobDnC%2F1zdWc3b8Ol7SiEmGZ89xdtLiZGR0NLVfQht6y7lcPTbdhyhRElW%2F2ek8I24uZBwAYPWv5bRFXnBKMaYrPEMVXV5dgsHPxzHEM%3D&X-Amz-Signature=3fa45bdd6297f83689521a5d1f3c3059f6e720b69b72aef14a12e7608cb323cf&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject",
+                "timestamp_seconds": 5,
+                "timestamp_milliseconds": 5000
+            },
+            {
+                "error": null,
+                "value": "Silver Point",
+                "evidence": "Light gray/silver metallic surface visible on the container panel",
+                "pipeline": "wall_assembly",
+                "attribute": "exterior_color",
+                "frame_s3_uri": "s3://ws-s3-unit-attribute-capture-nova/targeted-frame-runs/20260127_123935/trailer/1770986442/wall_assembly/0002_frame_0001.jpg",
+                "frame_s3_uri_url": "https://ws-s3-unit-attribute-capture-nova.s3.us-west-2.amazonaws.com/targeted-frame-runs/20260127_123935/trailer/1770986442/wall_assembly/0002_frame_0001.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=ASIAXTORPHZPWTYEXSLA%2F20260213%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20260213T124138Z&X-Amz-Expires=3600&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEB4aCXVzLWVhc3QtMSJHMEUCIQDT0STHRr2ct89Kj%2BtA7wSCUBDRv2rNX3aWSvdxqadHCgIgMug%2FhUhcnw8%2F7%2BLvaz3Hr35yucsaGbMbnY7yEA%2BjHM4qnAMI5%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FARAAGgw1MjI4MTQ3MDExNTEiDGpHsQWRk3XrTQF7VCrwAsK1ceGzTaPzbsiK8o2DaKteyCuNONFQ7bljePKI1QYF4p4z8p99tpDb73T5REXaDcnt9DYXBUEp%2BrScH0dMKdPPSFYubBNc81zn1LFG0djhA6ZEUfmFBFC7XSP6ETjrU8ISgL5iA0v7jFIPJXyjTUHOFrRNT4YSMUeEL%2FiXYYAnyZ22y0DY3UQa1jJyrGeRRvThfZBkTEhgbtC1o7VagebQ7yZR1rBrGcEbGT1S%2BK5VDckV7WbfAvJjkm2Pq0Te4%2FNIbuULr0jkwcVTXoOV3YDOQ%2FT15fbPgtLhs1qwRiCXoY7AlwKatKYIgtI2C1dhSD8RLVldCPwoa2FcIV6UI6qb%2Fl7W9EjUkyhMcgK5hngTVahEzrmbfLnEbxtPchJ%2B2xOioOLCs0doxXXzUGEBSYlbF6auc7TApOUMAQSf7Wkcoru8gAjRCcGNzQ7p8DPljr5%2B7MTNtvPZOnDyEFRB2bm0JMsaoTuPwiTLxRldWB1RMOzquswGOqQBbjKABxQUr6Y8J2JEWioeTn6ibXQOhamD8shNHHXWhM5IEBpWKSDbErEqx5QiT8zS5PJVMN5kCYJKc6IpTBhnMJInCV7cowVO7O1Xshi5GbLcYjehRXEbobDnC%2F1zdWc3b8Ol7SiEmGZ89xdtLiZGR0NLVfQht6y7lcPTbdhyhRElW%2F2ek8I24uZBwAYPWv5bRFXnBKMaYrPEMVXV5dgsHPxzHEM%3D&X-Amz-Signature=b058b7388bb10dbafc27f24b61ffb19678e37393986c4b43ce013714165a2ea1&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject",
+                "timestamp_seconds": 5,
+                "timestamp_milliseconds": 5000
+            },
+            {
+                "error": null,
+                "value": "Metal",
+                "evidence": "Corrugated metal texture visible on the container's exterior surface",
+                "pipeline": "wall_assembly",
+                "attribute": "exterior_finish",
+                "frame_s3_uri": "s3://ws-s3-unit-attribute-capture-nova/targeted-frame-runs/20260127_123935/trailer/1770986442/wall_assembly/0002_frame_0001.jpg",
+                "frame_s3_uri_url": "https://ws-s3-unit-attribute-capture-nova.s3.us-west-2.amazonaws.com/targeted-frame-runs/20260127_123935/trailer/1770986442/wall_assembly/0002_frame_0001.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=ASIAXTORPHZPWTYEXSLA%2F20260213%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20260213T124138Z&X-Amz-Expires=3600&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEB4aCXVzLWVhc3QtMSJHMEUCIQDT0STHRr2ct89Kj%2BtA7wSCUBDRv2rNX3aWSvdxqadHCgIgMug%2FhUhcnw8%2F7%2BLvaz3Hr35yucsaGbMbnY7yEA%2BjHM4qnAMI5%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FARAAGgw1MjI4MTQ3MDExNTEiDGpHsQWRk3XrTQF7VCrwAsK1ceGzTaPzbsiK8o2DaKteyCuNONFQ7bljePKI1QYF4p4z8p99tpDb73T5REXaDcnt9DYXBUEp%2BrScH0dMKdPPSFYubBNc81zn1LFG0djhA6ZEUfmFBFC7XSP6ETjrU8ISgL5iA0v7jFIPJXyjTUHOFrRNT4YSMUeEL%2FiXYYAnyZ22y0DY3UQa1jJyrGeRRvThfZBkTEhgbtC1o7VagebQ7yZR1rBrGcEbGT1S%2BK5VDckV7WbfAvJjkm2Pq0Te4%2FNIbuULr0jkwcVTXoOV3YDOQ%2FT15fbPgtLhs1qwRiCXoY7AlwKatKYIgtI2C1dhSD8RLVldCPwoa2FcIV6UI6qb%2Fl7W9EjUkyhMcgK5hngTVahEzrmbfLnEbxtPchJ%2B2xOioOLCs0doxXXzUGEBSYlbF6auc7TApOUMAQSf7Wkcoru8gAjRCcGNzQ7p8DPljr5%2B7MTNtvPZOnDyEFRB2bm0JMsaoTuPwiTLxRldWB1RMOzquswGOqQBbjKABxQUr6Y8J2JEWioeTn6ibXQOhamD8shNHHXWhM5IEBpWKSDbErEqx5QiT8zS5PJVMN5kCYJKc6IpTBhnMJInCV7cowVO7O1Xshi5GbLcYjehRXEbobDnC%2F1zdWc3b8Ol7SiEmGZ89xdtLiZGR0NLVfQht6y7lcPTbdhyhRElW%2F2ek8I24uZBwAYPWv5bRFXnBKMaYrPEMVXV5dgsHPxzHEM%3D&X-Amz-Signature=b058b7388bb10dbafc27f24b61ffb19678e37393986c4b43ce013714165a2ea1&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject",
+                "timestamp_seconds": 5,
+                "timestamp_milliseconds": 5000
+            },
+            {
+                "error": null,
+                "value": "Single Door",
+                "evidence": "Partial view of a hinged metal door frame on the right side of the image",
+                "pipeline": "wall_assembly",
+                "attribute": "exterior_doors",
+                "frame_s3_uri": "s3://ws-s3-unit-attribute-capture-nova/targeted-frame-runs/20260127_123935/trailer/1770986442/wall_assembly/0002_frame_0001.jpg",
+                "frame_s3_uri_url": "https://ws-s3-unit-attribute-capture-nova.s3.us-west-2.amazonaws.com/targeted-frame-runs/20260127_123935/trailer/1770986442/wall_assembly/0002_frame_0001.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=ASIAXTORPHZPWTYEXSLA%2F20260213%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20260213T124138Z&X-Amz-Expires=3600&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEB4aCXVzLWVhc3QtMSJHMEUCIQDT0STHRr2ct89Kj%2BtA7wSCUBDRv2rNX3aWSvdxqadHCgIgMug%2FhUhcnw8%2F7%2BLvaz3Hr35yucsaGbMbnY7yEA%2BjHM4qnAMI5%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FARAAGgw1MjI4MTQ3MDExNTEiDGpHsQWRk3XrTQF7VCrwAsK1ceGzTaPzbsiK8o2DaKteyCuNONFQ7bljePKI1QYF4p4z8p99tpDb73T5REXaDcnt9DYXBUEp%2BrScH0dMKdPPSFYubBNc81zn1LFG0djhA6ZEUfmFBFC7XSP6ETjrU8ISgL5iA0v7jFIPJXyjTUHOFrRNT4YSMUeEL%2FiXYYAnyZ22y0DY3UQa1jJyrGeRRvThfZBkTEhgbtC1o7VagebQ7yZR1rBrGcEbGT1S%2BK5VDckV7WbfAvJjkm2Pq0Te4%2FNIbuULr0jkwcVTXoOV3YDOQ%2FT15fbPgtLhs1qwRiCXoY7AlwKatKYIgtI2C1dhSD8RLVldCPwoa2FcIV6UI6qb%2Fl7W9EjUkyhMcgK5hngTVahEzrmbfLnEbxtPchJ%2B2xOioOLCs0doxXXzUGEBSYlbF6auc7TApOUMAQSf7Wkcoru8gAjRCcGNzQ7p8DPljr5%2B7MTNtvPZOnDyEFRB2bm0JMsaoTuPwiTLxRldWB1RMOzquswGOqQBbjKABxQUr6Y8J2JEWioeTn6ibXQOhamD8shNHHXWhM5IEBpWKSDbErEqx5QiT8zS5PJVMN5kCYJKc6IpTBhnMJInCV7cowVO7O1Xshi5GbLcYjehRXEbobDnC%2F1zdWc3b8Ol7SiEmGZ89xdtLiZGR0NLVfQht6y7lcPTbdhyhRElW%2F2ek8I24uZBwAYPWv5bRFXnBKMaYrPEMVXV5dgsHPxzHEM%3D&X-Amz-Signature=b058b7388bb10dbafc27f24b61ffb19678e37393986c4b43ce013714165a2ea1&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject",
+                "timestamp_seconds": 5,
+                "timestamp_milliseconds": 5000
+            },
+            {
+                "error": null,
+                "value": "None",
+                "evidence": "No window structures or openings visible on the shown exterior panel",
+                "pipeline": "wall_assembly",
+                "attribute": "windows",
+                "frame_s3_uri": "s3://ws-s3-unit-attribute-capture-nova/targeted-frame-runs/20260127_123935/trailer/1770986442/wall_assembly/0002_frame_0001.jpg",
+                "frame_s3_uri_url": "https://ws-s3-unit-attribute-capture-nova.s3.us-west-2.amazonaws.com/targeted-frame-runs/20260127_123935/trailer/1770986442/wall_assembly/0002_frame_0001.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=ASIAXTORPHZPWTYEXSLA%2F20260213%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20260213T124138Z&X-Amz-Expires=3600&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEB4aCXVzLWVhc3QtMSJHMEUCIQDT0STHRr2ct89Kj%2BtA7wSCUBDRv2rNX3aWSvdxqadHCgIgMug%2FhUhcnw8%2F7%2BLvaz3Hr35yucsaGbMbnY7yEA%2BjHM4qnAMI5%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FARAAGgw1MjI4MTQ3MDExNTEiDGpHsQWRk3XrTQF7VCrwAsK1ceGzTaPzbsiK8o2DaKteyCuNONFQ7bljePKI1QYF4p4z8p99tpDb73T5REXaDcnt9DYXBUEp%2BrScH0dMKdPPSFYubBNc81zn1LFG0djhA6ZEUfmFBFC7XSP6ETjrU8ISgL5iA0v7jFIPJXyjTUHOFrRNT4YSMUeEL%2FiXYYAnyZ22y0DY3UQa1jJyrGeRRvThfZBkTEhgbtC1o7VagebQ7yZR1rBrGcEbGT1S%2BK5VDckV7WbfAvJjkm2Pq0Te4%2FNIbuULr0jkwcVTXoOV3YDOQ%2FT15fbPgtLhs1qwRiCXoY7AlwKatKYIgtI2C1dhSD8RLVldCPwoa2FcIV6UI6qb%2Fl7W9EjUkyhMcgK5hngTVahEzrmbfLnEbxtPchJ%2B2xOioOLCs0doxXXzUGEBSYlbF6auc7TApOUMAQSf7Wkcoru8gAjRCcGNzQ7p8DPljr5%2B7MTNtvPZOnDyEFRB2bm0JMsaoTuPwiTLxRldWB1RMOzquswGOqQBbjKABxQUr6Y8J2JEWioeTn6ibXQOhamD8shNHHXWhM5IEBpWKSDbErEqx5QiT8zS5PJVMN5kCYJKc6IpTBhnMJInCV7cowVO7O1Xshi5GbLcYjehRXEbobDnC%2F1zdWc3b8Ol7SiEmGZ89xdtLiZGR0NLVfQht6y7lcPTbdhyhRElW%2F2ek8I24uZBwAYPWv5bRFXnBKMaYrPEMVXV5dgsHPxzHEM%3D&X-Amz-Signature=b058b7388bb10dbafc27f24b61ffb19678e37393986c4b43ce013714165a2ea1&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject",
+                "timestamp_seconds": 5,
+                "timestamp_milliseconds": 5000
+            },
+            {
+                "error": null,
+                "value": "No",
+                "evidence": "No restroom fixtures (toilet, sink, or stall) visible in the frame",
+                "pipeline": "mep",
+                "attribute": "restroom",
+                "frame_s3_uri": "s3://ws-s3-unit-attribute-capture-nova/targeted-frame-runs/20260127_123935/trailer/1770986442/mep/0003_frame_0001.jpg",
+                "frame_s3_uri_url": "https://ws-s3-unit-attribute-capture-nova.s3.us-west-2.amazonaws.com/targeted-frame-runs/20260127_123935/trailer/1770986442/mep/0003_frame_0001.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=ASIAXTORPHZPWTYEXSLA%2F20260213%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20260213T124138Z&X-Amz-Expires=3600&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEB4aCXVzLWVhc3QtMSJHMEUCIQDT0STHRr2ct89Kj%2BtA7wSCUBDRv2rNX3aWSvdxqadHCgIgMug%2FhUhcnw8%2F7%2BLvaz3Hr35yucsaGbMbnY7yEA%2BjHM4qnAMI5%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FARAAGgw1MjI4MTQ3MDExNTEiDGpHsQWRk3XrTQF7VCrwAsK1ceGzTaPzbsiK8o2DaKteyCuNONFQ7bljePKI1QYF4p4z8p99tpDb73T5REXaDcnt9DYXBUEp%2BrScH0dMKdPPSFYubBNc81zn1LFG0djhA6ZEUfmFBFC7XSP6ETjrU8ISgL5iA0v7jFIPJXyjTUHOFrRNT4YSMUeEL%2FiXYYAnyZ22y0DY3UQa1jJyrGeRRvThfZBkTEhgbtC1o7VagebQ7yZR1rBrGcEbGT1S%2BK5VDckV7WbfAvJjkm2Pq0Te4%2FNIbuULr0jkwcVTXoOV3YDOQ%2FT15fbPgtLhs1qwRiCXoY7AlwKatKYIgtI2C1dhSD8RLVldCPwoa2FcIV6UI6qb%2Fl7W9EjUkyhMcgK5hngTVahEzrmbfLnEbxtPchJ%2B2xOioOLCs0doxXXzUGEBSYlbF6auc7TApOUMAQSf7Wkcoru8gAjRCcGNzQ7p8DPljr5%2B7MTNtvPZOnDyEFRB2bm0JMsaoTuPwiTLxRldWB1RMOzquswGOqQBbjKABxQUr6Y8J2JEWioeTn6ibXQOhamD8shNHHXWhM5IEBpWKSDbErEqx5QiT8zS5PJVMN5kCYJKc6IpTBhnMJInCV7cowVO7O1Xshi5GbLcYjehRXEbobDnC%2F1zdWc3b8Ol7SiEmGZ89xdtLiZGR0NLVfQht6y7lcPTbdhyhRElW%2F2ek8I24uZBwAYPWv5bRFXnBKMaYrPEMVXV5dgsHPxzHEM%3D&X-Amz-Signature=5c0962284fd8497c859ed64827467261b12805f654a7e6d680e547596d23de03&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject",
+                "timestamp_seconds": 5,
+                "timestamp_milliseconds": 5000
+            },
+            {
+                "error": null,
+                "value": "3 Phase Electrical",
+                "evidence": "Label includes specifications for '3 PHASE WIRING REQUIRED' and technical electrical parameters",
+                "pipeline": "mep",
+                "attribute": "electrical",
+                "frame_s3_uri": "s3://ws-s3-unit-attribute-capture-nova/targeted-frame-runs/20260127_123935/trailer/1770986442/mep/0003_frame_0001.jpg",
+                "frame_s3_uri_url": "https://ws-s3-unit-attribute-capture-nova.s3.us-west-2.amazonaws.com/targeted-frame-runs/20260127_123935/trailer/1770986442/mep/0003_frame_0001.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=ASIAXTORPHZPWTYEXSLA%2F20260213%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20260213T124138Z&X-Amz-Expires=3600&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEB4aCXVzLWVhc3QtMSJHMEUCIQDT0STHRr2ct89Kj%2BtA7wSCUBDRv2rNX3aWSvdxqadHCgIgMug%2FhUhcnw8%2F7%2BLvaz3Hr35yucsaGbMbnY7yEA%2BjHM4qnAMI5%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FARAAGgw1MjI4MTQ3MDExNTEiDGpHsQWRk3XrTQF7VCrwAsK1ceGzTaPzbsiK8o2DaKteyCuNONFQ7bljePKI1QYF4p4z8p99tpDb73T5REXaDcnt9DYXBUEp%2BrScH0dMKdPPSFYubBNc81zn1LFG0djhA6ZEUfmFBFC7XSP6ETjrU8ISgL5iA0v7jFIPJXyjTUHOFrRNT4YSMUeEL%2FiXYYAnyZ22y0DY3UQa1jJyrGeRRvThfZBkTEhgbtC1o7VagebQ7yZR1rBrGcEbGT1S%2BK5VDckV7WbfAvJjkm2Pq0Te4%2FNIbuULr0jkwcVTXoOV3YDOQ%2FT15fbPgtLhs1qwRiCXoY7AlwKatKYIgtI2C1dhSD8RLVldCPwoa2FcIV6UI6qb%2Fl7W9EjUkyhMcgK5hngTVahEzrmbfLnEbxtPchJ%2B2xOioOLCs0doxXXzUGEBSYlbF6auc7TApOUMAQSf7Wkcoru8gAjRCcGNzQ7p8DPljr5%2B7MTNtvPZOnDyEFRB2bm0JMsaoTuPwiTLxRldWB1RMOzquswGOqQBbjKABxQUr6Y8J2JEWioeTn6ibXQOhamD8shNHHXWhM5IEBpWKSDbErEqx5QiT8zS5PJVMN5kCYJKc6IpTBhnMJInCV7cowVO7O1Xshi5GbLcYjehRXEbobDnC%2F1zdWc3b8Ol7SiEmGZ89xdtLiZGR0NLVfQht6y7lcPTbdhyhRElW%2F2ek8I24uZBwAYPWv5bRFXnBKMaYrPEMVXV5dgsHPxzHEM%3D&X-Amz-Signature=5c0962284fd8497c859ed64827467261b12805f654a7e6d680e547596d23de03&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject",
+                "timestamp_seconds": 5,
+                "timestamp_milliseconds": 5000
+            },
+            {
+                "error": null,
+                "value": "No AC",
+                "evidence": "No HVAC units, vents, or related equipment visible in the frame",
+                "pipeline": "mep",
+                "attribute": "hvac",
+                "frame_s3_uri": "s3://ws-s3-unit-attribute-capture-nova/targeted-frame-runs/20260127_123935/trailer/1770986442/mep/0003_frame_0001.jpg",
+                "frame_s3_uri_url": "https://ws-s3-unit-attribute-capture-nova.s3.us-west-2.amazonaws.com/targeted-frame-runs/20260127_123935/trailer/1770986442/mep/0003_frame_0001.jpg?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=ASIAXTORPHZPWTYEXSLA%2F20260213%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20260213T124138Z&X-Amz-Expires=3600&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEB4aCXVzLWVhc3QtMSJHMEUCIQDT0STHRr2ct89Kj%2BtA7wSCUBDRv2rNX3aWSvdxqadHCgIgMug%2FhUhcnw8%2F7%2BLvaz3Hr35yucsaGbMbnY7yEA%2BjHM4qnAMI5%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FARAAGgw1MjI4MTQ3MDExNTEiDGpHsQWRk3XrTQF7VCrwAsK1ceGzTaPzbsiK8o2DaKteyCuNONFQ7bljePKI1QYF4p4z8p99tpDb73T5REXaDcnt9DYXBUEp%2BrScH0dMKdPPSFYubBNc81zn1LFG0djhA6ZEUfmFBFC7XSP6ETjrU8ISgL5iA0v7jFIPJXyjTUHOFrRNT4YSMUeEL%2FiXYYAnyZ22y0DY3UQa1jJyrGeRRvThfZBkTEhgbtC1o7VagebQ7yZR1rBrGcEbGT1S%2BK5VDckV7WbfAvJjkm2Pq0Te4%2FNIbuULr0jkwcVTXoOV3YDOQ%2FT15fbPgtLhs1qwRiCXoY7AlwKatKYIgtI2C1dhSD8RLVldCPwoa2FcIV6UI6qb%2Fl7W9EjUkyhMcgK5hngTVahEzrmbfLnEbxtPchJ%2B2xOioOLCs0doxXXzUGEBSYlbF6auc7TApOUMAQSf7Wkcoru8gAjRCcGNzQ7p8DPljr5%2B7MTNtvPZOnDyEFRB2bm0JMsaoTuPwiTLxRldWB1RMOzquswGOqQBbjKABxQUr6Y8J2JEWioeTn6ibXQOhamD8shNHHXWhM5IEBpWKSDbErEqx5QiT8zS5PJVMN5kCYJKc6IpTBhnMJInCV7cowVO7O1Xshi5GbLcYjehRXEbobDnC%2F1zdWc3b8Ol7SiEmGZ89xdtLiZGR0NLVfQht6y7lcPTbdhyhRElW%2F2ek8I24uZBwAYPWv5bRFXnBKMaYrPEMVXV5dgsHPxzHEM%3D&X-Amz-Signature=5c0962284fd8497c859ed64827467261b12805f654a7e6d680e547596d23de03&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject",
+                "timestamp_seconds": 5,
+                "timestamp_milliseconds": 5000
+            }
+        ]
+    },
+    "createdByUserId": "3fa67c1d-62d7-4455-bf38-2cce480864d6",
+    "createdAt": "2026-02-13T12:41:09.177Z",
+    "videoUrl": "https://ws-s3-unit-attribute-capture-nova.s3.us-west-2.amazonaws.com/TRAILER/20260127_123935.mp4?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=ASIAXTORPHZPWTYEXSLA%2F20260213%2Fus-west-2%2Fs3%2Faws4_request&X-Amz-Date=20260213T124138Z&X-Amz-Expires=3600&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEB4aCXVzLWVhc3QtMSJHMEUCIQDT0STHRr2ct89Kj%2BtA7wSCUBDRv2rNX3aWSvdxqadHCgIgMug%2FhUhcnw8%2F7%2BLvaz3Hr35yucsaGbMbnY7yEA%2BjHM4qnAMI5%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FARAAGgw1MjI4MTQ3MDExNTEiDGpHsQWRk3XrTQF7VCrwAsK1ceGzTaPzbsiK8o2DaKteyCuNONFQ7bljePKI1QYF4p4z8p99tpDb73T5REXaDcnt9DYXBUEp%2BrScH0dMKdPPSFYubBNc81zn1LFG0djhA6ZEUfmFBFC7XSP6ETjrU8ISgL5iA0v7jFIPJXyjTUHOFrRNT4YSMUeEL%2FiXYYAnyZ22y0DY3UQa1jJyrGeRRvThfZBkTEhgbtC1o7VagebQ7yZR1rBrGcEbGT1S%2BK5VDckV7WbfAvJjkm2Pq0Te4%2FNIbuULr0jkwcVTXoOV3YDOQ%2FT15fbPgtLhs1qwRiCXoY7AlwKatKYIgtI2C1dhSD8RLVldCPwoa2FcIV6UI6qb%2Fl7W9EjUkyhMcgK5hngTVahEzrmbfLnEbxtPchJ%2B2xOioOLCs0doxXXzUGEBSYlbF6auc7TApOUMAQSf7Wkcoru8gAjRCcGNzQ7p8DPljr5%2B7MTNtvPZOnDyEFRB2bm0JMsaoTuPwiTLxRldWB1RMOzquswGOqQBbjKABxQUr6Y8J2JEWioeTn6ibXQOhamD8shNHHXWhM5IEBpWKSDbErEqx5QiT8zS5PJVMN5kCYJKc6IpTBhnMJInCV7cowVO7O1Xshi5GbLcYjehRXEbobDnC%2F1zdWc3b8Ol7SiEmGZ89xdtLiZGR0NLVfQht6y7lcPTbdhyhRElW%2F2ek8I24uZBwAYPWv5bRFXnBKMaYrPEMVXV5dgsHPxzHEM%3D&X-Amz-Signature=0dfd935e9985b7be8fcd65f2b5bb5cd96c41ff48abec820388669b16ffe4a4cb&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject"
+}
