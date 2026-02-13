@@ -4,6 +4,96 @@ import { eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+async function runProcessingJob({
+  resultId,
+  videoUri,
+  containerType,
+  model,
+  regionName,
+}: {
+  resultId: string;
+  videoUri: string;
+  containerType: string;
+  model: string;
+  regionName: string;
+}) {
+  try {
+    const params = new URLSearchParams();
+    params.append("video_uri", videoUri);
+    params.append("container_type", containerType);
+    params.append("model", model);
+    params.append("region_name", regionName);
+    params.append("frames_bucket", "");
+    params.append("frames_prefix", "");
+    params.append("presigned_expiry_seconds", "");
+    params.append("result_id", resultId);
+
+    const response = await fetch(process.env.LAMBDA_ENDPOINT!, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: params.toString(),
+    });
+
+    const responseText = await response.text();
+    let lambdaData: unknown;
+
+    try {
+      lambdaData = JSON.parse(responseText);
+    } catch {
+      throw new Error(`Invalid Lambda response: ${responseText}`);
+    }
+
+    if (!response.ok) {
+      throw new Error(
+        `Lambda error (${response.status}): ${JSON.stringify(lambdaData)}`,
+      );
+    }
+
+    const parsed = lambdaData as {
+      status?: string;
+      video?: { video_uri?: string };
+    };
+
+    await db
+      .update(results)
+      .set({
+        status: parsed.status || "completed",
+        videoId: parsed.video?.video_uri || videoUri,
+        json: lambdaData,
+      })
+      .where(eq(results.id, resultId));
+  } catch (error: unknown) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown background processing error";
+
+    try {
+      await db
+        .update(results)
+        .set({
+          status: "failed",
+          json: {
+            status: "failed",
+            error: errorMessage,
+            video: {
+              video_uri: videoUri,
+              region: regionName,
+              container_type: containerType,
+            },
+            attributes: [],
+          },
+        })
+        .where(eq(results.id, resultId));
+    } catch (updateError: unknown) {
+      const updateErrorMessage =
+        updateError instanceof Error ? updateError.message : "Unknown DB update error";
+      console.error("Failed to mark result as failed:", updateErrorMessage);
+    }
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const cookieStore = await cookies();
@@ -21,61 +111,43 @@ export async function POST(req: Request) {
 
     const body = await req.json();
     const { video_uri, container_type, model, region_name } = body;
-
-    const params = new URLSearchParams();
-    params.append("video_uri", video_uri || "");
-    params.append("container_type", container_type || "");
-    params.append("model", model || "");
-    params.append("region_name", region_name || "us-west-2");
-    params.append("frames_bucket", "");
-    params.append("frames_prefix", "");
-    params.append("presigned_expiry_seconds", "");
-
-    const response = await fetch(process.env.LAMBDA_ENDPOINT!, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: params.toString(),
-    });
-
-    const responseText = await response.text();
-
-    let lambdaData;
-    try {
-      lambdaData = JSON.parse(responseText);
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid Lambda response", details: responseText },
-        { status: 500 },
-      );
-    }
-
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: "Lambda error", details: lambdaData },
-        { status: response.status },
-      );
-    }
-
-    const videoId = lambdaData.video?.video_uri || video_uri;
-    const status = lambdaData.status || "completed";
+    const safeVideoUri = String(video_uri || "");
+    const safeContainerType = String(container_type || "");
+    const safeModel = String(model || "");
+    const safeRegionName = String(region_name || "us-west-2");
 
     const [inserted] = await db
       .insert(results)
       .values({
-        videoId: videoId,
-        status: status,
-        json: lambdaData,
+        videoId: safeVideoUri,
+        status: "processing",
+        json: {
+          status: "processing",
+          video: {
+            video_uri: safeVideoUri,
+            region: safeRegionName,
+            container_type: safeContainerType,
+          },
+          attributes: [],
+        },
         createdByUserId,
       })
-      .returning();
+      .returning({ id: results.id, status: results.status });
 
-    return NextResponse.json(inserted);
+    // Fire and forget: return immediately and let the background task update result status/json.
+    void runProcessingJob({
+      resultId: inserted.id,
+      videoUri: safeVideoUri,
+      containerType: safeContainerType,
+      model: safeModel,
+      regionName: safeRegionName,
+    });
+
+    return NextResponse.json(inserted, { status: 202 });
   } catch (error: unknown) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
+
     return NextResponse.json(
       {
         error: "Failed to process video",

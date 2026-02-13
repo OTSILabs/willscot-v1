@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { Loader2 } from "lucide-react";
 import { ResultDetail } from "./types";
 import { cn } from "@/lib/utils";
 
@@ -68,8 +69,11 @@ export function VideoInfoPanel({ result }: VideoInfoPanelProps) {
         </p>
         <Badge
           variant={result.status === "completed" ? "default" : "secondary"}
-          className="h-5 text-xs capitalize"
+          className="inline-flex h-5 items-center gap-1 text-xs capitalize"
         >
+          {result.status === "processing" ? (
+            <Loader2 className="h-3 w-3 animate-spin" />
+          ) : null}
           {result.status}
         </Badge>
       </div>

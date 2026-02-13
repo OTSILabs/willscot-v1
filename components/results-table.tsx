@@ -55,6 +55,12 @@ export function ResultsTable() {
       });
       return response.data;
     },
+    refetchInterval: (query) => {
+      const hasProcessing = query.state.data?.items?.some(
+        (item) => item.status === "processing",
+      );
+      return hasProcessing ? 3000 : false;
+    },
   });
 
   if (isLoading) {
@@ -114,8 +120,11 @@ export function ResultsTable() {
                   variant={
                     result.status === "completed" ? "default" : "secondary"
                   }
-                  className="capitalize"
+                  className="inline-flex items-center gap-1 capitalize"
                 >
+                  {result.status === "processing" ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : null}
                   {result.status}
                 </Badge>
               </TableCell>
