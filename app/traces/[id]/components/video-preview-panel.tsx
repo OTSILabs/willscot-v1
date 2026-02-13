@@ -7,18 +7,24 @@ import { RefObject } from "react";
 interface VideoPreviewPanelProps {
   videoRef: RefObject<HTMLVideoElement | null>;
   videoSource?: string | null;
+  regionName?: string | null;
 }
 
-export function VideoPreviewPanel({ videoRef, videoSource }: VideoPreviewPanelProps) {
+export function VideoPreviewPanel({
+  videoRef,
+  videoSource,
+  regionName,
+}: VideoPreviewPanelProps) {
   const source = (videoSource || "").trim();
+  const resolvedRegion = (regionName || "").trim() || undefined;
   const isS3Source = source.startsWith("s3://");
   const { data: signedVideoUrl, isLoading: isSigningVideo } = useQuery({
-    queryKey: ["presign-video", source],
+    queryKey: ["presign-video", source, resolvedRegion],
     queryFn: async () => {
       const response = await fetch("/api/s3/presign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ s3Uri: source }),
+        body: JSON.stringify({ s3Uri: source, region: resolvedRegion }),
       });
       if (!response.ok) {
         throw new Error("Failed to generate video URL");

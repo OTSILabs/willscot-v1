@@ -11,12 +11,16 @@ interface SelectedFrame {
 
 interface FramePreviewPanelProps {
   selectedFrame: SelectedFrame | null;
+  regionName?: string | null;
 }
 
 const LENS_SIZE = 140;
 const ZOOM_LEVEL = 2.5;
 
-export function FramePreviewPanel({ selectedFrame }: FramePreviewPanelProps) {
+export function FramePreviewPanel({
+  selectedFrame,
+  regionName,
+}: FramePreviewPanelProps) {
   const [lens, setLens] = useState({
     visible: false,
     x: 0,
@@ -31,14 +35,15 @@ export function FramePreviewPanel({ selectedFrame }: FramePreviewPanelProps) {
     height: 0,
   });
   const frameSource = selectedFrame?.source || "";
+  const resolvedRegion = (regionName || "").trim() || undefined;
   const isS3Source = frameSource.startsWith("s3://");
   const { data: signedFrameUrl, isLoading: isSigningFrame } = useQuery({
-    queryKey: ["presign-frame", frameSource],
+    queryKey: ["presign-frame", frameSource, resolvedRegion],
     queryFn: async () => {
       const response = await fetch("/api/s3/presign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ s3Uri: frameSource }),
+        body: JSON.stringify({ s3Uri: frameSource, region: resolvedRegion }),
       });
       if (!response.ok) {
         throw new Error("Failed to generate frame URL");
@@ -126,35 +131,36 @@ export function FramePreviewPanel({ selectedFrame }: FramePreviewPanelProps) {
               Unable to load frame preview.
             </div>
           ) : null}
-          <div
-            className="relative min-h-0 flex-1 aspect-video bg-muted cursor-crosshair overflow-hidden"
-            style={{ display: !isSigningFrame && frameUrl ? "block" : "none" }}
-            onMouseLeave={() => setLens((prev) => ({ ...prev, visible: false }))}
-            onMouseMove={handleMouseMove}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={frameUrl}
-              alt={`Frame at ${selectedFrame.second}s`}
-              className="h-full w-full object-contain"
-              onLoad={handleImageLoad}
-            />
-            {lens.visible ? (
-              <div
-                className="pointer-events-none absolute rounded-full border border-border shadow-md"
-                style={{
-                  width: LENS_SIZE,
-                  height: LENS_SIZE,
-                  left: lens.x - LENS_SIZE / 2,
-                  top: lens.y - LENS_SIZE / 2,
-                  backgroundImage: `url(${frameUrl})`,
-                  backgroundRepeat: "no-repeat",
-                  backgroundSize: `${lens.renderedWidth * ZOOM_LEVEL}px ${lens.renderedHeight * ZOOM_LEVEL}px`,
-                  backgroundPosition: `${-(lens.imageX * ZOOM_LEVEL - LENS_SIZE / 2)}px ${-(lens.imageY * ZOOM_LEVEL - LENS_SIZE / 2)}px`,
-                }}
+          {!isSigningFrame && frameUrl ? (
+            <div
+              className="relative min-h-0 flex-1 aspect-video bg-muted cursor-crosshair overflow-hidden"
+              onMouseLeave={() => setLens((prev) => ({ ...prev, visible: false }))}
+              onMouseMove={handleMouseMove}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={frameUrl}
+                alt={`Frame at ${selectedFrame.second}s`}
+                className="h-full w-full object-contain"
+                onLoad={handleImageLoad}
               />
-            ) : null}
-          </div>
+              {lens.visible ? (
+                <div
+                  className="pointer-events-none absolute rounded-full border border-border shadow-md"
+                  style={{
+                    width: LENS_SIZE,
+                    height: LENS_SIZE,
+                    left: lens.x - LENS_SIZE / 2,
+                    top: lens.y - LENS_SIZE / 2,
+                    backgroundImage: `url(${frameUrl})`,
+                    backgroundRepeat: "no-repeat",
+                    backgroundSize: `${lens.renderedWidth * ZOOM_LEVEL}px ${lens.renderedHeight * ZOOM_LEVEL}px`,
+                    backgroundPosition: `${-(lens.imageX * ZOOM_LEVEL - LENS_SIZE / 2)}px ${-(lens.imageY * ZOOM_LEVEL - LENS_SIZE / 2)}px`,
+                  }}
+                />
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="text-xs text-muted-foreground px-2">

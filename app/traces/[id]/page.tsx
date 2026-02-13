@@ -66,6 +66,7 @@ export default function ResultDetailPage() {
   const list = result.json.attributes;
   const attributes = Array.isArray(list) ? (list as TraceAttribute[]) : [];
   const isProcessing = result.status === "processing";
+  const videoRegion = result.json.video?.region || null;
   const videoSource = result.json.video?.s3_uri || result.videoId || result.videoUrl || null;
 
   function handleFrameClick(attribute: TraceAttribute) {
@@ -146,13 +147,20 @@ export default function ResultDetailPage() {
 
                   <TabsContent value="frame" className="m-0 min-h-0 flex-1 overflow-auto">
                     <div className="flex h-full min-h-0">
-                      <FramePreviewPanel selectedFrame={selectedFrame} />
+                      <FramePreviewPanel
+                        selectedFrame={selectedFrame}
+                        regionName={videoRegion}
+                      />
                     </div>
                   </TabsContent>
 
                   <TabsContent value="video" className="m-0 min-h-0 flex-1 overflow-auto">
                     <div className="flex h-full min-h-0">
-                      <VideoPreviewPanel videoRef={videoRef} videoSource={videoSource} />
+                      <VideoPreviewPanel
+                        videoRef={videoRef}
+                        videoSource={videoSource}
+                        regionName={videoRegion}
+                      />
                     </div>
                   </TabsContent>
                 </Tabs>
