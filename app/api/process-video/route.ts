@@ -134,7 +134,6 @@ export async function POST(req: Request) {
       })
       .returning({ id: results.id, status: results.status });
 
-    // Fire and forget: return immediately and let the background task update result status/json.
     void runProcessingJob({
       resultId: inserted.id,
       videoUri: safeVideoUri,

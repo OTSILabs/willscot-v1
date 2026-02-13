@@ -79,7 +79,7 @@ export function AttributesTable({ attributes, onFrameClick }: AttributesTablePro
         ) : (
           sortedAttributes.map((attribute, index) => {
             const second = Number(attribute.timestamp_seconds ?? 0);
-            const hasFrame = Boolean(attribute.frame_s3_uri_url);
+            const hasFrame = Boolean(attribute.frame_s3_uri || attribute.frame_s3_uri_url);
 
             return (
               <TableRow key={`${attribute.pipeline}-${attribute.attribute}-${index}`}>

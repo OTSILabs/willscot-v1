@@ -26,7 +26,7 @@ export default function ResultDetailPage() {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [selectedFrame, setSelectedFrame] = useState<{
-    url: string;
+    source: string;
     second: number;
   } | null>(null);
 
@@ -66,13 +66,14 @@ export default function ResultDetailPage() {
   const list = result.json.attributes;
   const attributes = Array.isArray(list) ? (list as TraceAttribute[]) : [];
   const isProcessing = result.status === "processing";
+  const videoSource = result.json.video?.s3_uri || result.videoId || result.videoUrl || null;
 
   function handleFrameClick(attribute: TraceAttribute) {
-    const frameUrl = attribute.frame_s3_uri_url || "";
+    const frameSource = attribute.frame_s3_uri || attribute.frame_s3_uri_url || "";
     const second = Number(attribute.timestamp_seconds ?? 0);
 
-    if (frameUrl) {
-      setSelectedFrame({ url: frameUrl, second });
+    if (frameSource) {
+      setSelectedFrame({ source: frameSource, second });
     }
 
     if (videoRef.current && Number.isFinite(second)) {
@@ -151,7 +152,7 @@ export default function ResultDetailPage() {
 
                   <TabsContent value="video" className="m-0 min-h-0 flex-1 overflow-auto">
                     <div className="flex h-full min-h-0">
-                      <VideoPreviewPanel videoRef={videoRef} videoUrl={result.videoUrl} />
+                      <VideoPreviewPanel videoRef={videoRef} videoSource={videoSource} />
                     </div>
                   </TabsContent>
                 </Tabs>
