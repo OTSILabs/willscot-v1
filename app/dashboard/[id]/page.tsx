@@ -30,51 +30,67 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 
+interface AnalysisJson {
+  model?: string;
+  container_type?: string;
+  region_name?: string;
+  combined_output?: {
+    detections?: unknown[];
+    frame_extractions?: string[];
+    frame_extractions_urls?: string[];
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
 interface Result {
   id: string;
   videoId: string;
   status: string;
-  json: Record<string, any>;
+  json: AnalysisJson;
   videoUrl?: string; // Pre-signed URL from backend
   createdAt: string;
 }
 
-/**
- * Recursively extracts all image URLs ending in _url from the processed JSON
- */
-function extractAllImages(obj: any): string[] {
+
+function extractAllImages(obj: unknown): string[] {
   const images = new Set<string>();
-  const walk = (o: any) => {
+  const walk = (o: unknown) => {
     if (!o || typeof o !== "object") return;
 
     if (Array.isArray(o)) {
       o.forEach((item) => {
-        if (
-          typeof item === "object" &&
-          item.url &&
-          (item.original?.toLowerCase().endsWith(".jpg") ||
-            item.original?.toLowerCase().endsWith(".png") ||
-            item.original?.toLowerCase().endsWith(".jpeg"))
-        ) {
-          images.add(item.url);
-        } else {
-          walk(item);
+        if (typeof item === "object" && item !== null) {
+          const typedItem = item as Record<string, unknown>;
+          if (
+            typeof typedItem.url === "string" &&
+            typeof typedItem.original === "string" &&
+            (typedItem.original.toLowerCase().endsWith(".jpg") ||
+              typedItem.original.toLowerCase().endsWith(".png") ||
+              typedItem.original.toLowerCase().endsWith(".jpeg"))
+          ) {
+            images.add(typedItem.url);
+          } else {
+            walk(item);
+          }
         }
       });
       return;
     }
 
-    for (const [key, value] of Object.entries(o)) {
-      if (
-        key.endsWith("_url") &&
-        typeof value === "string" &&
-        (value.toLowerCase().includes(".jpg") ||
-          value.toLowerCase().includes(".png") ||
-          value.toLowerCase().includes(".jpeg"))
-      ) {
-        images.add(value);
-      } else if (typeof value === "object") {
-        walk(value);
+    if (o !== null) {
+      for (const [key, value] of Object.entries(o as Record<string, unknown>)) {
+        if (
+          key.endsWith("_url") &&
+          typeof value === "string" &&
+          (value.toLowerCase().includes(".jpg") ||
+            value.toLowerCase().includes(".png") ||
+            value.toLowerCase().includes(".jpeg"))
+        ) {
+          images.add(value);
+        } else if (typeof value === "object") {
+          walk(value);
+        }
       }
     }
   };
@@ -83,7 +99,8 @@ function extractAllImages(obj: any): string[] {
 }
 
 export default function ResultDetailPage() {
-  const { id } = useParams();
+  const params = useParams();
+  const id = typeof params.id === "string" ? params.id : undefined;
   const router = useRouter();
 
   const {
@@ -207,7 +224,7 @@ export default function ResultDetailPage() {
                       <Plane className="h-3 w-3" />
                       Model
                     </p>
-                    <p className="font-medium">{result.json?.model || "N/A"}</p>
+                    <p className="font-medium">{result.json.model || "N/A"}</p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -224,7 +241,7 @@ export default function ResultDetailPage() {
                       Container Type
                     </p>
                     <p className="font-medium capitalize">
-                      {result.json?.container_type || "N/A"}
+                      {result.json.container_type || "N/A"}
                     </p>
                   </div>
                   <div className="space-y-1">
@@ -232,7 +249,7 @@ export default function ResultDetailPage() {
                       Region
                     </p>
                     <p className="font-medium">
-                      {result.json?.region_name || "us-west-2"}
+                      {result.json.region_name || "us-west-2"}
                     </p>
                   </div>
                 </div>
@@ -338,7 +355,7 @@ export default function ResultDetailPage() {
                   ))}
                 </div>
               ) : (
-                <div className="aspect-[4/1] bg-muted rounded-md flex items-center justify-center border-2 border-dashed">
+                <div className="aspect-4/1 bg-muted rounded-md flex items-center justify-center border-2 border-dashed">
                   <div className="text-center">
                     <ImageIcon className="mx-auto h-8 w-8 text-muted-foreground mb-2 opacity-30" />
                     <p className="text-xs text-muted-foreground italic">

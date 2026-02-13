@@ -4,13 +4,25 @@ import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getPresignedUrl } from "@/lib/s3";
 
-/**
- * Recursively scans an object for S3 URIs and replaces them with presigned URLs
- * or adds a parallel key with the presigned version.
- * For this implementation, we'll specifically target known media keys or general s3:// strings.
- */
-async function processS3Uris(obj: any): Promise<any> {
+
+interface PresignedS3Result {
+  original: string;
+  url: string;
+}
+
+
+async function processS3Uris(obj: unknown): Promise<unknown> {
   if (!obj) return obj;
+
+  if (typeof obj === "string") {
+    if (obj.startsWith("s3://")) {
+      return {
+        original: obj,
+        url: await getPresignedUrl(obj),
+      } as PresignedS3Result;
+    }
+    return obj;
+  }
 
   // Handle arrays
   if (Array.isArray(obj)) {
@@ -18,8 +30,8 @@ async function processS3Uris(obj: any): Promise<any> {
   }
 
   // Handle objects
-  if (typeof obj === "object") {
-    const processed: any = {};
+  if (typeof obj === "object" && obj !== null) {
+    const processed: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(obj)) {
       if (typeof value === "string" && value.startsWith("s3://")) {
         processed[key] = value;
@@ -29,14 +41,6 @@ async function processS3Uris(obj: any): Promise<any> {
       }
     }
     return processed;
-  }
-
-  // Handle direct strings that are S3 URIs (e.g. from an array)
-  if (typeof obj === "string" && obj.startsWith("s3://")) {
-    return {
-      original: obj,
-      url: await getPresignedUrl(obj),
-    };
   }
 
   return obj;
