@@ -20,6 +20,8 @@ import { VideoPreviewPanel } from "./components/video-preview-panel";
 import { RawJsonTab } from "./components/raw-json-tab";
 import { ResultDetail, TraceAttribute } from "./components/types";
 
+const DETAIL_POLLING_MS = 10000;
+
 export default function ResultDetailPage() {
   const params = useParams();
   const id = typeof params.id === "string" ? params.id : undefined;
@@ -42,7 +44,7 @@ export default function ResultDetailPage() {
     },
     enabled: !!id,
     refetchInterval: (query) =>
-      query.state.data?.status === "processing" ? 3000 : false,
+      query.state.data?.status === "processing" ? DETAIL_POLLING_MS : false,
   });
 
   if (isLoading) {

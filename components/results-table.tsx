@@ -42,7 +42,11 @@ interface ResultsApiResponse {
   };
 }
 
-export function ResultsTable() {
+interface ResultsTableProps {
+  pollingMs?: number;
+}
+
+export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const pageSize = 10;
@@ -59,7 +63,7 @@ export function ResultsTable() {
       const hasProcessing = query.state.data?.items?.some(
         (item) => item.status === "processing",
       );
-      return hasProcessing ? 3000 : false;
+      return hasProcessing ? pollingMs : false;
     },
   });
 

@@ -1,6 +1,8 @@
 import { ResultsTable } from "@/components/results-table";
 import { ProcessVideoModal } from "@/components/process-video-modal";
 
+const RESULTS_POLLING_MS = 10000;
+
 export default function TracesPage() {
   return (
     <div className="container mx-auto py-10 space-y-8">
@@ -13,7 +15,7 @@ export default function TracesPage() {
         </div>
         <ProcessVideoModal />
       </div>
-      <ResultsTable />
+      <ResultsTable pollingMs={RESULTS_POLLING_MS} />
     </div>
   );
 }
