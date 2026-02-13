@@ -11,7 +11,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2 } from "lucide-react";
+import { Loader2, Eye } from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface Result {
   id: string;
@@ -53,7 +60,8 @@ export function ResultsTable() {
           <TableRow>
             <TableHead>Video ID (S3 URI)</TableHead>
             <TableHead>Status</TableHead>
-            <TableHead className="text-right">Created At</TableHead>
+            <TableHead>Created At</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -67,19 +75,35 @@ export function ResultsTable() {
                   variant={
                     result.status === "completed" ? "default" : "secondary"
                   }
+                  className="capitalize"
                 >
                   {result.status}
                 </Badge>
               </TableCell>
-              <TableCell className="text-right text-sm text-muted-foreground transition-colors group-hover:text-foreground">
+              <TableCell className="text-sm text-muted-foreground">
                 {new Date(result.createdAt).toLocaleString()}
+              </TableCell>
+              <TableCell className="text-right">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link href={`/dashboard/${result.id}`}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Eye className="h-4 w-4" />
+                        <span className="sr-only">View Details</span>
+                      </Button>
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>View Details</p>
+                  </TooltipContent>
+                </Tooltip>
               </TableCell>
             </TableRow>
           ))}
           {data?.length === 0 && (
             <TableRow>
               <TableCell
-                colSpan={3}
+                colSpan={4}
                 className="text-center py-10 text-muted-foreground"
               >
                 No results found. Start by processing a new video.

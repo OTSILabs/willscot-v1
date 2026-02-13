@@ -1,14 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
 
 export function Header() {
-  const pathname = usePathname();
-  const isNewPage = pathname === "/dashboard/new";
-
   return (
     <header className="border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
       <div className="container flex h-16 items-center justify-between px-10">
@@ -26,15 +20,6 @@ export function Header() {
             </svg>
           </Link>
         </div>
-        {!isNewPage && (
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard/new">
-              <Button>
-                <Plus className="mr-2 h-4 w-4" /> Process New Video
-              </Button>
-            </Link>
-          </div>
-        )}
       </div>
     </header>
   );
