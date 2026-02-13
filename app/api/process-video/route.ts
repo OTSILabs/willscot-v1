@@ -4,8 +4,6 @@ import { eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-const LAMBDA_TIMEOUT_MS = 5 * 60 * 1000;
-
 async function runProcessingJob({
   resultId,
   videoUri,
@@ -30,22 +28,14 @@ async function runProcessingJob({
     params.append("presigned_expiry_seconds", "");
     params.append("result_id", resultId);
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), LAMBDA_TIMEOUT_MS);
-    let response: Response;
-    try {
-      response = await fetch(process.env.LAMBDA_ENDPOINT!, {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: params.toString(),
-        signal: controller.signal,
-      });
-    } finally {
-      clearTimeout(timeout);
-    }
+    const response = await fetch(process.env.LAMBDA_ENDPOINT!, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: params.toString(),
+    });
 
     const responseText = await response.text();
     let lambdaData: unknown;
