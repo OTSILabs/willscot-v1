@@ -34,7 +34,8 @@ interface Result {
   id: string;
   videoId: string;
   status: string;
-  json: any;
+  json: Record<string, any>;
+  videoUrl?: string; // Pre-signed URL from backend
   createdAt: string;
 }
 
@@ -76,8 +77,8 @@ export default function ResultDetailPage() {
             </div>
             <CardTitle>Error Loading Result</CardTitle>
             <CardDescription>
-              We couldn't find the result you're looking for or something went
-              wrong.
+              We couldn&apos;t find the result you&apos;re looking for or
+              something went wrong.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center">
@@ -90,10 +91,11 @@ export default function ResultDetailPage() {
     );
   }
 
+  // Extract detections and other media from the processed JSON
   const detections = result.json?.combined_output?.detections || [];
-  const videoUrl = result.videoId?.startsWith("s3://")
-    ? `https://${result.videoId.replace("s3://", "").split("/")[0]}.s3.amazonaws.com/${result.videoId.replace("s3://", "").split("/").slice(1).join("/")}`
-    : result.videoId;
+
+  // Frame extractions often are in a list with s3 paths
+  const frameUris = result.json?.combined_output?.frame_extractions || [];
 
   return (
     <div className="container mx-auto py-8 px-4 space-y-8 max-w-6xl">
@@ -124,7 +126,11 @@ export default function ResultDetailPage() {
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" asChild>
-            <a href={videoUrl} target="_blank" rel="noopener noreferrer">
+            <a
+              href={result.videoUrl || "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               <ExternalLink className="mr-2 h-4 w-4" />
               Raw S3 Source
             </a>
@@ -243,19 +249,20 @@ export default function ResultDetailPage() {
               <CardDescription>Source: {result.videoId}</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="aspect-video bg-black rounded-lg overflow-hidden flex items-center justify-center border shadow-inner">
-                {videoUrl.startsWith("http") ? (
+              <div className="aspect-video bg-black rounded-lg overflow-hidden border shadow-inner">
+                {result.videoUrl ? (
                   <video controls className="w-full h-full">
-                    <source src={videoUrl} type="video/mp4" />
+                    <source src={result.videoUrl} type="video/mp4" />
                     Your browser does not support the video tag.
                   </video>
                 ) : (
-                  <div className="text-white text-center p-8">
-                    <Video className="mx-auto h-12 w-12 mb-4 opacity-20" />
-                    <p className="text-zinc-500">
-                      Video source is an S3 URI. Standard browsers cannot play
-                      s3:// protocol directly without a presigned URL.
-                    </p>
+                  <div className="flex h-full items-center justify-center p-8 text-white text-center">
+                    <div>
+                      <Video className="mx-auto h-12 w-12 mb-4 opacity-20" />
+                      <p className="text-zinc-500">
+                        Video source is not available or protocol not supported.
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -274,12 +281,46 @@ export default function ResultDetailPage() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {/* Mock frames if none exist in JSON, or render real ones */}
-                <div className="aspect-square bg-muted rounded-md flex items-center justify-center border-2 border-dashed">
-                  <p className="text-xs text-muted-foreground text-center p-2 italic">
-                    No frames available in extraction JSON
-                  </p>
-                </div>
+                {frameUris.length > 0 ? (
+                  frameUris.map((uri: string, index: number) => {
+                    const presignedUrl = (result.json?.combined_output
+                      ?.frame_extractions_urls || [])[index];
+                    return (
+                      <div
+                        key={index}
+                        className="aspect-square bg-muted rounded-md overflow-hidden border group relative"
+                      >
+                        {presignedUrl ? (
+                          <>
+                            <img
+                              src={presignedUrl}
+                              alt={`Frame ${index}`}
+                              className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                            />
+                            <a
+                              href={presignedUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                            >
+                              <ExternalLink className="text-white h-6 w-6" />
+                            </a>
+                          </>
+                        ) : (
+                          <div className="flex items-center justify-center h-full p-2 text-xs text-muted-foreground">
+                            {uri}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="col-span-full aspect-[4/1] bg-muted rounded-md flex items-center justify-center border-2 border-dashed">
+                    <p className="text-xs text-muted-foreground text-center p-2 italic">
+                      No frame extractions found in the response JSON.
+                    </p>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
