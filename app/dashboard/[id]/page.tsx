@@ -39,6 +39,49 @@ interface Result {
   createdAt: string;
 }
 
+/**
+ * Recursively extracts all image URLs ending in _url from the processed JSON
+ */
+function extractAllImages(obj: any): string[] {
+  const images = new Set<string>();
+  const walk = (o: any) => {
+    if (!o || typeof o !== "object") return;
+
+    if (Array.isArray(o)) {
+      o.forEach((item) => {
+        if (
+          typeof item === "object" &&
+          item.url &&
+          (item.original?.toLowerCase().endsWith(".jpg") ||
+            item.original?.toLowerCase().endsWith(".png") ||
+            item.original?.toLowerCase().endsWith(".jpeg"))
+        ) {
+          images.add(item.url);
+        } else {
+          walk(item);
+        }
+      });
+      return;
+    }
+
+    for (const [key, value] of Object.entries(o)) {
+      if (
+        key.endsWith("_url") &&
+        typeof value === "string" &&
+        (value.toLowerCase().includes(".jpg") ||
+          value.toLowerCase().includes(".png") ||
+          value.toLowerCase().includes(".jpeg"))
+      ) {
+        images.add(value);
+      } else if (typeof value === "object") {
+        walk(value);
+      }
+    }
+  };
+  walk(obj);
+  return Array.from(images);
+}
+
 export default function ResultDetailPage() {
   const { id } = useParams();
   const router = useRouter();
@@ -91,11 +134,7 @@ export default function ResultDetailPage() {
     );
   }
 
-  // Extract detections and other media from the processed JSON
-  const detections = result.json?.combined_output?.detections || [];
-
-  // Frame extractions often are in a list with s3 paths
-  const frameUris = result.json?.combined_output?.frame_extractions || [];
+  const allImages = extractAllImages(result.json);
 
   return (
     <div className="container mx-auto py-8 px-4 space-y-8 max-w-6xl">
@@ -200,18 +239,12 @@ export default function ResultDetailPage() {
                 <Separator />
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">
-                    Detection Summary
+                    Analysis Summary
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {detections.length > 0 ? (
-                      <Badge variant="outline" className="bg-primary/5">
-                        {detections.length} Total Objects Detected
-                      </Badge>
-                    ) : (
-                      <p className="text-sm italic text-muted-foreground">
-                        No categorical detections found in payload.
-                      </p>
-                    )}
+                    <Badge variant="outline" className="bg-primary/5">
+                      {allImages.length} Frame Extractions Found
+                    </Badge>
                   </div>
                 </div>
               </CardContent>
@@ -273,55 +306,47 @@ export default function ResultDetailPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <ImageIcon className="h-5 w-5" />
-                Frames / Screenshots
+                Frames & Detections
               </CardTitle>
               <CardDescription>
-                Frames extracted during analysis.
+                Visual artifacts extracted by the AI models.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {frameUris.length > 0 ? (
-                  frameUris.map((uri: string, index: number) => {
-                    const presignedUrl = (result.json?.combined_output
-                      ?.frame_extractions_urls || [])[index];
-                    return (
-                      <div
-                        key={index}
-                        className="aspect-square bg-muted rounded-md overflow-hidden border group relative"
+              {allImages.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {allImages.map((imageUrl, index) => (
+                    <div
+                      key={index}
+                      className="aspect-square bg-muted rounded-md overflow-hidden border group relative shadow-sm hover:shadow-md transition-shadow"
+                    >
+                      <img
+                        src={imageUrl}
+                        alt={`Detection ${index}`}
+                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                      />
+                      <a
+                        href={imageUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="absolute inset-x-0 bottom-0 bg-black/60 backdrop-blur-sm p-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-medium"
                       >
-                        {presignedUrl ? (
-                          <>
-                            <img
-                              src={presignedUrl}
-                              alt={`Frame ${index}`}
-                              className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                            />
-                            <a
-                              href={presignedUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
-                            >
-                              <ExternalLink className="text-white h-6 w-6" />
-                            </a>
-                          </>
-                        ) : (
-                          <div className="flex items-center justify-center h-full p-2 text-xs text-muted-foreground">
-                            {uri}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="col-span-full aspect-[4/1] bg-muted rounded-md flex items-center justify-center border-2 border-dashed">
-                    <p className="text-xs text-muted-foreground text-center p-2 italic">
-                      No frame extractions found in the response JSON.
+                        <ExternalLink className="h-3 w-3 mr-1" />
+                        Open Original
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="aspect-[4/1] bg-muted rounded-md flex items-center justify-center border-2 border-dashed">
+                  <div className="text-center">
+                    <ImageIcon className="mx-auto h-8 w-8 text-muted-foreground mb-2 opacity-30" />
+                    <p className="text-xs text-muted-foreground italic">
+                      No image artifacts found in extraction JSON.
                     </p>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

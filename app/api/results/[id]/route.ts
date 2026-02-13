@@ -10,24 +10,36 @@ import { getPresignedUrl } from "@/lib/s3";
  * For this implementation, we'll specifically target known media keys or general s3:// strings.
  */
 async function processS3Uris(obj: any): Promise<any> {
-  if (!obj || typeof obj !== "object") return obj;
+  if (!obj) return obj;
 
+  // Handle arrays
   if (Array.isArray(obj)) {
     return Promise.all(obj.map((item) => processS3Uris(item)));
   }
 
-  const processed: any = {};
-  for (const [key, value] of Object.entries(obj)) {
-    if (typeof value === "string" && value.startsWith("s3://")) {
-      processed[key] = value;
-      processed[`${key}_url`] = await getPresignedUrl(value);
-    } else if (typeof value === "object") {
-      processed[key] = await processS3Uris(value);
-    } else {
-      processed[key] = value;
+  // Handle objects
+  if (typeof obj === "object") {
+    const processed: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (typeof value === "string" && value.startsWith("s3://")) {
+        processed[key] = value;
+        processed[`${key}_url`] = await getPresignedUrl(value);
+      } else {
+        processed[key] = await processS3Uris(value);
+      }
     }
+    return processed;
   }
-  return processed;
+
+  // Handle direct strings that are S3 URIs (e.g. from an array)
+  if (typeof obj === "string" && obj.startsWith("s3://")) {
+    return {
+      original: obj,
+      url: await getPresignedUrl(obj),
+    };
+  }
+
+  return obj;
 }
 
 export async function GET(
