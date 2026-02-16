@@ -18,6 +18,14 @@ async function runProcessingJob({
   regionName: string;
 }) {
   try {
+    const configuredTimeoutMs = Number(process.env.LAMBDA_TIMEOUT_MS ?? "180000");
+    const timeoutMs =
+      Number.isFinite(configuredTimeoutMs) && configuredTimeoutMs > 0
+        ? configuredTimeoutMs
+        : 180000;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
     const params = new URLSearchParams();
     params.append("video_uri", videoUri);
     params.append("container_type", containerType);
@@ -28,14 +36,25 @@ async function runProcessingJob({
     params.append("presigned_expiry_seconds", "");
     params.append("result_id", resultId);
 
-    const response = await fetch(process.env.LAMBDA_ENDPOINT!, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: params.toString(),
-    });
+    let response: Response;
+    try {
+      response = await fetch(process.env.LAMBDA_ENDPOINT!, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: params.toString(),
+        signal: controller.signal,
+      });
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new Error(`Lambda request timed out after ${timeoutMs}ms`);
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     const responseText = await response.text();
     let lambdaData: unknown;
