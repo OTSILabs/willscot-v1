@@ -1,28 +1,9 @@
-import { db } from "@/lib/db";
-import { users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
-import { cookies } from "next/headers";
+import { getCurrentUserServerAction } from "@/app/actions/current-user";
 import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    const cookieStore = await cookies();
-    const email = cookieStore.get("auth_user")?.value;
-
-    if (!email) {
-      return NextResponse.json({ user: null }, { status: 401 });
-    }
-
-    const [user] = await db
-      .select({
-        id: users.id,
-        name: users.name,
-        email: users.email,
-        role: users.role,
-      })
-      .from(users)
-      .where(eq(users.email, email))
-      .limit(1);
+    const user = await getCurrentUserServerAction();
 
     if (!user) {
       return NextResponse.json({ user: null }, { status: 401 });

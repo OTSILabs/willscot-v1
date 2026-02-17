@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
+import { useCurrentUser } from "@/components/current-user-provider";
 import {
   NavigationMenu,
   NavigationMenuItem,
@@ -20,52 +21,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-interface CurrentUser {
-  id: string;
-  name: string;
-  email: string;
-  role: "power_user" | "normal_user";
-}
 
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const { currentUser, setCurrentUser } = useCurrentUser();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const navLinks = [
-    { href: "/traces", label: "Traces" },
-    { href: "/users", label: "Users" },
+  const navLinks = [{ href: "/traces", label: "Traces" },
+  ...(currentUser?.role === "power_user" ? [{ href: "/users", label: "Users" }] : []),
   ];
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadCurrentUser() {
-      try {
-        const response = await fetch("/api/auth/me");
-        if (!response.ok) {
-          if (mounted) {
-            setCurrentUser(null);
-          }
-          return;
-        }
-        const data = (await response.json()) as { user?: CurrentUser };
-        if (mounted) {
-          setCurrentUser(data.user || null);
-        }
-      } catch {
-        if (mounted) {
-          setCurrentUser(null);
-        }
-      }
-    }
-
-    void loadCurrentUser();
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   const userInitials = useMemo(() => {
     if (!currentUser?.name) return "U";

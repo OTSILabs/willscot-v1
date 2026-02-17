@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { getCurrentUserServerAction } from "@/app/actions/current-user";
+import { CurrentUserProvider } from "@/components/current-user-provider";
+import { Providers } from "@/components/providers";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,21 +24,22 @@ export const metadata: Metadata = {
   description: "Willscot video analysis platform",
 };
 
-import { Providers } from "@/components/providers";
-import { TooltipProvider } from "@/components/ui/tooltip";
-
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const currentUser = await getCurrentUserServerAction();
+
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Providers>
-          <TooltipProvider>{children}</TooltipProvider>
+          <CurrentUserProvider initialUser={currentUser}>
+            <TooltipProvider>{children}</TooltipProvider>
+          </CurrentUserProvider>
         </Providers>
       </body>
     </html>
