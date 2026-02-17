@@ -139,11 +139,11 @@ export default function ResultDetailPage() {
               <ResizableHandle withHandle />
 
               <ResizablePanel defaultSize={32} minSize={24}>
-                <Tabs defaultValue="frame" className="flex h-full min-h-0 flex-col">
+                <Tabs defaultValue="video" className="flex h-full min-h-0 flex-col">
                   <div className="border-b">
                     <TabsList variant="line" className="grid w-[220px] grid-cols-2">
-                      <TabsTrigger value="frame">Frame</TabsTrigger>
                       <TabsTrigger value="video">Video</TabsTrigger>
+                      {/* <TabsTrigger value="frame">Frame</TabsTrigger> */}
                     </TabsList>
                   </div>
 
