@@ -26,6 +26,9 @@ interface Result {
   id: string;
   videoId: string;
   status: string;
+  regionName: string;
+  containerType: string;
+  model: string;
   createdByUserId: string | null;
   createdByName: string | null;
   createdByEmail: string | null;
@@ -107,6 +110,9 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
         <TableHeader>
           <TableRow>
             <TableHead>Video ID (S3 URI)</TableHead>
+            <TableHead>Region</TableHead>
+            <TableHead>Container Type</TableHead>
+            <TableHead>Model</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Created By</TableHead>
             <TableHead>Created At</TableHead>
@@ -116,8 +122,17 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
         <TableBody>
           {data?.items?.map((result: Result) => (
             <TableRow key={result.id}>
-              <TableCell className="font-mono text-[10px] max-w-[400px] truncate">
+              <TableCell className="font-mono text-[10px] max-w-[300px] whitespace-normal break-all">
                 {result.videoId}
+              </TableCell>
+              <TableCell>
+                <RowValue value={result.regionName} />
+              </TableCell>
+              <TableCell>
+                <RowValue value={result.containerType} />
+              </TableCell>
+              <TableCell>
+                <RowValue value={result.model} />
               </TableCell>
               <TableCell>
                 <Badge
@@ -206,4 +221,9 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
       </div>
     </div>
   );
+}
+
+export function RowValue({ value }: { value: string }) {
+  if (value && value.trim().length > 0) return value;
+  return <span className="text-muted-foreground text-xs">N/A</span>;
 }

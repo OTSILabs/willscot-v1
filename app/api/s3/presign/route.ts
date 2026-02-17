@@ -13,9 +13,11 @@ export async function POST(req: Request) {
 
     const url = await getPresignedUrl(s3Uri, 3600, region);
     return NextResponse.json({ url });
+
   } catch (error: unknown) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
+
     return NextResponse.json(
       { error: "Failed to generate presigned url", details: errorMessage },
       { status: 500 },

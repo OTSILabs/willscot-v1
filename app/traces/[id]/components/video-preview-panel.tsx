@@ -18,6 +18,7 @@ export function VideoPreviewPanel({
   const source = (videoSource || "").trim();
   const resolvedRegion = (regionName || "").trim() || undefined;
   const isS3Source = source.startsWith("s3://");
+
   const { data: signedVideoUrl, isLoading: isSigningVideo } = useQuery({
     queryKey: ["presign-video", source, resolvedRegion],
     queryFn: async () => {
@@ -26,6 +27,7 @@ export function VideoPreviewPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ s3Uri: source, region: resolvedRegion }),
       });
+
       if (!response.ok) {
         throw new Error("Failed to generate video URL");
       }
@@ -35,6 +37,7 @@ export function VideoPreviewPanel({
     enabled: Boolean(source) && isS3Source,
     staleTime: 55 * 60 * 1000,
   });
+
   const videoUrl = isS3Source ? (signedVideoUrl ?? null) : (source || null);
 
   return (

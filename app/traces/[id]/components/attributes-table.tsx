@@ -66,7 +66,7 @@ export function AttributesTable({ attributes, onFrameClick }: AttributesTablePro
           <TableHead>Attribute</TableHead>
           <TableHead>Value</TableHead>
           <TableHead>Evidence</TableHead>
-          <TableHead className="w-24">Frame</TableHead>
+          {/* <TableHead className="w-24">Frame</TableHead> */}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -78,8 +78,8 @@ export function AttributesTable({ attributes, onFrameClick }: AttributesTablePro
           </TableRow>
         ) : (
           sortedAttributes.map((attribute, index) => {
-            const second = Number(attribute.timestamp_seconds ?? 0);
-            const hasFrame = Boolean(attribute.frame_s3_uri || attribute.frame_s3_uri_url);
+            // const second = Number(attribute.timestamp_seconds ?? 0);
+            // const hasFrame = Boolean(attribute.frame_s3_uri || attribute.frame_s3_uri_url);
 
             return (
               <TableRow key={`${attribute.pipeline}-${attribute.attribute}-${index}`}>
@@ -89,7 +89,7 @@ export function AttributesTable({ attributes, onFrameClick }: AttributesTablePro
                 <TableCell className="max-w-[320px] whitespace-normal wrap-break-word">
                   {formatMeta(attribute.evidence)}
                 </TableCell>
-                <TableCell>
+                {/* <TableCell>
                   {hasFrame ? (
                     <Button
                       type="button"
@@ -102,7 +102,7 @@ export function AttributesTable({ attributes, onFrameClick }: AttributesTablePro
                   ) : (
                     <span className="text-muted-foreground text-xs">N/A</span>
                   )}
-                </TableCell>
+                </TableCell> */}
               </TableRow>
             );
           })

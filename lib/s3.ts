@@ -20,6 +20,7 @@ function getS3Client(region?: string) {
     region: resolvedRegion,
     credentials: sharedCredentials,
   });
+
   s3ClientsByRegion.set(resolvedRegion, client);
   return client;
 }
