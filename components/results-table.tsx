@@ -54,7 +54,7 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
   const [search, setSearch] = useState("");
   const pageSize = 10;
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ["results", page, pageSize, search],
     queryFn: async () => {
       const response = await axios.get<ResultsApiResponse>("/api/results", {
@@ -70,22 +70,6 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
     },
   });
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center py-10">
-        <Loader2 className="h-6 w-6 animate-spin mr-2" />
-        <span>Loading results...</span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="text-center py-10 text-destructive">
-        Failed to load results.
-      </div>
-    );
-  }
 
   const currentPage = data?.pagination.page ?? 1;
   const totalPages = data?.pagination.totalPages ?? 1;
@@ -120,73 +104,76 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {data?.items?.map((result: Result) => (
-            <TableRow key={result.id}>
-              <TableCell className="font-mono text-[10px] max-w-[300px] whitespace-normal break-all">
-                {result.videoId}
-              </TableCell>
-              <TableCell>
-                <RowValue value={result.regionName} />
-              </TableCell>
-              <TableCell>
-                <RowValue value={result.containerType} />
-              </TableCell>
-              <TableCell>
-                <RowValue value={result.model} />
-              </TableCell>
-              <TableCell>
-                <Badge
-                  variant={
-                    result.status === "completed" ? "default" : "secondary"
-                  }
-                  className="inline-flex items-center gap-1 capitalize"
-                >
-                  {result.status === "processing" ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : null}
-                  {result.status}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-sm">
-                <div className="flex flex-col">
-                  <span className="font-medium">
-                    {result.createdByName || "Unknown user"}
-                  </span>
-                  <span className="text-muted-foreground text-xs">
-                    {result.createdByEmail || "N/A"}
-                  </span>
-                </div>
-              </TableCell>
-              <TableCell className="text-sm text-muted-foreground">
-                {new Date(result.createdAt).toLocaleString()}
-              </TableCell>
-              <TableCell className="text-right">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link href={`/traces/${result.id}`}>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Eye className="h-4 w-4" />
-                        <span className="sr-only">View Details</span>
-                      </Button>
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>View Details</p>
-                  </TooltipContent>
-                </Tooltip>
+          {isLoading ? (
+            <TableRow>
+              <TableCell colSpan={8} className="text-center py-8">
+                Loading results...
               </TableCell>
             </TableRow>
-          ))}
-          {data?.items?.length === 0 && (
+          ) : !data?.items?.length ? (
             <TableRow>
-              <TableCell
-                colSpan={5}
-                className="text-center py-10 text-muted-foreground"
-              >
+              <TableCell colSpan={8} className="text-center py-8">
                 No results found. Start by processing a new video.
               </TableCell>
             </TableRow>
-          )}
+          ) :
+            data?.items?.map((result: Result) => (
+              <TableRow key={result.id}>
+                <TableCell className="font-mono text-[10px] max-w-[300px] whitespace-normal break-all">
+                  {result.videoId}
+                </TableCell>
+                <TableCell>
+                  <RowValue value={result.regionName} />
+                </TableCell>
+                <TableCell>
+                  <RowValue value={result.containerType} />
+                </TableCell>
+                <TableCell>
+                  <RowValue value={result.model} />
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    variant={
+                      result.status === "completed" ? "default" : "secondary"
+                    }
+                    className="inline-flex items-center gap-1 capitalize"
+                  >
+                    {result.status === "processing" ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : null}
+                    {result.status}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-sm">
+                  <div className="flex flex-col">
+                    <span className="font-medium">
+                      {result.createdByName || "Unknown user"}
+                    </span>
+                    <span className="text-muted-foreground text-xs">
+                      {result.createdByEmail || "N/A"}
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground">
+                  {new Date(result.createdAt).toLocaleString()}
+                </TableCell>
+                <TableCell className="text-right">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Link href={`/traces/${result.id}`}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Eye className="h-4 w-4" />
+                          <span className="sr-only">View Details</span>
+                        </Button>
+                      </Link>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>View Details</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TableCell>
+              </TableRow>
+            ))}
         </TableBody>
       </Table>
       <div className="flex items-center justify-between border-t px-4 py-3">
