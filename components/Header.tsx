@@ -33,10 +33,14 @@ export function Header() {
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const navLinks = [
-    { href: "/traces", label: "Traces" },
-    { href: "/users", label: "Users" },
-  ];
+  const navLinks = useMemo(() => {
+    const links = [{ href: "/traces", label: "Traces" }];
+
+    if (currentUser?.role === "normal_user") {
+      links.push({ href: "/users", label: "Users" });
+    }
+    return links;
+  }, [currentUser]);
 
   useEffect(() => {
     let mounted = true;
@@ -98,7 +102,9 @@ export function Header() {
           <NavigationMenu viewport={false} className="flex items-center gap-4">
             <NavigationMenuList>
               {navLinks.map((link) => {
-                const isActive = pathname === link.href || pathname?.startsWith(link.href + "/");
+                const isActive =
+                  pathname === link.href ||
+                  pathname?.startsWith(link.href + "/");
                 return (
                   <NavigationMenuItem key={link.href}>
                     <NavigationMenuLink asChild>
