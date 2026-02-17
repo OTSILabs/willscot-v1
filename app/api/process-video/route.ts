@@ -140,6 +140,9 @@ export async function POST(req: Request) {
       .values({
         videoId: safeVideoUri,
         status: "processing",
+        containerType: safeContainerType,
+        model: safeModel,
+        regionName: safeRegionName,
         json: {
           status: "processing",
           video: {
