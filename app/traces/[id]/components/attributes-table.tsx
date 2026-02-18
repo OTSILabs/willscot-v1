@@ -193,7 +193,7 @@ export function AttributesTable({
         </TableBody>
       </Table>
 
-      {/* ✅ DIALOG */}
+      {/* DIALOG */}
 
       <Dialog open={dialogOpen} onOpenChange={resetDialog}>
         <DialogContent>
