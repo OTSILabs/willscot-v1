@@ -6,6 +6,9 @@ export interface TraceAttribute {
   frame_s3_uri?: string | null;
   frame_s3_uri_url?: string | null;
   timestamp_seconds?: number | null;
+  feedback?: string | null;
+  error?: string | null;
+  status?: "correct" | "wrong";
 }
 
 export interface TraceVideoInfo {

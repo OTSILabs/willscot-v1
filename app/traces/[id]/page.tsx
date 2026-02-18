@@ -36,6 +36,7 @@ export default function ResultDetailPage() {
     data: result,
     isLoading,
     error,
+    refetch,
   } = useQuery<ResultDetail>({
     queryKey: ["result", id],
     queryFn: async () => {
@@ -84,6 +85,35 @@ export default function ResultDetailPage() {
     }
   }
 
+  async function handleFeedbackChange(index: number, newAttribute: TraceAttribute) {
+    if (!result) return;
+
+    // We need to clone the attributes array and update the specific item
+    // Note: 'attributes' in the component scope is derived from result.json.attributes
+    // We should use the raw list from result.json.attributes to be safe, or just map current attributes
+    const currentAttributes = [...(result.json.attributes || [])] as TraceAttribute[];
+
+    // Update the attribute at the specific index
+    // Note: The index passed from AttributesTable is the index in the original array
+    if (index >= 0 && index < currentAttributes.length) {
+      currentAttributes[index] = newAttribute;
+
+      // Optimistic update (optional, but good for UI responsiveness)
+      // queryClient.setQueryData ... or just rely on refetch
+      // For simplicity, we trigger the mutation and then invalidate/refetch
+
+      try {
+        await axios.patch(`/api/results/${id}`, {
+          attributes: currentAttributes
+        });
+        refetch();
+      } catch (e) {
+        console.error("Failed to update feedback", e);
+        // Maybe show toast error
+      }
+    }
+  }
+
   return (
     <div className="space-y-6 py-4">
       <div className="flex items-center justify-between">
@@ -127,6 +157,7 @@ export default function ResultDetailPage() {
                     <AttributesTable
                       attributes={attributes}
                       onFrameClick={handleFrameClick}
+                      onAttributeUpdate={handleFeedbackChange}
                     />
                   </TabsContent>
 

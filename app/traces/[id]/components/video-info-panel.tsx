@@ -4,6 +4,12 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2 } from "lucide-react";
 import { ResultDetail } from "./types";
 import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface VideoInfoPanelProps {
   result: ResultDetail;
@@ -43,26 +49,40 @@ export function VideoInfoPanel({ result }: VideoInfoPanelProps) {
 
   return (
     <>
-      {items.map((item) => (
-        <div key={item.label} className="space-y-1">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {item.label}
-          </p>
+      {items.map((item) => {
+        const valueElement = (
           <p
-            className={
-              cn(
-                "max-w-60 truncate",
-                item.mono
-                  ? "break-all font-mono text-xs leading-5"
-                  : "text-xs leading-5"
-              )
-
-            }
+            className={cn(
+              "max-w-60 truncate",
+              item.mono
+                ? "break-all font-mono text-xs leading-5"
+                : "text-xs leading-5"
+            )}
           >
             {item.value}
           </p>
-        </div>
-      ))}
+        );
+
+        return (
+          <div key={item.label} className="space-y-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {item.label}
+            </p>
+            {item.label === "S3 URI" ? (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>{valueElement}</TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-[400px] break-all">{item.value}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            ) : (
+              valueElement
+            )}
+          </div>
+        );
+      })}
       <div className="space-y-1">
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Status
