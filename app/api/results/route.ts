@@ -1,10 +1,18 @@
+import { getCurrentUserServerAction } from "@/app/actions/current-user";
 import { db } from "@/lib/db";
 import { results, users } from "@/lib/db/schema";
-import { desc, eq, ilike, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {
   try {
+    const currentUser = await getCurrentUserServerAction();
+    if (!currentUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const filter = currentUser.role === "power_user" ? undefined : eq(results.createdByUserId, currentUser.id);
+
     const { searchParams } = new URL(req.url);
     const pageParam = Number(searchParams.get("page") || 1);
     const pageSizeParam = Number(searchParams.get("pageSize") || 10);
@@ -20,10 +28,11 @@ export async function GET(req: Request) {
       ? await db
         .select({ count: sql<number>`count(*)` })
         .from(results)
-        .where(ilike(results.videoId, `%${search}%`))
+        .where(and(ilike(results.videoId, `%${search}%`), filter))
       : await db
         .select({ count: sql<number>`count(*)` })
-        .from(results);
+        .from(results)
+        .where(filter);
     const total = Number(totalRow?.count ?? 0);
 
     const items = search
@@ -43,7 +52,7 @@ export async function GET(req: Request) {
         })
         .from(results)
         .leftJoin(users, eq(results.createdByUserId, users.id))
-        .where(ilike(results.videoId, `%${search}%`))
+        .where(and(ilike(results.videoId, `%${search}%`), filter))
         .orderBy(desc(results.createdAt))
         .limit(pageSize)
         .offset(offset)
@@ -63,6 +72,7 @@ export async function GET(req: Request) {
         })
         .from(results)
         .leftJoin(users, eq(results.createdByUserId, users.id))
+        .where(filter)
         .orderBy(desc(results.createdAt))
         .limit(pageSize)
         .offset(offset);

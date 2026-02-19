@@ -19,6 +19,7 @@ import { VideoPreviewPanel } from "./components/video-preview-panel";
 import { RawJsonTab } from "./components/raw-json-tab";
 import { ResultDetail, TraceAttribute } from "./components/types";
 import { toast } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const DETAIL_POLLING_MS = 10000;
 
@@ -105,7 +106,12 @@ export default function ResultDetailPage() {
         </Button>
       </div>
       {
-        isFailed ? null : (
+        isFailed ? <Alert className="border-red-200 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950 dark:text-red-50">
+          <AlertTitle>Failed</AlertTitle>
+          <AlertDescription>
+            {result.json.error}
+          </AlertDescription>
+        </Alert> : (
           <Tabs defaultValue="results" className="w-full">
             {isProcessing ? (
               <div className="h-[calc(100vh-100px)] min-h-[calc(100vh-100px)] rounded-md border">

@@ -1,8 +1,9 @@
 import { db } from "@/lib/db";
 import { results, users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getPresignedUrl } from "@/lib/s3";
+import { getCurrentUserServerAction } from "@/app/actions/current-user";
 
 
 interface PresignedS3Result {
@@ -51,7 +52,14 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const currentUser = await getCurrentUserServerAction();
+    if (!currentUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { id } = await params;
+
+    const filter = currentUser.role === "power_user" ? undefined : eq(results.createdByUserId, currentUser.id);
 
     const [result] = await db
       .select({
@@ -69,7 +77,7 @@ export async function GET(
       })
       .from(results)
       .leftJoin(users, eq(results.createdByUserId, users.id))
-      .where(eq(results.id, id))
+      .where(and(eq(results.id, id), filter))
       .limit(1);
 
     if (!result) {

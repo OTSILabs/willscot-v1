@@ -1,3 +1,4 @@
+import { getCurrentUserServerAction } from "@/app/actions/current-user";
 import { db } from "@/lib/db";
 import { results, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -117,17 +118,9 @@ async function runProcessingJob({
 
 export async function POST(req: Request) {
   try {
-    const cookieStore = await cookies();
-    const authEmail = cookieStore.get("auth_user")?.value;
-
-    let createdByUserId: string | null = null;
-    if (authEmail) {
-      const [creator] = await db
-        .select({ id: users.id })
-        .from(users)
-        .where(eq(users.email, authEmail))
-        .limit(1);
-      createdByUserId = creator?.id ?? null;
+    const currentUser = await getCurrentUserServerAction();
+    if (!currentUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await req.json();
@@ -154,7 +147,7 @@ export async function POST(req: Request) {
           },
           attributes: [],
         },
-        createdByUserId,
+        createdByUserId: currentUser.id,
       })
       .returning({ id: results.id, status: results.status });
 
