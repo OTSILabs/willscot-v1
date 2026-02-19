@@ -108,7 +108,10 @@ export default function ResultDetailPage() {
   return (
     <div className="space-y-6 py-4">
       <div className="flex items-center justify-between">
-        <Button variant="outline" size="xs" asChild>
+
+        <VideoInfoPanel result={result} />
+
+        <Button variant="outline" size="sm" asChild>
           <Link
             href="/traces"
             className="inline-flex items-center gap-1 text-sm"
@@ -117,7 +120,6 @@ export default function ResultDetailPage() {
             Back
           </Link>
         </Button>
-        <VideoInfoPanel result={result} />
       </div>
 
       <Tabs defaultValue="results" className="w-full">
