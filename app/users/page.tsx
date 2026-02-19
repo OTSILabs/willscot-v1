@@ -27,6 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ButtonGroup } from "@/components/ui/button-group";
 
 type UserRole = "power_user" | "normal_user";
 
@@ -268,14 +269,14 @@ export default function UsersPage() {
             className="max-w-sm"
           />
         </div>
-        <Table>
+        <Table className="table-fixed">
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Created</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="w-[15%]">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -345,7 +346,7 @@ export default function UsersPage() {
                   </TableCell>
                   <TableCell className="text-right space-x-2">
                     {editingId === user.id ? (
-                      <>
+                      <ButtonGroup>
                         <Button
                           size="sm"
                           disabled={isSaving}
@@ -374,9 +375,9 @@ export default function UsersPage() {
                         >
                           Cancel
                         </Button>
-                      </>
+                      </ButtonGroup>
                     ) : (
-                      <>
+                      <ButtonGroup>
                         <Button
                           size="sm"
                           variant="outline"
@@ -394,7 +395,7 @@ export default function UsersPage() {
                             Delete
                           </Button>
                         ) : null}
-                      </>
+                      </ButtonGroup>
                     )}
                   </TableCell>
                 </TableRow>
