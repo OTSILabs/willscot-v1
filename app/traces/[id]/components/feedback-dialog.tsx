@@ -47,9 +47,7 @@ export function FeedbackDialog({
     return (
         <Dialog open={open} onOpenChange={(state) => {
             onOpenChange(state);
-            if (!state) {
-                form.reset();
-            }
+            form.reset();
         }}>
             <DialogContent>
                 {dialogMode === "wrong" && dialogStep === "input" && (

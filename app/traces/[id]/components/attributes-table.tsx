@@ -140,13 +140,17 @@ export function AttributesTable({
                   {formatMeta(attribute.evidence)}
                 </TableCell>
 
-                <TableCell className="align-middle  text-center">
+                <TableCell className="align-middle">
                   {isLocked ? (
                     attribute.status === "correct" ? (
                       <span className="text-green-600 font-medium text-xs">
-                        Correct
+                        Marked as Correct
                       </span>
-                    ) : attribute.feedback
+                    ) :
+                      <div className="text-xs">
+                        <p className="text-red-600">Marked as Wrong:</p>
+                        <p>{attribute.feedback}</p>
+                      </div>
                   ) : (
                     <div className="flex items-center gap-2 justify-center">
                       <ButtonGroup>
