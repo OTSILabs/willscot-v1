@@ -144,11 +144,11 @@ export function AttributesTable({
                   {isLocked ? (
                     attribute.status === "correct" ? (
                       <span className="text-green-600 font-medium text-xs">
-                        Marked as Correct
+                        Marked Correct
                       </span>
                     ) :
                       <div className="text-xs">
-                        <p className="text-red-600">Marked as Wrong:</p>
+                        <p className="text-red-600">Marked Wrong:</p>
                         <p>{attribute.feedback}</p>
                       </div>
                   ) : (
