@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Eye } from "lucide-react";
+import { Loader2, Eye, Info } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { ResultJson } from "@/app/traces/[id]/components/types";
 
 interface Result {
   id: string;
@@ -33,6 +34,7 @@ interface Result {
   createdByName: string | null;
   createdByEmail: string | null;
   createdAt: string;
+  json: ResultJson;
 }
 
 interface ResultsApiResponse {
@@ -142,6 +144,12 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
                       <Loader2 className="h-3 w-3 animate-spin" />
                     ) : null}
                     {result.status}
+                    {
+                      result.json?.error && <Tooltip>
+                        <TooltipTrigger><Info className="h-3 w-3" /></TooltipTrigger>
+                        <TooltipContent><p>{result.json?.error}</p></TooltipContent>
+                      </Tooltip>
+                    }
                   </Badge>
                 </TableCell>
                 <TableCell className="text-sm">

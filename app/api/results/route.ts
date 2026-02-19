@@ -18,52 +18,54 @@ export async function GET(req: Request) {
 
     const [totalRow] = search
       ? await db
-          .select({ count: sql<number>`count(*)` })
-          .from(results)
-          .where(ilike(results.videoId, `%${search}%`))
+        .select({ count: sql<number>`count(*)` })
+        .from(results)
+        .where(ilike(results.videoId, `%${search}%`))
       : await db
-          .select({ count: sql<number>`count(*)` })
-          .from(results);
+        .select({ count: sql<number>`count(*)` })
+        .from(results);
     const total = Number(totalRow?.count ?? 0);
 
     const items = search
       ? await db
-          .select({
-            id: results.id,
-            videoId: results.videoId,
-            status: results.status,
-            containerType: results.containerType,
-            model: results.model,
-            regionName: results.regionName,
-            createdByUserId: results.createdByUserId,
-            createdByName: users.name,
-            createdByEmail: users.email,
-            createdAt: results.createdAt,
-          })
-          .from(results)
-          .leftJoin(users, eq(results.createdByUserId, users.id))
-          .where(ilike(results.videoId, `%${search}%`))
-          .orderBy(desc(results.createdAt))
-          .limit(pageSize)
-          .offset(offset)
+        .select({
+          id: results.id,
+          videoId: results.videoId,
+          status: results.status,
+          containerType: results.containerType,
+          model: results.model,
+          regionName: results.regionName,
+          createdByUserId: results.createdByUserId,
+          createdByName: users.name,
+          createdByEmail: users.email,
+          createdAt: results.createdAt,
+          json: results.json,
+        })
+        .from(results)
+        .leftJoin(users, eq(results.createdByUserId, users.id))
+        .where(ilike(results.videoId, `%${search}%`))
+        .orderBy(desc(results.createdAt))
+        .limit(pageSize)
+        .offset(offset)
       : await db
-          .select({
-            id: results.id,
-            videoId: results.videoId,
-            status: results.status,
-            containerType: results.containerType,
-            model: results.model,
-            regionName: results.regionName,
-            createdByUserId: results.createdByUserId,
-            createdByName: users.name,
-            createdByEmail: users.email,
-            createdAt: results.createdAt,
-          })
-          .from(results)
-          .leftJoin(users, eq(results.createdByUserId, users.id))
-          .orderBy(desc(results.createdAt))
-          .limit(pageSize)
-          .offset(offset);
+        .select({
+          id: results.id,
+          videoId: results.videoId,
+          status: results.status,
+          containerType: results.containerType,
+          model: results.model,
+          regionName: results.regionName,
+          createdByUserId: results.createdByUserId,
+          createdByName: users.name,
+          createdByEmail: users.email,
+          createdAt: results.createdAt,
+          json: results.json,
+        })
+        .from(results)
+        .leftJoin(users, eq(results.createdByUserId, users.id))
+        .orderBy(desc(results.createdAt))
+        .limit(pageSize)
+        .offset(offset);
 
     return NextResponse.json({
       items,

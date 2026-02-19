@@ -21,6 +21,7 @@ export interface ResultJson {
   video?: TraceVideoInfo;
   attributes?: TraceAttribute[];
   [key: string]: unknown;
+  error?: string | null;
 }
 
 export interface ResultDetail {
