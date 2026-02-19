@@ -140,7 +140,7 @@ export function AttributesTable({
                   {formatMeta(attribute.evidence)}
                 </TableCell>
 
-                <TableCell className="align-middle">
+                <TableCell>
                   {isLocked ? (
                     attribute.status === "correct" ? (
                       <span className="text-green-600 font-medium text-xs">
