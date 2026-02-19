@@ -2,15 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 
 import {
   Table,
@@ -22,6 +14,9 @@ import {
 } from "@/components/ui/table";
 
 import { TraceAttribute } from "./types";
+import { CheckIcon, XIcon } from "lucide-react";
+import { FeedbackDialog, FeedbackFormValues } from "./feedback-dialog";
+import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group";
 
 interface AttributesTableProps {
   attributes: TraceAttribute[];
@@ -55,7 +50,6 @@ export function AttributesTable({
   const [dialogMode, setDialogMode] = useState<"correct" | "wrong" | null>(null);
   const [dialogStep, setDialogStep] = useState<"input" | "confirm">("input");
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [tempFeedback, setTempFeedback] = useState("");
 
   const sortedAttributes = useMemo(() => {
     return [...attributes].sort((a, b) => {
@@ -72,10 +66,6 @@ export function AttributesTable({
 
   const resetDialog = () => {
     setDialogOpen(false);
-    setDialogMode(null);
-    setDialogStep("input");
-    setSelectedIndex(null);
-    setTempFeedback("");
   };
 
   const handleCorrectClick = (index: number) => {
@@ -85,15 +75,14 @@ export function AttributesTable({
     setDialogOpen(true);
   };
 
-  const handleWrongClick = (attribute: TraceAttribute, index: number) => {
+  const handleWrongClick = (index: number) => {
     setDialogMode("wrong");
     setSelectedIndex(index);
-    setTempFeedback(attribute.feedback || "");
     setDialogStep("input");
     setDialogOpen(true);
   };
 
-  const handleFinalSave = () => {
+  const handleFinalSave = (data: FeedbackFormValues | undefined) => {
     if (selectedIndex === null || !dialogMode) return;
 
     const attribute = attributes[selectedIndex];
@@ -111,7 +100,7 @@ export function AttributesTable({
     if (dialogMode === "wrong") {
       onAttributeUpdate(selectedIndex, {
         ...attribute,
-        feedback: tempFeedback,
+        feedback: data?.feedback,
         status: "wrong",
       });
 
@@ -123,18 +112,18 @@ export function AttributesTable({
 
   return (
     <>
-      <Table className="text-xs">
+      <Table className="text-xs table-fixed">
         <TableHeader>
           <TableRow>
             <TableHead>Property</TableHead>
             <TableHead>Attribute</TableHead>
             <TableHead>Value</TableHead>
-            <TableHead>Feedback</TableHead>
-            <TableHead>Evidence</TableHead>
+            <TableHead className="w-[40%]">Evidence</TableHead>
+            <TableHead className="w-[25%]">Feedback</TableHead>
           </TableRow>
         </TableHeader>
 
-        <TableBody>
+        <TableBody className="[&_td]:whitespace-normal">
           {sortedAttributes.map((attribute, index) => {
             const originalIndex = attributes.indexOf(attribute);
 
@@ -147,45 +136,43 @@ export function AttributesTable({
                 <TableCell>{toTitleCase(attribute.pipeline)}</TableCell>
                 <TableCell>{toTitleCase(attribute.attribute)}</TableCell>
                 <TableCell>{formatMeta(attribute.value)}</TableCell>
+                <TableCell className="whitespace-normal wrap-break-word">
+                  {formatMeta(attribute.evidence)}
+                </TableCell>
 
-                <TableCell className="align-middle w-[260px]">
+                <TableCell className="align-middle  text-center">
                   {isLocked ? (
                     attribute.status === "correct" ? (
                       <span className="text-green-600 font-medium text-xs">
                         Correct
                       </span>
-                    ) : (
-                      <div className=" rounded px-2 py-2 text-xs w-full">
-                        <p className="font-semibold mb-1">Feedback</p>
-                        <p className="break-words">{attribute.feedback}</p>
-                      </div>
-                    )
+                    ) : attribute.feedback
                   ) : (
-                    <div className="flex items-center gap-1">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 px-2 text-xs bg-green-500/10 text-green-600 hover:bg-green-500/20 hover:text-green-700 border-green-200"
-                        onClick={() => handleCorrectClick(originalIndex)}
-                      >
-                        Correct
-                      </Button>
+                    <div className="flex items-center gap-2 justify-center">
+                      <ButtonGroup>
+                        <ButtonGroupText className="text-xs">
+                          Verify
+                        </ButtonGroupText>
+                        <Button
+                          size="xs"
+                          title="Mark as Correct"
+                          className="bg-green-600 text-white hover:bg-green-700"
+                          onClick={() => handleCorrectClick(originalIndex)}
+                        >
+                          <CheckIcon />
+                        </Button>
 
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 px-2 text-xs"
-                        onClick={() => handleWrongClick(attribute, originalIndex)}
-                      >
-                        Wrong
-                      </Button>
+                        <Button
+                          size="xs"
+                          title="Mark as Wrong"
+                          // variant="destructive"
+                          onClick={() => handleWrongClick(originalIndex)}
+                        >
+                          <XIcon />
+                        </Button>
+                      </ButtonGroup>
                     </div>
                   )}
-                </TableCell>
-
-
-                <TableCell className="max-w-[320px] whitespace-normal break-words">
-                  {formatMeta(attribute.evidence)}
                 </TableCell>
               </TableRow>
             );
@@ -193,77 +180,16 @@ export function AttributesTable({
         </TableBody>
       </Table>
 
-      {/* DIALOG */}
-
-      <Dialog open={dialogOpen} onOpenChange={resetDialog}>
-        <DialogContent>
-          {dialogMode === "wrong" && dialogStep === "input" && (
-            <>
-              <DialogHeader>
-                <DialogTitle>Enter Expected Result</DialogTitle>
-              </DialogHeader>
-
-              <textarea
-                value={tempFeedback}
-                onChange={(e) => setTempFeedback(e.target.value)}
-                placeholder="Enter expected result..."
-                autoFocus
-                className="min-h-[140px] text-sm resize-none "
-              />
-
-
-              <DialogFooter>
-                <Button variant="outline" onClick={resetDialog}>
-                  Cancel
-                </Button>
-
-                <Button
-                  onClick={() => setDialogStep("confirm")}
-                  disabled={!tempFeedback.trim()}
-                >
-                  Confirm
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-
-          {dialogStep === "confirm" && (
-            <>
-              <DialogHeader>
-                <DialogTitle>Are you sure?</DialogTitle>
-              </DialogHeader>
-
-              {dialogMode === "correct" ? (
-                <p className="text-sm text-muted-foreground">
-                  Once you confirm, this will be marked as{" "}
-                  <span className="font-semibold text-foreground">
-                    Correct
-                  </span>{" "}
-                  and cannot be changed again.
-                </p>
-              ) : (
-                <>
-                  <p className="text-sm text-muted-foreground">
-                    This expected result will be saved and locked.
-                  </p>
-
-                  <div className="rounded border bg-muted/40 p-2 border-l-4 border-l-orange-500 text-xs">
-                    {tempFeedback}
-                  </div>
-                </>
-              )}
-
-              <DialogFooter>
-                <Button variant="outline" onClick={resetDialog}>
-                  Cancel
-                </Button>
-
-                <Button onClick={handleFinalSave}>Confirm</Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      <FeedbackDialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          if (!open) resetDialog();
+        }}
+        dialogMode={dialogMode}
+        dialogStep={dialogStep}
+        onFinalSave={handleFinalSave}
+        onCancel={resetDialog}
+      />
     </>
   );
 }
