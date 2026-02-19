@@ -50,7 +50,7 @@ export function VideoPreviewPanel({
           </div>
         ) : null}
         {videoUrl ? (
-          <video ref={videoRef} controls className="w-full aspect-video">
+          <video ref={videoRef} controls className="w-full h-full object-cover" muted loop>
             <source src={videoUrl} type="video/mp4" />
             Your browser does not support the video tag.
           </video>
