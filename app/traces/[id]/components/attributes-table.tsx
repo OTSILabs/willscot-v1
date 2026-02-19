@@ -165,7 +165,6 @@ export function AttributesTable({
                         <Button
                           size="xs"
                           title="Mark as Wrong"
-                          // variant="destructive"
                           onClick={() => handleWrongClick(originalIndex)}
                         >
                           <XIcon />

@@ -42,7 +42,7 @@ export function VideoPreviewPanel({
 
   return (
     <div className="min-h-0 flex-1">
-      <div className="h-[calc(100%-30px)] overflow-hidden  bg-black flex items-center justify-center">
+      <div className="h-full overflow-hidden  bg-black flex items-center justify-center">
         {isSigningVideo ? (
           <div className="flex h-full items-center justify-center text-sm text-zinc-400">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -60,17 +60,6 @@ export function VideoPreviewPanel({
           </div>
         ) : null}
       </div>
-      {videoUrl ? (
-        <a
-          href={videoUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-        >
-          <ExternalLink className="size-3" />
-          Open video source
-        </a>
-      ) : null}
     </div>
   );
 }

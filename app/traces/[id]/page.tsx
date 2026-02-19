@@ -156,7 +156,7 @@ export default function ResultDetailPage() {
                   <TabsContent value="results" className="m-0 min-h-0 flex-1 overflow-auto">
                     <AttributesTable
                       attributes={attributes}
-                      onFrameClick={handleFrameClick}
+                      // onFrameClick={handleFrameClick}
                       onAttributeUpdate={handleFeedbackChange}
                     />
                   </TabsContent>

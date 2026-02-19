@@ -81,7 +81,10 @@ export function FeedbackDialog({
 
 
                         <DialogFooter>
-                            <Button variant="outline" onClick={onCancel}>
+                            <Button variant="outline" onClick={() => {
+                                form.reset();
+                                onCancel();
+                            }}>
                                 Cancel
                             </Button>
 
@@ -107,11 +110,14 @@ export function FeedbackDialog({
                         </p>
 
                         <DialogFooter>
-                            <Button variant="outline" onClick={onCancel}>
+                            <Button variant="outline" onClick={() => {
+                                form.reset();
+                                onCancel();
+                            }}>
                                 Cancel
                             </Button>
 
-                            <Button onClick={() => onFinalSave()}>Confirm</Button>
+                            <Button onClick={() => onFinalSave(form.getValues())}>Confirm</Button>
                         </DialogFooter>
                     </>
                 )}
