@@ -28,6 +28,7 @@ export function VideoInfoPanel({ result }: VideoInfoPanelProps) {
       label: "S3 URI",
       value: formatValue(videoInfo.s3_uri || result.videoId),
       mono: true,
+      tooltip: true
     },
     {
       label: "Region",
@@ -68,12 +69,14 @@ export function VideoInfoPanel({ result }: VideoInfoPanelProps) {
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               {item.label}
             </p>
-            {item.label === "S3 URI" ? (
+            {item.tooltip ? (
               <TooltipProvider>
                 <Tooltip>
-                  <TooltipTrigger asChild>{valueElement}</TooltipTrigger>
+                  <TooltipTrigger asChild>
+                    {valueElement}
+                  </TooltipTrigger>
                   <TooltipContent>
-                    <p className="max-w-[400px] break-all">{item.value}</p>
+                    <p>{item.value}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
