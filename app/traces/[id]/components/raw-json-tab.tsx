@@ -1,6 +1,9 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
+import { CopyIcon, DownloadIcon } from "lucide-react";
+import JsonView from "@uiw/react-json-view";
 
 interface RawJsonTabProps {
   resultId: string;
@@ -21,23 +24,26 @@ export function RawJsonTab({ resultId, payload }: RawJsonTabProps) {
   }
 
   return (
-    <div className="rounded-md border">
-      <div className="flex items-center justify-end gap-2 border-b p-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => navigator.clipboard.writeText(jsonString)}
-        >
-          Copy
-        </Button>
-        <Button type="button" size="sm" onClick={downloadJson}>
-          Download
-        </Button>
+    <div>
+      <div className="py-2 flex justify-end sticky top-0 bg-background z-10 border-b">
+        <ButtonGroup orientation="horizontal">
+          <Button
+            type="button"
+            variant="outline"
+            size="xs"
+            onClick={() => navigator.clipboard.writeText(jsonString)}
+          >
+            <CopyIcon />
+            Copy
+          </Button>
+          <Button type="button" size="xs" onClick={downloadJson}>
+            <DownloadIcon />
+            Download
+          </Button>
+        </ButtonGroup>
       </div>
-      <pre className="max-h-[70vh] overflow-auto bg-zinc-950 p-4 text-[12px] leading-relaxed text-zinc-200">
-        {jsonString}
-      </pre>
+
+      <JsonView value={payload as object | undefined} className="p-4" />
     </div>
   );
 }
