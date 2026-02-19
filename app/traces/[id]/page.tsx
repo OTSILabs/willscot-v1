@@ -135,7 +135,7 @@ export default function ResultDetailPage() {
         ) : (
           <div className="h-[calc(100vh-100px)] min-h-[calc(100vh-100px)] rounded-md border">
             <ResizablePanelGroup orientation="horizontal">
-              <ResizablePanel defaultSize={70} minSize={70}>
+              <ResizablePanel defaultSize={70} minSize={0}>
                 <div className="flex h-full min-h-0 flex-col">
                   <div className="border-b">
                     <TabsList variant="line" className="grid w-[260px] grid-cols-2">
