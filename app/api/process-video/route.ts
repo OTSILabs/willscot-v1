@@ -37,6 +37,8 @@ async function runProcessingJob({
     params.append("result_id", resultId);
 
     let response: Response;
+    let responseText: string;
+
     try {
       response = await fetch(process.env.LAMBDA_ENDPOINT!, {
         method: "POST",
@@ -47,6 +49,8 @@ async function runProcessingJob({
         body: params.toString(),
         signal: controller.signal,
       });
+
+      responseText = await response.text();
     } catch (error: unknown) {
       if (error instanceof Error && error.name === "AbortError") {
         throw new Error(`Lambda request timed out after ${timeoutMs}ms`);
@@ -56,9 +60,7 @@ async function runProcessingJob({
       clearTimeout(timeoutId);
     }
 
-    const responseText = await response.text();
     let lambdaData: unknown;
-
     try {
       lambdaData = JSON.parse(responseText);
     } catch {
