@@ -6,36 +6,52 @@ import { NextResponse } from "next/server";
 import { uploadFileToS3Buffer } from "@/lib/s3";
 import axios from "axios";
 
+export const maxDuration = 300;
+export const dynamic = "force-dynamic";
+
 const BATCH_LAMBDA_ENDPOINT =
   "https://gaxnus4wvh2o6qyznco5t3u5wm0qjmwl.lambda-url.us-west-2.on.aws/process-video-with-targeted-frame-batch";
 const S3_BUCKET = "ws-s3-unit-attribute-capture-nova";
 
-async function runBatchProcessingJob({
-  resultId,
-  s3Uri,
-  containerType,
-  model,
-  regionName,
-  jobType,
-}: {
-  resultId: string;
-  s3Uri: string;
+type JobConfig = {
+  fileName: string;
   containerType: string;
   model: string;
-  regionName: string;
-  jobType: string;
+  region: string;
+  jobType: "interior" | "exterior";
+};
+
+async function runBatchProcessingJob({
+  resultId,
+  jobs,
+}: {
+  resultId: string;
+  jobs: {
+    s3Uri: string;
+    containerType: string;
+    model: string;
+    regionName: string;
+    jobType: string;
+  }[];
 }) {
   try {
-    const job = {
-      s3_uri: s3Uri,
-      model: model,
-      region: regionName,
-      container_type: containerType,
-    };
-
     const payload = {
-      interior_jobs: jobType === "interior" || jobType === "both" ? [job] : [],
-      exterior_jobs: jobType === "exterior" || jobType === "both" ? [job] : [],
+      interior_jobs: jobs
+        .filter((j) => j.jobType === "interior")
+        .map((j) => ({
+          s3_uri: j.s3Uri,
+          model: j.model,
+          region: j.regionName,
+          container_type: j.containerType,
+        })),
+      exterior_jobs: jobs
+        .filter((j) => j.jobType === "exterior")
+        .map((j) => ({
+          s3_uri: j.s3Uri,
+          model: j.model,
+          region: j.regionName,
+          container_type: j.containerType,
+        })),
     };
 
     const response = await axios.post(BATCH_LAMBDA_ENDPOINT, payload, {
@@ -78,40 +94,64 @@ export async function POST(req: Request) {
     }
 
     const formData = await req.formData();
-    const file = formData.get("file") as File;
-    const containerType = formData.get("containerType") as string;
-    const model = formData.get("model") as string;
-    const regionName = (formData.get("region") as string) || "us-west-2";
-    const jobType = (formData.get("jobType") as string) || "both";
+    const files = formData.getAll("files") as File[];
+    const configsStr = formData.get("configs") as string;
 
-    if (!file) {
-      return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+    if (!files.length || !configsStr) {
+      return NextResponse.json(
+        { error: "Missing files or configurations" },
+        { status: 400 },
+      );
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const fileName = file.name.replace(/\s+/g, "_");
+    const configs = JSON.parse(configsStr) as JobConfig[];
+    const jobs: {
+      s3Uri: string;
+      containerType: string;
+      model: string;
+      regionName: string;
+      jobType: string;
+    }[] = [];
+
     const timestamp = Date.now();
-    const s3Key = `${containerType.toUpperCase()}/${timestamp}_${fileName}`;
 
-    // 1. Upload to S3
-    const s3Uri = await uploadFileToS3Buffer(
-      buffer,
-      S3_BUCKET,
-      s3Key,
-      file.type,
-      regionName,
-    );
+    for (const file of files) {
+      const config = configs.find((c) => c.fileName === file.name);
+      if (!config) continue;
 
-    // 2. Insert initial record
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const fileName = file.name.replace(/\s+/g, "_");
+      const s3Key = `${config.containerType.toUpperCase()}/${timestamp}_${fileName}`;
+
+      // 1. Upload to S3
+      const s3Uri = await uploadFileToS3Buffer(
+        buffer,
+        S3_BUCKET,
+        s3Key,
+        file.type,
+        config.region,
+      );
+      console.log("S3 URI:", s3Uri);
+
+      jobs.push({
+        s3Uri,
+        containerType: config.containerType,
+        model: config.model,
+        regionName: config.region,
+        jobType: config.jobType,
+      });
+    }
+
+    // 2. Insert initial record for the batch
     const [inserted] = await db
       .insert(results)
       .values({
-        videoId: s3Uri,
+        videoId: jobs[0].s3Uri, // Using first video as primary ref for the row
         status: "processing",
-        containerType: containerType,
-        model: model,
-        regionName: regionName,
-        json: { status: "upload_success", s3Uri, jobType },
+        containerType: jobs[0].containerType,
+        model: jobs[0].model,
+        regionName: jobs[0].regionName,
+        json: { status: "upload_success", jobs },
         createdByUserId: currentUser.id,
       })
       .returning({ id: results.id });
@@ -119,18 +159,14 @@ export async function POST(req: Request) {
     // 3. Start background batch process
     void runBatchProcessingJob({
       resultId: inserted.id,
-      s3Uri,
-      containerType,
-      model,
-      regionName,
-      jobType,
+      jobs,
     });
 
-    return NextResponse.json({ id: inserted.id, s3Uri }, { status: 202 });
+    return NextResponse.json({ id: inserted.id, jobs }, { status: 202 });
   } catch (error: any) {
     console.error("API Error:", error);
     return NextResponse.json(
-      { error: "Failed to process video", details: error.message },
+      { error: "Failed to process batch", details: error.message },
       { status: 500 },
     );
   }

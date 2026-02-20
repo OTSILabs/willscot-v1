@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 
+// next.config.ts
 const nextConfig: NextConfig = {
-  /* config options here */
+  experimental: {
+    // middlewareClientMaxBodySize: "50mb",
+    proxyClientMaxBodySize: "50mb",
+  },
 };
-
 export default nextConfig;

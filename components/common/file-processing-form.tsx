@@ -83,16 +83,25 @@ export function FileProcessingFormContent() {
   const router = useRouter();
 
   useEffect(() => {
-    setFilesToProcess(
-      files.map((file, index) => ({
-        file,
-        index,
-        containerType: "trailer",
-        model: "nova-2-pro",
-        region: "us-west-2",
-        jobType: "interior",
-      })),
-    );
+    setFilesToProcess((prev) => {
+      // Create a map of existing items by file name (assuming unique for now)
+      const existingMap = new Map(prev.map((p) => [p.file.name, p]));
+
+      return files.map((file, index) => {
+        const existing = existingMap.get(file.name);
+        if (existing) {
+          return { ...existing, file, index }; // Update file reference and index
+        }
+        return {
+          file,
+          index,
+          containerType: "trailer",
+          model: "nova-2-pro",
+          region: "us-west-2",
+          jobType: "interior",
+        };
+      });
+    });
   }, [files]);
 
   const form = useForm<FormValues>({
@@ -113,32 +122,28 @@ export function FileProcessingFormContent() {
     const toastId = toast.loading("Uploading and processing videos...");
 
     try {
-      let lastId = "";
+      const formData = new FormData();
+      const configs = filesToProcess.map((item) => ({
+        fileName: item.file.name,
+        containerType: item.containerType,
+        model: item.model,
+        region: item.region,
+        jobType: item.jobType,
+      }));
+
       for (const item of filesToProcess) {
-        const formData = new FormData();
-        formData.append("file", item.file);
-        formData.append("containerType", item.containerType);
-        formData.append("model", item.model);
-        formData.append("region", item.region);
-        formData.append("jobType", item.jobType);
-
-        const response = await axios.post("/api/process-batch", formData, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        });
-
-        if (response.data?.id) {
-          lastId = response.data.id;
-        }
+        formData.append("files", item.file);
       }
+      formData.append("configs", JSON.stringify(configs));
+
+      const response = await axios.post("/api/process-batch", formData);
 
       toast.success("All videos have been submitted successfully!", {
         id: toastId,
       });
       handleClearFiles();
-      if (lastId) {
-        router.push(`/traces/${lastId}`);
+      if (response.data?.id) {
+        router.push(`/traces/${response.data.id}`);
       }
     } catch (error: any) {
       console.error("Submission error:", error);
