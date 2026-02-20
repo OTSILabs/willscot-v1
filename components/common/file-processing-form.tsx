@@ -44,7 +44,7 @@ export function FileProcessingForm() {
   return (
     <FileInputProvider
       maxFiles={10}
-      accept="video/*"
+      accept="MP4"
       maxFileSize={100 * 1024 * 1024}
     >
       <FileProcessingFormContent />
