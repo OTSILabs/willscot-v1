@@ -84,6 +84,11 @@ export function FileProcessingFormContent() {
 
   useEffect(() => {
     setFilesToProcess((prev) => {
+      const jobType = new Map<string, "interior" | "exterior">(
+        prev.map((p) => [p.jobType, p.jobType]),
+      );
+
+
       const existingMap = new Map(prev.map((p) => [p.file.name, p]));
 
       return files.map((file, index) => {
@@ -98,7 +103,7 @@ export function FileProcessingFormContent() {
           containerType: "trailer",
           model: "nova-2-omni",
           region: "us-west-2",
-          jobType: "interior",
+          jobType: jobType.get("interior") ? "exterior" : "interior",
         };
       });
     });
