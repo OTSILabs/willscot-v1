@@ -10,7 +10,8 @@ export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
 const BATCH_LAMBDA_ENDPOINT =
-  "https://gaxnus4wvh2o6qyznco5t3u5wm0qjmwl.lambda-url.us-west-2.on.aws/process-video-with-targeted-frame-batch";
+  `${process.env.LAMBDA_ENDPOINT}/process-video-with-targeted-frame-batch`;
+
 const S3_BUCKET = "ws-s3-unit-attribute-capture-nova";
 
 type JobConfig = {
@@ -131,7 +132,6 @@ export async function POST(req: Request) {
         file.type,
         config.region,
       );
-      console.log("S3 URI:", s3Uri);
 
       jobs.push({
         s3Uri,
@@ -146,11 +146,11 @@ export async function POST(req: Request) {
     const [inserted] = await db
       .insert(results)
       .values({
-        videoId: jobs[0].s3Uri, // Using first video as primary ref for the row
+        videoId: jobs.map((j) => j.s3Uri).join(","),
         status: "processing",
-        containerType: jobs[0].containerType,
-        model: jobs[0].model,
-        regionName: jobs[0].regionName,
+        containerType: jobs.map((j) => j.containerType).join(","),
+        model: jobs.map((j) => j.model).join(","),
+        regionName: jobs.map((j) => j.regionName).join(","),
         json: { status: "upload_success", jobs },
         createdByUserId: currentUser.id,
       })
@@ -164,7 +164,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ id: inserted.id, jobs }, { status: 202 });
   } catch (error: any) {
-    console.error("API Error:", error);
     return NextResponse.json(
       { error: "Failed to process batch", details: error.message },
       { status: 500 },

@@ -139,7 +139,6 @@ export default function ResultDetailPage() {
                       <TabsContent value="results" className="m-0 min-h-0 flex-1 overflow-auto">
                         <AttributesTable
                           attributes={attributes}
-                          // onFrameClick={handleFrameClick}
                           onAttributeUpdate={handleFeedbackChange}
                         />
                       </TabsContent>
@@ -153,33 +152,34 @@ export default function ResultDetailPage() {
                   <ResizableHandle withHandle />
 
                   <ResizablePanel defaultSize={30} minSize={0}>
-                    {/* <Tabs defaultValue="video" className="flex h-full min-h-0 flex-col"> */}
-                    {/* <div className="border-b">
-                    <TabsList variant="line" className="grid w-[220px] grid-cols-2">
-                      <TabsTrigger value="video">Video</TabsTrigger>
-                      {/* <TabsTrigger value="frame">Frame</TabsTrigger> */}
-                    {/* </TabsList> */}
-                    {/* </div> */}
+                    <Tabs defaultValue="interior-video" className="flex h-full min-h-0 flex-col">
+                      <div className="border-b">
+                        <TabsList variant="line" className="grid w-[220px] grid-cols-2">
+                          <TabsTrigger value="interior-video">Interior</TabsTrigger>
+                          <TabsTrigger value="exterior-video">Exterior</TabsTrigger>
+                        </TabsList>
+                      </div>
 
-                    {/* <TabsContent value="frame" className="m-0 min-h-0 flex-1 overflow-auto">
-                    <div className="flex h-full min-h-0">
-                      <FramePreviewPanel
-                        selectedFrame={selectedFrame}
-                        regionName={videoRegion}
-                      />
-                    </div>
-                  </TabsContent> */}
+                      <TabsContent value="exterior-video" className="m-0 min-h-0 flex-1 overflow-auto">
+                        <div className="flex h-full min-h-0">
+                          <VideoPreviewPanel
+                            videoRef={videoRef}
+                            videoSource={result.json.video?.exterior_s3_uri}
+                            regionName={result.json.video?.exterior_region}
+                          />
+                        </div>
+                      </TabsContent>
 
-                    {/* <TabsContent value="video" className="m-0 min-h-0 flex-1 overflow-auto"> */}
-                    <div className="flex h-full min-h-0">
-                      <VideoPreviewPanel
-                        videoRef={videoRef}
-                        videoSource={videoSource}
-                        regionName={videoRegion}
-                      />
-                    </div>
-                    {/* </TabsContent> */}
-                    {/* </Tabs> */}
+                      <TabsContent value="interior-video" className="m-0 min-h-0 flex-1 overflow-auto">
+                        <div className="flex h-full min-h-0">
+                          <VideoPreviewPanel
+                            videoRef={videoRef}
+                            videoSource={result.json.video?.interior_s3_uri}
+                            regionName={result.json.video?.interior_region}
+                          />
+                        </div>
+                      </TabsContent>
+                    </Tabs>
                   </ResizablePanel>
                 </ResizablePanelGroup>
               </div>

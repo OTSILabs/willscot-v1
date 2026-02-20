@@ -15,6 +15,15 @@ export interface TraceVideoInfo {
   s3_uri?: string | null;
   region?: string | null;
   container_type?: string | null;
+  interior_s3_uri?: string | null;
+  exterior_s3_uri?: string | null;
+  interior_model_id?: string | null;
+  exterior_model_id?: string | null;
+  interior_region?: string | null;
+  exterior_region?: string | null;
+  local_video_path?: string | null;
+  frames_root_dir?: string | null;
+  prompt_docx?: string | null;
 }
 
 export interface ResultJson {

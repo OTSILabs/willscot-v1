@@ -41,7 +41,7 @@ async function runProcessingJob({
     let responseText: string;
 
     try {
-      response = await fetch(process.env.LAMBDA_ENDPOINT!, {
+      response = await fetch(`${process.env.LAMBDA_ENDPOINT}/process-video-with-targeted-frame`, {
         method: "POST",
         headers: {
           Accept: "application/json",
