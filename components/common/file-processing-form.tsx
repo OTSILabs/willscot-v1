@@ -84,19 +84,19 @@ export function FileProcessingFormContent() {
 
   useEffect(() => {
     setFilesToProcess((prev) => {
-      // Create a map of existing items by file name (assuming unique for now)
       const existingMap = new Map(prev.map((p) => [p.file.name, p]));
 
       return files.map((file, index) => {
         const existing = existingMap.get(file.name);
         if (existing) {
-          return { ...existing, file, index }; // Update file reference and index
+          return { ...existing, file, index };
         }
+
         return {
           file,
           index,
           containerType: "trailer",
-          model: "nova-2-pro",
+          model: "nova-2-omni",
           region: "us-west-2",
           jobType: "interior",
         };
@@ -122,21 +122,54 @@ export function FileProcessingFormContent() {
     const toastId = toast.loading("Uploading and processing videos...");
 
     try {
-      const formData = new FormData();
-      const configs = filesToProcess.map((item) => ({
-        fileName: item.file.name,
-        containerType: item.containerType,
-        model: item.model,
-        region: item.region,
-        jobType: item.jobType,
-      }));
+      // Step 1: Get presigned URLs for each file
+      const uploadPromises = filesToProcess.map(async (item) => {
+        const presignResponse = await axios.post("/api/s3/presign-upload", {
+          fileName: item.file.name,
+          containerType: item.containerType,
+          region: item.region,
+          contentType: item.file.type,
+        });
 
-      for (const item of filesToProcess) {
-        formData.append("files", item.file);
-      }
-      formData.append("configs", JSON.stringify(configs));
+        const { presignedUrl, s3Uri } = presignResponse.data;
 
-      const response = await axios.post("/api/process-batch", formData);
+        // Step 2: Upload file directly to S3 using presigned URL
+        await axios.put(presignedUrl, item.file, {
+          headers: {
+            "Content-Type": item.file.type,
+          },
+          onUploadProgress: (progressEvent) => {
+            if (progressEvent.total) {
+              const percentCompleted = Math.round(
+                (progressEvent.loaded * 100) / progressEvent.total,
+              );
+              toast.loading(
+                <div className="flex flex-col gap-2">
+                  <div className="text-sm text-muted-foreground">Uploading</div>
+                  <div className="truncate max-w-md">{item.file.name}</div>
+                  <div className="text-sm text-muted-foreground">{percentCompleted}%</div>
+                </div>,
+                { id: toastId },
+              );
+            }
+          },
+        });
+
+        return {
+          s3Uri,
+          containerType: item.containerType,
+          model: item.model,
+          region: item.region,
+          jobType: item.jobType,
+        };
+      });
+
+      const jobs = await Promise.all(uploadPromises);
+
+      // Step 3: Send S3 URIs to process-batch API
+      const response = await axios.post("/api/process-batch", {
+        jobs,
+      });
 
       toast.success("All videos have been submitted successfully!", {
         id: toastId,
@@ -145,9 +178,13 @@ export function FileProcessingFormContent() {
       if (response.data?.id) {
         router.push(`/traces/${response.data.id}`);
       }
-    } catch (error: any) {
-      console.error("Submission error:", error);
-      toast.error(error.response?.data?.error || "Failed to submit videos.", {
+    } catch (error: unknown) {
+      const errorMessage =
+        (error && typeof error === "object" && "response" in error
+          ? (error.response as { data?: { error?: string } })?.data?.error
+          : null) ||
+        (error instanceof Error ? error.message : "Unknown error");
+      toast.error(`Failed to submit videos: ${errorMessage}`, {
         id: toastId,
       });
     } finally {

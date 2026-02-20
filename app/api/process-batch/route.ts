@@ -3,7 +3,6 @@ import { db } from "@/lib/db";
 import { results } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { uploadFileToS3Buffer } from "@/lib/s3";
 import axios from "axios";
 
 export const maxDuration = 300;
@@ -11,16 +10,6 @@ export const dynamic = "force-dynamic";
 
 const BATCH_LAMBDA_ENDPOINT =
   `${process.env.LAMBDA_ENDPOINT}/process-video-with-targeted-frame-batch`;
-
-const S3_BUCKET = "ws-s3-unit-attribute-capture-nova";
-
-type JobConfig = {
-  fileName: string;
-  containerType: string;
-  model: string;
-  region: string;
-  jobType: "interior" | "exterior";
-};
 
 async function runBatchProcessingJob({
   resultId,
@@ -36,24 +25,34 @@ async function runBatchProcessingJob({
   }[];
 }) {
   try {
+    const interiorJobs = jobs.filter((j) => j.jobType === "interior");
+    const exteriorJobs = jobs.filter((j) => j.jobType === "exterior");
     const payload = {
-      interior_jobs: jobs
-        .filter((j) => j.jobType === "interior")
-        .map((j) => ({
-          s3_uri: j.s3Uri,
-          model: j.model,
-          region: j.regionName,
-          container_type: j.containerType,
-        })),
-      exterior_jobs: jobs
-        .filter((j) => j.jobType === "exterior")
-        .map((j) => ({
-          s3_uri: j.s3Uri,
-          model: j.model,
-          region: j.regionName,
-          container_type: j.containerType,
-        })),
+      interior_jobs: interiorJobs.length > 0 ? interiorJobs.map((j) => ({
+        s3_uri: j.s3Uri,
+        model: j.model,
+        region: j.regionName,
+        container_type: j.containerType,
+      })) : {
+        s3_uri: "string",
+        model: "string",
+        region: "string",
+        container_type: "string",
+      },
+      exterior_jobs: exteriorJobs.length > 0 ? exteriorJobs.map((j) => ({
+        s3_uri: j.s3Uri,
+        model: j.model,
+        region: j.regionName,
+        container_type: j.containerType,
+      })) : {
+        s3_uri: "string",
+        model: "string",
+        region: "string",
+        container_type: "string",
+      },
     };
+
+    console.log("payload :", payload);
 
     const response = await axios.post(BATCH_LAMBDA_ENDPOINT, payload, {
       headers: {
@@ -94,75 +93,62 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const formData = await req.formData();
-    const files = formData.getAll("files") as File[];
-    const configsStr = formData.get("configs") as string;
+    const body = await req.json();
+    const jobs = body.jobs as {
+      s3Uri: string;
+      containerType: string;
+      model: string;
+      region: string;
+      jobType: "interior" | "exterior";
+    }[];
 
-    if (!files.length || !configsStr) {
+    if (!jobs || !Array.isArray(jobs) || jobs.length === 0) {
       return NextResponse.json(
-        { error: "Missing files or configurations" },
+        { error: "Missing or invalid jobs array" },
         { status: 400 },
       );
     }
 
-    const configs = JSON.parse(configsStr) as JobConfig[];
-    const jobs: {
-      s3Uri: string;
-      containerType: string;
-      model: string;
-      regionName: string;
-      jobType: string;
-    }[] = [];
-
-    const timestamp = Date.now();
-
-    for (const file of files) {
-      const config = configs.find((c) => c.fileName === file.name);
-      if (!config) continue;
-
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const fileName = file.name.replace(/\s+/g, "_");
-      const s3Key = `${config.containerType.toUpperCase()}/${timestamp}_${fileName}`;
-
-      // 1. Upload to S3
-      const s3Uri = await uploadFileToS3Buffer(
-        buffer,
-        S3_BUCKET,
-        s3Key,
-        file.type,
-        config.region,
-      );
-
-      jobs.push({
-        s3Uri,
-        containerType: config.containerType,
-        model: config.model,
-        regionName: config.region,
-        jobType: config.jobType,
-      });
+    // Validate all required fields are present
+    for (const job of jobs) {
+      if (!job.s3Uri || !job.containerType || !job.model || !job.region || !job.jobType) {
+        return NextResponse.json(
+          { error: "Each job must have s3Uri, containerType, model, region, and jobType" },
+          { status: 400 },
+        );
+      }
     }
 
-    // 2. Insert initial record for the batch
+    // Transform jobs to match the expected format
+    const formattedJobs = jobs.map((job) => ({
+      s3Uri: job.s3Uri,
+      containerType: job.containerType,
+      model: job.model,
+      regionName: job.region,
+      jobType: job.jobType,
+    }));
+
+    // Insert initial record for the batch
     const [inserted] = await db
       .insert(results)
       .values({
-        videoId: jobs.map((j) => j.s3Uri).join(","),
+        videoId: formattedJobs.map((j) => j.s3Uri).join(","),
         status: "processing",
-        containerType: jobs.map((j) => j.containerType).join(","),
-        model: jobs.map((j) => j.model).join(","),
-        regionName: jobs.map((j) => j.regionName).join(","),
-        json: { status: "upload_success", jobs },
+        containerType: formattedJobs.map((j) => j.containerType).join(","),
+        model: formattedJobs.map((j) => j.model).join(","),
+        regionName: formattedJobs.map((j) => j.regionName).join(","),
+        json: { status: "upload_success", jobs: formattedJobs },
         createdByUserId: currentUser.id,
       })
       .returning({ id: results.id });
 
-    // 3. Start background batch process
+    // Start background batch process
     void runBatchProcessingJob({
       resultId: inserted.id,
-      jobs,
+      jobs: formattedJobs,
     });
 
-    return NextResponse.json({ id: inserted.id, jobs }, { status: 202 });
+    return NextResponse.json({ id: inserted.id, jobs: formattedJobs }, { status: 202 });
   } catch (error: any) {
     return NextResponse.json(
       { error: "Failed to process batch", details: error.message },

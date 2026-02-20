@@ -42,7 +42,7 @@ function parseS3Uri(uri: string) {
 }
 
 /**
- * Generates a pre-signed URL for a given S3 URI
+ * Generates a pre-signed URL for a given S3 URI (for GET operations)
  */
 export async function getPresignedUrl(
   s3Uri: string,
@@ -63,6 +63,31 @@ export async function getPresignedUrl(
   } catch (error) {
     console.error("Error generating presigned URL for", s3Uri, error);
     return s3Uri;
+  }
+}
+
+/**
+ * Generates a pre-signed URL for uploading a file to S3 (PUT operation)
+ */
+export async function getPresignedUploadUrl(
+  bucket: string,
+  key: string,
+  contentType: string,
+  expiresIn: number = 3600,
+  region?: string,
+) {
+  try {
+    const s3Client = getS3Client(region);
+    const command = new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      ContentType: contentType,
+    });
+
+    return await getSignedUrl(s3Client, command, { expiresIn });
+  } catch (error) {
+    console.error("Error generating presigned upload URL:", error);
+    throw error;
   }
 }
 
