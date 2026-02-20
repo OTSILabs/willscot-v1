@@ -8,7 +8,6 @@ import {
   type ColumnDef,
   type ColumnFiltersState,
   type RowSelectionState,
-  type Table as TanstackTable,
 } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -46,7 +45,6 @@ export function DataTable<TData>({
   page,
   onPageChange,
   manualFiltering = true,
-  onFilterChange,
   onRowSelectionChange,
   rowSelection = {},
 }: DataTableProps<TData>) {
@@ -65,7 +63,6 @@ export function DataTable<TData>({
       : undefined,
     manualPagination: true,
     manualFiltering: manualFiltering,
-    enableColumnFilter: true,
     getFilteredRowModel: getFilteredRowModel(),
     onColumnFiltersChange: (filters) => {
       setColumnFilters(filters as ColumnFiltersState);
@@ -77,9 +74,6 @@ export function DataTable<TData>({
     },
   });
 
-  useEffect(() => {
-    onFilterChange?.(columnFilters);
-  }, [columnFilters]);
 
   return (
     <div ref={tableContainerRef}>
@@ -104,9 +98,9 @@ export function DataTable<TData>({
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
                     </TableHead>
                   ))}
                 </TableRow>
