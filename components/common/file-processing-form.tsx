@@ -174,7 +174,6 @@ export function FileProcessingFormContent() {
       toast.success("All videos have been submitted successfully!", {
         id: toastId,
       });
-      handleClearFiles();
       if (response.data?.id) {
         router.push(`/traces/${response.data.id}`);
       }
