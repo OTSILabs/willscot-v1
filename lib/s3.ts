@@ -1,4 +1,8 @@
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  GetObjectCommand,
+  PutObjectCommand,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const defaultRegion = process.env.AWS_REGION || "us-west-2";
@@ -59,5 +63,32 @@ export async function getPresignedUrl(
   } catch (error) {
     console.error("Error generating presigned URL for", s3Uri, error);
     return s3Uri;
+  }
+}
+
+/**
+ * Uploads a file buffer to S3
+ */
+export async function uploadFileToS3Buffer(
+  buffer: Buffer,
+  bucket: string,
+  key: string,
+  contentType: string,
+  region?: string,
+) {
+  try {
+    const s3Client = getS3Client(region);
+    const command = new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: buffer,
+      ContentType: contentType,
+    });
+
+    await s3Client.send(command);
+    return `s3://${bucket}/${key}`;
+  } catch (error) {
+    console.error("Error uploading to S3:", error);
+    throw error;
   }
 }

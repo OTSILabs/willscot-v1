@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Card,
   CardAction,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "../ui/card";
@@ -24,12 +25,28 @@ import {
   useFileInput,
 } from "../file";
 import { DataTable } from "../data-table";
-import { PlusIcon, XIcon } from "lucide-react";
+import { PlayIcon, PlusIcon, XIcon } from "lucide-react";
 import { Row } from "@tanstack/react-table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import { Input } from "../ui/input";
+import { Spinner } from "../ui/spinner";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import axios from "axios";
 
 type FileToProcess = {
   file: File;
   index: number;
+  containerType: string;
+  model: string;
+  region: string;
+  jobType: "interior" | "exterior";
 };
 
 const formSchema = z.object({
@@ -43,9 +60,9 @@ type FormValues = z.infer<typeof formSchema>;
 export function FileProcessingForm() {
   return (
     <FileInputProvider
-      maxFiles={10}
-      accept="MP4"
-      maxFileSize={100 * 1024 * 1024}
+      maxFiles={2}
+      accept="video/*"
+      maxFileSize={500 * 1024 * 1024}
     >
       <FileProcessingFormContent />
     </FileInputProvider>
@@ -61,10 +78,22 @@ export function FileProcessingFormContent() {
     maxFiles,
   } = useFileInput();
 
-  const filesToProcess = useMemo(() => {
-    return files.map((file, index) => ({ file, index }));
+  const [filesToProcess, setFilesToProcess] = useState<FileToProcess[]>([]);
+  const [isPending, setIsPending] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    setFilesToProcess(
+      files.map((file, index) => ({
+        file,
+        index,
+        containerType: "trailer",
+        model: "nova-2-pro",
+        region: "us-west-2",
+        jobType: "interior",
+      })),
+    );
   }, [files]);
-  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({});
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -73,11 +102,141 @@ export function FileProcessingFormContent() {
     },
   });
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (filesToProcess.length === 0) {
+      toast.error("Please select at least one file.");
+      return;
+    }
+
+    setIsPending(true);
+    const toastId = toast.loading("Uploading and processing videos...");
+
+    try {
+      let lastId = "";
+      for (const item of filesToProcess) {
+        const formData = new FormData();
+        formData.append("file", item.file);
+        formData.append("containerType", item.containerType);
+        formData.append("model", item.model);
+        formData.append("region", item.region);
+        formData.append("jobType", item.jobType);
+
+        const response = await axios.post("/api/process-batch", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+
+        if (response.data?.id) {
+          lastId = response.data.id;
+        }
+      }
+
+      toast.success("All videos have been submitted successfully!", {
+        id: toastId,
+      });
+      handleClearFiles();
+      if (lastId) {
+        router.push(`/traces/${lastId}`);
+      }
+    } catch (error: any) {
+      console.error("Submission error:", error);
+      toast.error(error.response?.data?.error || "Failed to submit videos.", {
+        id: toastId,
+      });
+    } finally {
+      setIsPending(false);
+    }
+  };
+
   const columns = useMemo(() => {
     return [
       {
         header: "File Name",
         accessorKey: "file.name",
+      },
+      {
+        header: "Container Type",
+        accessorKey: "containerType",
+        cell: ({ row }: { row: Row<FileToProcess> }) => (
+          <Select
+            value={row.original.containerType}
+            onValueChange={(value) => {
+              setFilesToProcess((prev) =>
+                prev.map((file) =>
+                  file.index === row.index
+                    ? { ...file, containerType: value }
+                    : file,
+                ),
+              );
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select container type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="trailer">Trailer</SelectItem>
+              <SelectItem value="container">Container</SelectItem>
+              <SelectItem value="flex">Flex</SelectItem>
+            </SelectContent>
+          </Select>
+        ),
+      },
+      {
+        header: "Job Type",
+        accessorKey: "jobType",
+        cell: ({ row }: { row: Row<FileToProcess> }) => (
+          <Select
+            value={row.original.jobType}
+            onValueChange={(value: "interior" | "exterior") => {
+              setFilesToProcess((prev) =>
+                prev.map((file) =>
+                  file.index === row.index ? { ...file, jobType: value } : file,
+                ),
+              );
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="interior">Interior</SelectItem>
+              <SelectItem value="exterior">Exterior</SelectItem>
+            </SelectContent>
+          </Select>
+        ),
+      },
+      {
+        header: "Model",
+        accessorKey: "model",
+        cell: ({ row }: { row: Row<FileToProcess> }) => (
+          <Select
+            value={row.original.model}
+            onValueChange={(value) => {
+              setFilesToProcess((prev) =>
+                prev.map((file) =>
+                  file.index === row.index ? { ...file, model: value } : file,
+                ),
+              );
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select model" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="nova-2-omni">Nova 2 Omni</SelectItem>
+              <SelectItem value="nova-2-pro">Nova 2 Pro</SelectItem>
+            </SelectContent>
+          </Select>
+        ),
+      },
+      {
+        header: "Region",
+        accessorKey: "region",
+        cell: ({ row }: { row: Row<FileToProcess> }) => (
+          <Input value={row.original.region} disabled />
+        ),
       },
       {
         header: "Action",
@@ -91,63 +250,78 @@ export function FileProcessingFormContent() {
             onClick={() => handleDeleteFile(row.index)}
             variant="destructive"
             type="button"
-            // disabled={isPending}
+            disabled={isPending}
           >
             <XIcon className="size-4" />
           </Button>
         ),
       },
     ];
-  }, [handleDeleteFile]);
+  }, [handleDeleteFile, isPending]);
 
   return (
     <Form {...form}>
-      <form onSubmit={() => {}}>
+      <form onSubmit={handleSubmit}>
         <FileHiddenInput />
         {files.length > 0 ? (
-          <Card className="py-0 gap-0">
-            <CardHeader className="border-b px-6 py-4! items-center">
-              <CardTitle>Files to Process</CardTitle>
-              <CardDescription>
-                Maximum of {maxFiles} files can be processed at a time.
-              </CardDescription>
-              <CardAction>
-                <ButtonGroup>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    type="button"
-                    onClick={() => {
-                      handleClearFiles();
-                      setRowSelection({});
-                      form.reset();
-                    }}
-                  >
-                    <XIcon />
-                    Clear all
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={handleOpenFileInput}
-                    type="button"
-                    disabled={files.length >= maxFiles}
-                  >
-                    <PlusIcon />
-                    Add More
-                  </Button>
-                </ButtonGroup>
-              </CardAction>
-            </CardHeader>
-            <CardContent className="p-0">
-              <DataTable
-                columns={columns}
-                data={filesToProcess}
-                enablePagination={false}
-                onRowSelectionChange={setRowSelection}
-                rowSelection={rowSelection}
-              />
-            </CardContent>
-          </Card>
+          <div className="space-y-4">
+            <Card className="py-0 gap-0">
+              <CardHeader className="border-b px-6 py-4! items-center">
+                <CardTitle>Files to Process</CardTitle>
+                <CardDescription>
+                  Maximum of {maxFiles} files can be processed at a time.
+                </CardDescription>
+                <CardAction>
+                  <ButtonGroup>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      disabled={isPending}
+                      onClick={() => {
+                        handleClearFiles();
+                        form.reset();
+                      }}
+                    >
+                      <XIcon />
+                      Clear all
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleOpenFileInput}
+                      type="button"
+                      disabled={files.length >= maxFiles || isPending}
+                    >
+                      <PlusIcon />
+                      Add More
+                    </Button>
+                  </ButtonGroup>
+                </CardAction>
+              </CardHeader>
+              <CardContent className="p-0">
+                <DataTable
+                  columns={columns}
+                  data={filesToProcess}
+                  enablePagination={false}
+                />
+              </CardContent>
+              <CardFooter className={"border-t justify-end mb-4"}>
+                <Button size="lg" type="submit" disabled={isPending}>
+                  {isPending ? (
+                    <>
+                      Processing Videos...
+                      <Spinner className="ml-2" />
+                    </>
+                  ) : (
+                    <>
+                      Start Process Now
+                      <PlayIcon className="ml-2" />
+                    </>
+                  )}
+                </Button>
+              </CardFooter>
+            </Card>
+          </div>
         ) : (
           <FileInput />
         )}

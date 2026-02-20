@@ -70,11 +70,11 @@ interface FileInputProviderProps {
 
 export function FileInputProvider({
   children,
-  maxFiles = 10,
+  maxFiles = 2,
   accept = "*",
   multiple = true,
-  maxFileSize = 5 * 1024 * 1024,
-  maxTotalSize = 25 * 1024 * 1024,
+  maxFileSize = 500 * 1024 * 1024,
+  maxTotalSize = 500 * 1024 * 1024,
 }: FileInputProviderProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [files, setFiles] = useState<File[]>([]);
