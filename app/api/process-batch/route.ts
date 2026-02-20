@@ -4,6 +4,7 @@ import { results } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import axios from "axios";
+import { waitUntil } from "@vercel/functions";
 
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -143,10 +144,12 @@ export async function POST(req: Request) {
       .returning({ id: results.id });
 
     // Start background batch process
-    void runBatchProcessingJob({
-      resultId: inserted.id,
-      jobs: formattedJobs,
-    });
+    waitUntil(
+      runBatchProcessingJob({
+        resultId: inserted.id,
+        jobs: formattedJobs,
+      })
+    );
 
     return NextResponse.json({ id: inserted.id, jobs: formattedJobs }, { status: 202 });
   } catch (error: any) {
