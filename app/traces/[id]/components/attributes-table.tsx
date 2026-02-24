@@ -118,6 +118,7 @@ export function AttributesTable({
             <TableHead>Property</TableHead>
             <TableHead>Attribute</TableHead>
             <TableHead>Value</TableHead>
+            <TableHead>Source</TableHead>
             <TableHead className="w-[40%]">Evidence</TableHead>
             <TableHead className="w-[25%]">Feedback</TableHead>
           </TableRow>
@@ -136,6 +137,7 @@ export function AttributesTable({
                 <TableCell>{toTitleCase(attribute.pipeline)}</TableCell>
                 <TableCell>{toTitleCase(attribute.attribute)}</TableCell>
                 <TableCell>{formatMeta(attribute.value)}</TableCell>
+                <TableCell>{formatMeta(attribute.source)}</TableCell>
                 <TableCell className="whitespace-normal wrap-break-word">
                   {formatMeta(attribute.evidence)}
                 </TableCell>

@@ -122,16 +122,24 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
             data?.items?.map((result: Result) => (
               <TableRow key={result.id}>
                 <TableCell className="font-mono text-[10px] max-w-[300px] whitespace-normal break-all">
-                  {result.videoId}
+                  <div className="flex flex-col gap-4">
+                    {result.videoId.toString().split(',').map((v, i) => <div key={i}>{v}</div>)}
+                  </div>
                 </TableCell>
                 <TableCell>
-                  <RowValue value={result.regionName} />
+                  <div className="flex flex-col gap-4">
+                    {result.regionName.toString().split(',').map((v, i) => <div key={i}>{v}</div>)}
+                  </div>
                 </TableCell>
                 <TableCell>
-                  <RowValue value={result.containerType} />
+                  <div className="flex flex-col gap-4">
+                    {result.containerType.toString().split(',').map((v, i) => <div key={i}>{v}</div>)}
+                  </div>
                 </TableCell>
                 <TableCell>
-                  <RowValue value={result.model} />
+                  <div className="flex flex-col gap-4">
+                    {result.model.toString().split(',').map((v, i) => <div key={i}>{v}</div>)}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <Badge

@@ -118,17 +118,41 @@ export function FileProcessingFormContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (filesToProcess.length === 0) {
       toast.error("Please select at least one file.");
       return;
     }
 
+    let exteriorJobs = 0;
+    let interiorJobs = 0;
+
+    for (const item of filesToProcess) {
+      if (item.jobType === "exterior") {
+        exteriorJobs++;
+      } else {
+        interiorJobs++;
+      }
+    }
+
+    if (!interiorJobs || !exteriorJobs) {
+      toast.error("Invalid job type selection.", {
+        description: "Please select at least one interior and one exterior job.",
+      });
+      return;
+    }
+
     setIsPending(true);
-    const toastId = toast.loading("Uploading and processing videos...");
+    const toastId = toast.loading("Uploading videos to S3...", {
+      closeButton: false
+    });
 
     try {
-      // Step 1: Get presigned URLs for each file
       const uploadPromises = filesToProcess.map(async (item) => {
+        const uploadToastId = toast.loading(`Uploading ${item.file.name}...`, {
+          closeButton: false,
+          id: `upload-${item.file.name}`
+        });
         const presignResponse = await axios.post("/api/s3/presign-upload", {
           fileName: item.file.name,
           containerType: item.containerType,
@@ -138,7 +162,6 @@ export function FileProcessingFormContent() {
 
         const { presignedUrl, s3Uri } = presignResponse.data;
 
-        // Step 2: Upload file directly to S3 using presigned URL
         await axios.put(presignedUrl, item.file, {
           headers: {
             "Content-Type": item.file.type,
@@ -154,8 +177,12 @@ export function FileProcessingFormContent() {
                   <div className="truncate max-w-md">{item.file.name}</div>
                   <div className="text-sm text-muted-foreground">{percentCompleted}%</div>
                 </div>,
-                { id: toastId },
+                { id: uploadToastId },
               );
+
+              if (percentCompleted === 100) {
+                toast.dismiss(uploadToastId);
+              }
             }
           },
         });
@@ -171,7 +198,6 @@ export function FileProcessingFormContent() {
 
       const jobs = await Promise.all(uploadPromises);
 
-      // Step 3: Send S3 URIs to process-batch API
       const response = await axios.post("/api/process-batch", {
         jobs,
       });
@@ -179,9 +205,11 @@ export function FileProcessingFormContent() {
       toast.success("All videos have been submitted successfully!", {
         id: toastId,
       });
+
       if (response.data?.id) {
         router.push(`/traces/${response.data.id}`);
       }
+
     } catch (error: unknown) {
       const errorMessage =
         (error && typeof error === "object" && "response" in error
@@ -190,7 +218,13 @@ export function FileProcessingFormContent() {
         (error instanceof Error ? error.message : "Unknown error");
       toast.error(`Failed to submit videos: ${errorMessage}`, {
         id: toastId,
+        closeButton: true
       });
+
+      filesToProcess.forEach((item) => {
+        toast.dismiss(`upload-${item.file.name}`);
+      });
+
     } finally {
       setIsPending(false);
     }

@@ -9,6 +9,7 @@ export interface TraceAttribute {
   feedback?: string | null;
   error?: string | null;
   status?: "correct" | "wrong";
+  source?: string | null;
 }
 
 export interface TraceVideoInfo {
@@ -43,5 +44,6 @@ export interface ResultDetail {
   createdByName?: string | null;
   createdByEmail?: string | null;
   createdAt: string;
+  regionName?: string | null;
 }
 

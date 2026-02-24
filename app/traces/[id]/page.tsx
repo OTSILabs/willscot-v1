@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { useParams, useRouter } from "next/navigation";
@@ -45,6 +45,8 @@ export default function ResultDetailPage() {
       query.state.data?.status === "processing" ? DETAIL_POLLING_MS : false,
   });
 
+  const [type, setType] = useState<"interior" | "exterior">("interior");
+
   if (isLoading) {
     return (
       <div className="flex min-h-[300px] items-center justify-center gap-2 text-muted-foreground">
@@ -67,8 +69,6 @@ export default function ResultDetailPage() {
   const attributes = Array.isArray(list) ? (list as TraceAttribute[]) : [];
   const isProcessing = result.status === "processing";
   const isFailed = result.status === "failed";
-  const videoRegion = result.json.video?.region || null;
-  const videoSource = result.json.video?.s3_uri || result.videoId || result.videoUrl || null;
 
   async function handleFeedbackChange(index: number, newAttribute: TraceAttribute) {
     if (!result) return;
@@ -93,7 +93,7 @@ export default function ResultDetailPage() {
     <div className="space-y-6 py-4">
       <div className="flex items-center justify-between">
 
-        <VideoInfoPanel result={result} />
+        <VideoInfoPanel result={result} type={type} />
 
         <Button variant="outline" size="sm" asChild>
           <Link
@@ -152,15 +152,15 @@ export default function ResultDetailPage() {
                   <ResizableHandle withHandle />
 
                   <ResizablePanel defaultSize={30} minSize={0}>
-                    <Tabs defaultValue="interior-video" className="flex h-full min-h-0 flex-col">
+                    <Tabs defaultValue="interior" value={type} onValueChange={(value) => setType(value as "interior" | "exterior")} className="flex h-full min-h-0 flex-col">
                       <div className="border-b">
                         <TabsList variant="line" className="grid w-[220px] grid-cols-2">
-                          <TabsTrigger value="interior-video">Interior</TabsTrigger>
-                          <TabsTrigger value="exterior-video">Exterior</TabsTrigger>
+                          <TabsTrigger value="interior">Interior</TabsTrigger>
+                          <TabsTrigger value="exterior">Exterior</TabsTrigger>
                         </TabsList>
                       </div>
 
-                      <TabsContent value="exterior-video" className="m-0 min-h-0 flex-1 overflow-auto">
+                      <TabsContent value="exterior" className="m-0 min-h-0 flex-1 overflow-auto">
                         <div className="flex h-full min-h-0">
                           <VideoPreviewPanel
                             videoRef={videoRef}
@@ -170,7 +170,7 @@ export default function ResultDetailPage() {
                         </div>
                       </TabsContent>
 
-                      <TabsContent value="interior-video" className="m-0 min-h-0 flex-1 overflow-auto">
+                      <TabsContent value="interior" className="m-0 min-h-0 flex-1 overflow-auto">
                         <div className="flex h-full min-h-0">
                           <VideoPreviewPanel
                             videoRef={videoRef}

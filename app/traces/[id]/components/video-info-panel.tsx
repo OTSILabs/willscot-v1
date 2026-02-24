@@ -13,6 +13,7 @@ import {
 
 interface VideoInfoPanelProps {
   result: ResultDetail;
+  type: "interior" | "exterior";
 }
 
 function formatValue(value?: string | null) {
@@ -20,19 +21,19 @@ function formatValue(value?: string | null) {
   return value;
 }
 
-export function VideoInfoPanel({ result }: VideoInfoPanelProps) {
+export function VideoInfoPanel({ result, type }: VideoInfoPanelProps) {
   const videoInfo = result.json.video || {};
 
   const items = [
     {
       label: "S3 URI",
-      value: formatValue(videoInfo.s3_uri || result.videoId),
+      value: formatValue(type === "interior" ? videoInfo.interior_s3_uri : videoInfo.exterior_s3_uri),
       mono: true,
       tooltip: true
     },
     {
       label: "Region",
-      value: formatValue(videoInfo.region),
+      value: formatValue(type === "interior" ? videoInfo.interior_region : videoInfo.exterior_region),
     },
     {
       label: "Container Type",
