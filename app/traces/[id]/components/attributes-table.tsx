@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -42,27 +42,11 @@ function toTitleCase(value?: string | null) {
     .join(" ");
 }
 
-export function AttributesTable({
-  attributes,
-  onAttributeUpdate,
-}: AttributesTableProps) {
+export function AttributesTable({ attributes, onAttributeUpdate }: AttributesTableProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"correct" | "wrong" | null>(null);
   const [dialogStep, setDialogStep] = useState<"input" | "confirm">("input");
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-
-  const sortedAttributes = useMemo(() => {
-    return [...attributes].sort((a, b) => {
-      const pipelineA = (a.pipeline || "").toLowerCase();
-      const pipelineB = (b.pipeline || "").toLowerCase();
-
-      if (pipelineA !== pipelineB) {
-        return pipelineA.localeCompare(pipelineB);
-      }
-
-      return (a.attribute || "").localeCompare(b.attribute || "");
-    });
-  }, [attributes]);
 
   const resetDialog = () => {
     setDialogOpen(false);
@@ -125,12 +109,9 @@ export function AttributesTable({
         </TableHeader>
 
         <TableBody className="[&_td]:whitespace-normal">
-          {sortedAttributes.map((attribute, index) => {
-            const originalIndex = attributes.indexOf(attribute);
-
+          {attributes.map((attribute, index) => {
             const isLocked =
-              attribute.status === "correct" ||
-              attribute.status === "wrong";
+              attribute.status === "correct" || attribute.status === "wrong";
 
             return (
               <TableRow key={index}>
@@ -148,11 +129,12 @@ export function AttributesTable({
                       <span className="text-green-600 font-medium text-xs">
                         Marked Correct
                       </span>
-                    ) :
+                    ) : (
                       <div className="text-xs">
                         <p className="text-red-600">Marked Wrong:</p>
                         <p>{attribute.feedback}</p>
                       </div>
+                    )
                   ) : (
                     <div className="flex items-center gap-2 justify-center">
                       <ButtonGroup>
@@ -163,7 +145,7 @@ export function AttributesTable({
                           size="xs"
                           title="Mark as Correct"
                           className="bg-green-600 text-white hover:bg-green-700"
-                          onClick={() => handleCorrectClick(originalIndex)}
+                          onClick={() => handleCorrectClick(index)}
                         >
                           <CheckIcon />
                         </Button>
@@ -171,7 +153,7 @@ export function AttributesTable({
                         <Button
                           size="xs"
                           title="Mark as Wrong"
-                          onClick={() => handleWrongClick(originalIndex)}
+                          onClick={() => handleWrongClick(index)}
                         >
                           <XIcon />
                         </Button>

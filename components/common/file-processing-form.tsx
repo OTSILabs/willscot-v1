@@ -307,6 +307,7 @@ export function FileProcessingFormContent() {
             <SelectContent>
               <SelectItem value="nova-2-omni">Nova 2 Omni</SelectItem>
               <SelectItem value="nova-2-pro">Nova 2 Pro</SelectItem>
+              <SelectItem value="nova-2-lite">Nova 2 Lite</SelectItem>
             </SelectContent>
           </Select>
         ),
