@@ -53,13 +53,13 @@ export function Header() {
 
   return (
     <header className="border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
-      <div className="flex h-16 items-center justify-between px-10">
+      <div className="flex h-16 items-center justify-between px-4 md:px-10">
         <div className="flex items-center gap-2">
           <Link href="/traces" className="flex items-center space-x-2">
             <BrandLogo />
           </Link>
         </div>
-        <div className="flex items-center gap-6">
+        <div className="hidden md:flex items-center gap-6">
           <NavigationMenu viewport={false} className="flex items-center gap-4">
             <NavigationMenuList>
               {navLinks.map((link) => {

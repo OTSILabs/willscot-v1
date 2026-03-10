@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Eye, Info } from "lucide-react";
+import { Loader2, Eye, Info, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ResultJson } from "@/app/traces/[id]/components/types";
+import { PaginationControls } from "@/components/ui/table";
 
 interface Result {
   id: string;
@@ -80,7 +81,7 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
   const endItem = Math.min(currentPage * pageSize, totalItems);
 
   return (
-    <div className="rounded-md border bg-white">
+    <div className="rounded-md md:border bg-white">
       <div className="border-b p-3">
         <Input
           value={search}
@@ -92,7 +93,8 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
           className="max-w-sm"
         />
       </div>
-      <Table>
+      <div className="hidden md:block">
+        <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Video ID (S3 URI)</TableHead>
@@ -191,37 +193,91 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
               </TableRow>
             ))}
         </TableBody>
-      </Table>
-      <div className="flex items-center justify-between border-t px-4 py-3">
-        <p className="text-sm text-muted-foreground">
-          Showing {startItem}-{endItem} of {totalItems}
-        </p>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-            disabled={currentPage <= 1}
-          >
-            Previous
-          </Button>
-          <p className="text-sm text-muted-foreground">
-            Page {currentPage} / {totalPages}
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              setPage((prev) =>
-                Math.min(totalPages, prev + 1),
-              )
-            }
-            disabled={currentPage >= totalPages}
-          >
-            Next
-          </Button>
-        </div>
+        </Table>
       </div>
+
+      {/* Mobile Card Layout */}
+      <div className="md:hidden flex flex-col gap-4 mb-4 pt-2">
+        {isLoading ? (
+          <div className="text-center py-8 text-sm text-muted-foreground">
+            Loading results...
+          </div>
+        ) : !data?.items?.length ? (
+          <div className="text-center py-8 text-sm text-muted-foreground">
+            No results found. Start by processing a new video.
+          </div>
+        ) : (
+          data.items.map((result: Result) => (
+            <div key={result.id} className="rounded-xl p-4 bg-card shadow-sm flex flex-col gap-4">
+              <div className="flex justify-between items-start gap-2">
+                <div className="font-mono text-[10px] break-all max-w-[70%]">
+                  {result.videoId.toString().split(',').map((v, i) => <div key={i}>{v}</div>)}
+                </div>
+                <Badge
+                  variant={result.status === "completed" ? "default" : "secondary"}
+                  className="inline-flex items-center gap-1 capitalize shrink-0"
+                >
+                  {result.status === "processing" && (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  )}
+                  {result.status}
+                  {result.json?.error && (
+                    <Tooltip>
+                      <TooltipTrigger><Info className="h-3 w-3" /></TooltipTrigger>
+                      <TooltipContent><p>{result.json?.error}</p></TooltipContent>
+                    </Tooltip>
+                  )}
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <span className="text-muted-foreground block mb-1 uppercase tracking-wider font-semibold text-[10px]">Region</span>
+                  <div className="font-medium">
+                    {result.regionName.toString().split(',').map((v, i) => <div key={i}>{v}</div>)}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block mb-1 uppercase tracking-wider font-semibold text-[10px]">Model</span>
+                  <div className="font-medium">
+                    {result.model.toString().split(',').map((v, i) => <div key={i}>{v}</div>)}
+                  </div>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-muted-foreground block mb-1 uppercase tracking-wider font-semibold text-[10px]">Container Type</span>
+                  <div className="font-medium">
+                    {result.containerType.toString().split(',').map((v, i) => <div key={i}>{v}</div>)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between border-t pt-3 mt-2">
+                <div className="flex flex-col">
+                  <span className="text-xs font-medium">
+                    {result.createdByName || "Unknown user"}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {new Date(result.createdAt).toLocaleString()}
+                  </span>
+                </div>
+                <Button size="sm" asChild variant="outline" className="h-8 shadow-sm">
+                  <Link href={`/traces/${result.id}`}>
+                    <Eye className="h-3 w-3 mr-1.5" />
+                    View
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+      <PaginationControls
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={totalItems}
+        pageSize={pageSize}
+        onPageChange={setPage}
+      />
     </div>
   );
 }

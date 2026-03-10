@@ -3,6 +3,8 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
@@ -113,4 +115,52 @@ export {
   TableRow,
   TableCell,
   TableCaption,
+}
+
+interface PaginationControlsProps {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  pageSize: number;
+  onPageChange: (newPage: number) => void;
+}
+
+export function PaginationControls({
+  currentPage,
+  totalPages,
+  totalItems,
+  pageSize,
+  onPageChange,
+}: PaginationControlsProps) {
+  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const endItem = Math.min(currentPage * pageSize, totalItems);
+
+  return (
+    <div className="flex items-center justify-between border-t px-4 py-3">
+      <p className="text-[10px] md:text-sm text-muted-foreground mr-2">
+        Showing {startItem}-{endItem} of {totalItems}
+      </p>
+      <div className="flex items-center gap-1 md:gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+          disabled={currentPage <= 1}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <p className="text-xs md:text-sm text-muted-foreground font-medium">
+          Page {currentPage} of {Math.max(1, totalPages)}
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+          disabled={currentPage >= totalPages}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
 }

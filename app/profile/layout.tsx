@@ -3,10 +3,10 @@ import { Header } from "@/components/Header";
 import { MobileNav } from "@/components/mobile-nav";
 
 export const metadata: Metadata = {
-  title: "Traces",
+  title: "Profile",
 };
 
-export default function TracesLayout({
+export default function ProfileLayout({
   children,
 }: {
   children: React.ReactNode;
