@@ -25,7 +25,7 @@ import {
   useFileInput,
 } from "../file";
 import { DataTable } from "../data-table";
-import { PlayIcon, PlusIcon, XIcon } from "lucide-react";
+import { CameraIcon, PlayIcon, PlusIcon, XIcon } from "lucide-react";
 import { Row } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
 import {
@@ -40,6 +40,7 @@ import { Spinner } from "../ui/spinner";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import axios from "axios";
+import { VideoRecorder } from "./video-recorder";
 
 type FileToProcess = {
   file: File;
@@ -76,19 +77,20 @@ export function FileProcessingFormContent() {
     handleDeleteFile,
     handleClearFiles,
     handleOpenFileInput,
+    addFiles,
     maxFiles,
   } = useFileInput();
 
   const [filesToProcess, setFilesToProcess] = useState<FileToProcess[]>([]);
   const [isPending, setIsPending] = useState(false);
+  const [recordingType, setRecordingType] = useState<"interior" | "exterior" | null>(null);
   const router = useRouter();
 
   useEffect(() => {
     setFilesToProcess((prev) => {
-      const jobType = new Map<string, "interior" | "exterior">(
+      const jobTypes = new Map<string, "interior" | "exterior">(
         prev.map((p) => [p.jobType, p.jobType]),
       );
-
 
       const existingMap = new Map(prev.map((p) => [p.file.name, p]));
 
@@ -98,13 +100,21 @@ export function FileProcessingFormContent() {
           return { ...existing, file, index };
         }
 
+        // Auto-assign job type based on what's missing
+        let jobType: "interior" | "exterior" = "interior";
+        if (jobTypes.get("interior")) {
+          jobType = "exterior";
+        } else if (jobTypes.get("exterior")) {
+          jobType = "interior";
+        }
+
         return {
           file,
           index,
           containerType: "trailer",
           model: "nova-2-omni",
           region: "us-west-2",
-          jobType: jobType.get("interior") ? "exterior" : "interior",
+          jobType: (index === 0 && !jobTypes.has("interior")) ? "interior" : (index === 1 && !jobTypes.has("exterior")) ? "exterior" : jobType,
         };
       });
     });
@@ -125,16 +135,8 @@ export function FileProcessingFormContent() {
       return;
     }
 
-    let exteriorJobs = 0;
-    let interiorJobs = 0;
-
-    for (const item of filesToProcess) {
-      if (item.jobType === "exterior") {
-        exteriorJobs++;
-      } else {
-        interiorJobs++;
-      }
-    }
+    let exteriorJobs = filesToProcess.filter(f => f.jobType === "exterior").length;
+    let interiorJobs = filesToProcess.filter(f => f.jobType === "interior").length;
 
     if (!interiorJobs || !exteriorJobs) {
       toast.error("Invalid job type selection.", {
@@ -249,10 +251,6 @@ export function FileProcessingFormContent() {
         closeButton: true
       });
 
-      filesToProcess.forEach((item) => {
-        toast.dismiss(`upload-${item.file.name}`);
-      });
-
     } finally {
       setIsPending(false);
     }
@@ -291,30 +289,7 @@ export function FileProcessingFormContent() {
           </Select>
         ),
       },
-      {
-        header: "Job Type",
-        accessorKey: "jobType",
-        cell: ({ row }: { row: Row<FileToProcess> }) => (
-          <Select
-            value={row.original.jobType}
-            onValueChange={(value: "interior" | "exterior") => {
-              setFilesToProcess((prev) =>
-                prev.map((file) =>
-                  file.index === row.index ? { ...file, jobType: value } : file,
-                ),
-              );
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="interior">Interior</SelectItem>
-              <SelectItem value="exterior">Exterior</SelectItem>
-            </SelectContent>
-          </Select>
-        ),
-      },
+
       {
         header: "Model",
         accessorKey: "model",
@@ -389,14 +364,7 @@ export function FileProcessingFormContent() {
                 className="h-9 text-xs bg-muted/50 font-medium"
               />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[10px] uppercase font-bold text-muted-foreground w-max">Job Type</span>
-              <Input
-                value={expectedJobType.charAt(0).toUpperCase() + expectedJobType.slice(1)}
-                disabled
-                className="h-9 text-xs bg-muted/50 font-medium"
-              />
-            </div>
+
             <div className="flex flex-col gap-1.5">
               <span className="text-[10px] uppercase font-bold text-muted-foreground w-max">Container Type</span>
               <Select
@@ -452,16 +420,28 @@ export function FileProcessingFormContent() {
           </div>
         </div>
       ) : (
-        <Button
-          variant="outline"
-          className="w-full border-dashed h-12 text-muted-foreground hover:text-foreground bg-background/50 shadow-sm"
-          onClick={handleOpenFileInput}
-          disabled={isPending || files.length >= maxFiles}
-          type="button"
-        >
-          <PlusIcon className="w-5 h-5 mr-2" />
-          Upload {title}
-        </Button>
+        <div className="grid grid-cols-2 gap-3">
+          <Button
+            variant="outline"
+            className="w-full border-dashed h-16 text-muted-foreground hover:text-foreground bg-background/50 shadow-sm flex flex-col gap-1.5 items-center justify-center p-2"
+            onClick={handleOpenFileInput}
+            disabled={isPending || files.length >= maxFiles}
+            type="button"
+          >
+            <PlusIcon className="w-5 h-5" />
+            <span className="text-[10px] font-bold uppercase tracking-tight">Upload</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full border-dashed h-16 text-muted-foreground hover:text-foreground bg-background/50 shadow-sm flex flex-col gap-1.5 items-center justify-center p-2"
+            onClick={() => setRecordingType(expectedJobType)}
+            disabled={isPending || files.length >= maxFiles}
+            type="button"
+          >
+            <CameraIcon className="w-5 h-5" />
+            <span className="text-[10px] font-bold uppercase tracking-tight">Record Live</span>
+          </Button>
+        </div>
       )}
     </div>
   );
@@ -470,10 +450,14 @@ export function FileProcessingFormContent() {
     <Form {...form}>
       <form onSubmit={handleSubmit}>
         <FileHiddenInput />
-        {files.length > 0 ? (
+        <div className={cn(files.length === 0 ? "md:block hidden" : "hidden")}>
+          <FileInput />
+        </div>
+
+        <div className={cn(files.length > 0 || "md:hidden" ? "block" : "hidden")}>
           <div className="space-y-4">
             <Card className="py-0 gap-0 border-none shadow-none bg-transparent md:border md:shadow-sm md:bg-card">
-              <CardHeader className="border-none px-0 py-4! items-center md:border-b md:px-6">
+              <CardHeader className="border-none px-0 py-4 items-center md:border-b md:px-6">
                 <CardTitle className="md:block hidden">Files to Process</CardTitle>
                 <CardDescription className="md:block hidden">
                   Maximum of {maxFiles} files can be processed at a time.
@@ -484,8 +468,8 @@ export function FileProcessingFormContent() {
                       variant="outline"
                       size="sm"
                       type="button"
-                      disabled={isPending}
-                      className="flex-1 md:flex-none"
+                      disabled={isPending || files.length === 0}
+                      className={cn("flex-1 md:flex-none", files.length === 0 && "opacity-50 pointer-events-none md:hidden")}
                       onClick={() => {
                         handleClearFiles();
                         form.reset();
@@ -507,15 +491,17 @@ export function FileProcessingFormContent() {
                   </ButtonGroup>
                 </CardAction>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="p-0 px-0 md:px-0">
                 <div className="hidden md:block">
-                  <DataTable
-                    columns={columns}
-                    data={filesToProcess}
-                    enablePagination={false}
-                  />
+                  {files.length > 0 && (
+                    <DataTable
+                      columns={columns}
+                      data={filesToProcess}
+                      enablePagination={false}
+                    />
+                  )}
                 </div>
-                <div className="md:hidden flex flex-col gap-4 py-4">
+                <div className="md:hidden flex flex-col gap-4 py-4 px-0">
                   {renderMobileCard("Interior Video", "interior", interiorFile)}
                   {renderMobileCard("Exterior Video", "exterior", exteriorFile)}
                 </div>
@@ -537,10 +523,18 @@ export function FileProcessingFormContent() {
               </CardFooter>
             </Card>
           </div>
-        ) : (
-          <FileInput />
-        )}
+        </div>
       </form>
+
+      <VideoRecorder
+        isOpen={!!recordingType}
+        title={`Record ${recordingType === "interior" ? "Interior" : "Exterior"} Video`}
+        onClose={() => setRecordingType(null)}
+        onCapture={(file) => {
+          addFiles([file]);
+          toast.success("Live video captured and added!");
+        }}
+      />
     </Form>
   );
 }

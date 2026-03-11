@@ -36,6 +36,7 @@ interface FileInputContextValue {
   handlePaste: (e: ClipboardEvent<HTMLDivElement>) => void;
   handleOpenFileInput: () => void;
   handleDeleteFile: (index: number | number[]) => void;
+  addFiles: (userFiles: File[] | FileList) => void;
   handleClearFiles: () => void;
   isDragging: boolean;
   hasFiles: boolean;
@@ -234,6 +235,7 @@ export function FileInputProvider({
         handlePaste,
         hasFiles: files.length > 0,
         handleDeleteFile,
+        addFiles: handleSetFiles,
         handleClearFiles,
         maxFiles,
         handleOpenFileInput,

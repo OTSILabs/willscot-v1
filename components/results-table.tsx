@@ -124,23 +124,51 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
             data?.items?.map((result: Result) => (
               <TableRow key={result.id}>
                 <TableCell className="font-mono text-[10px] max-w-[300px] whitespace-normal break-all">
-                  <div className="flex flex-col gap-4">
-                    {result.videoId.toString().split(',').map((v, i) => <div key={i}>{v}</div>)}
+                  <div className="flex flex-col gap-2">
+                    {result.videoId.toString().split(',').map((v, i) => (
+                      <div key={i} className="flex flex-col">
+                        <span className="text-muted-foreground uppercase text-[8px] font-bold mb-0.5">
+                          {i === 0 ? "Interior :" : "Exterior :"}
+                        </span>
+                        <span className="leading-tight">{v}</span>
+                      </div>
+                    ))}
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="flex flex-col gap-4">
-                    {result.regionName.toString().split(',').map((v, i) => <div key={i}>{v}</div>)}
+                  <div className="flex flex-col gap-2">
+                    {result.regionName.toString().split(',').map((v, i) => (
+                      <div key={i} className="flex flex-col">
+                        <span className="text-transparent select-none uppercase text-[8px] font-bold mb-0.5">
+                          {i === 0 ? "Interior :" : "Exterior :"}
+                        </span>
+                        <span className="text-xs leading-tight">{v}</span>
+                      </div>
+                    ))}
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="flex flex-col gap-4">
-                    {result.containerType.toString().split(',').map((v, i) => <div key={i}>{v}</div>)}
+                  <div className="flex flex-col gap-2">
+                    {result.containerType.toString().split(',').map((v, i) => (
+                      <div key={i} className="flex flex-col">
+                        <span className="text-transparent select-none uppercase text-[8px] font-bold mb-0.5">
+                          {i === 0 ? "Interior :" : "Exterior :"}
+                        </span>
+                        <span className="text-xs leading-tight">{v}</span>
+                      </div>
+                    ))}
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="flex flex-col gap-4">
-                    {result.model.toString().split(',').map((v, i) => <div key={i}>{v}</div>)}
+                  <div className="flex flex-col gap-2">
+                    {result.model.toString().split(',').map((v, i) => (
+                      <div key={i} className="flex flex-col">
+                        <span className="text-transparent select-none uppercase text-[8px] font-bold mb-0.5">
+                          {i === 0 ? "Interior :" : "Exterior :"}
+                        </span>
+                        <span className="text-xs leading-tight">{v}</span>
+                      </div>
+                    ))}
                   </div>
                 </TableCell>
                 <TableCell>
@@ -207,89 +235,91 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
             No results found. Start by processing a new video.
           </div>
         ) : (
-          data.items.map((result: Result) => (
-            <div key={result.id} className="rounded-xl p-3 bg-card shadow-sm flex flex-col gap-3 text-card-foreground border md:border-none">
-              <div className="flex justify-between items-start gap-3">
-                <div className="font-mono text-[10px] break-all max-w-[70%] flex flex-col gap-1">
-                  <span className="text-muted-foreground uppercase tracking-widest text-[8px] font-bold">S3 URI</span>
-                  <div className="flex flex-col gap-1">
-                    {result.videoId.toString().split(',').map((v, i) => (
-                      <div key={i} className="flex gap-1.5 items-baseline">
-                        <span className="text-muted-foreground shrink-0 w-6 font-sans uppercase tracking-tighter text-[9px]">{i === 0 ? "Int :" : "Ext :"}</span>
-                        <span className="leading-none font-medium text-[10px]">{v}</span>
-                      </div>
-                    ))}
-                  </div>
+          data.items.map((result: Result) => {
+            const videoIds = result.videoId.toString().split(',');
+            const regions = result.regionName.toString().split(',');
+            const models = result.model.toString().split(',');
+            const containers = result.containerType.toString().split(',');
+
+            return (
+              <div key={result.id} className="rounded-xl p-3 bg-card shadow-sm flex flex-col gap-2.5 text-card-foreground border md:border-none">
+                <div className="flex justify-between items-center border-b pb-1.5">
+                  <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Trace Details</span>
+                  <Badge
+                    variant={result.status === "completed" ? "default" : "secondary"}
+                    className="inline-flex items-center gap-1 capitalize shrink-0 shadow-sm text-[10px] py-0 px-2 h-4.5"
+                  >
+                    {result.status === "processing" && (
+                      <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                    )}
+                    {result.status}
+                  </Badge>
                 </div>
-                <Badge
-                  variant={result.status === "completed" ? "default" : "secondary"}
-                  className="inline-flex items-center gap-1 capitalize shrink-0 shadow-sm"
-                >
-                  {result.status === "processing" && (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  )}
-                  {result.status}
-                </Badge>
+
+                <div className="flex flex-col gap-3">
+                  {[0, 1].map((i) => {
+                    const type = i === 0 ? "Interior" : "Exterior";
+                    const vid = videoIds[i];
+                    const reg = regions[i];
+                    const mod = models[i];
+                    const con = containers[i];
+
+                    if (!vid && !reg && !mod && !con) return null;
+
+                    return (
+                      <div key={type} className="flex flex-col gap-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] font-extrabold uppercase tracking-widest text-foreground opacity-90">{type}</span>
+                          <div className="h-px flex-1 bg-border/40" />
+                        </div>
+                        
+                        <div className="grid grid-cols-1 gap-2 pl-1">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-[7.5px] uppercase font-bold text-muted-foreground opacity-60">Video ID</span>
+                            <span className="text-[9.5px] font-mono break-all leading-tight bg-muted/20 p-1 rounded border border-border/10">{vid || "N/A"}</span>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="flex flex-col">
+                              <span className="text-[7.5px] uppercase font-bold text-muted-foreground opacity-60">Region</span>
+                              <span className="text-[11px] font-medium leading-tight">{reg || "N/A"}</span>
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[7.5px] uppercase font-bold text-muted-foreground opacity-60">Model</span>
+                              <span className="text-[11px] font-medium leading-tight">{mod || "N/A"}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col">
+                            <span className="text-[7.5px] uppercase font-bold text-muted-foreground opacity-60">Container Type</span>
+                            <span className="text-[11px] font-medium leading-tight">{con || "N/A"}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center justify-between border-t pt-2 mt-0.5">
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-semibold leading-none">
+                      {result.createdByName || "Unknown user"}
+                    </span>
+                    <span className="text-[8.5px] text-muted-foreground uppercase tracking-tight mt-1">
+                      {new Date(result.createdAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                    </span>
+                  </div>
+                  <Button size="sm" asChild variant="outline" className="h-7 shadow-sm px-2.5 rounded-lg text-[11px] font-bold">
+                    <Link href={`/traces/${result.id}`}>
+                      <Eye className="h-3 w-3 mr-1" />
+                      Details
+                    </Link>
+                  </Button>
+                </div>
               </div>
-
-              <div className="grid grid-cols-2 gap-x-3 gap-y-3 pt-1">
-                <div className="flex flex-col gap-1">
-                  <span className="text-muted-foreground uppercase tracking-wider font-bold text-[8px]">Region</span>
-                  <div className="font-medium space-y-1">
-                    {result.regionName.toString().split(',').map((v, i) => (
-                      <div key={i} className="flex gap-1.5 items-baseline">
-                        <span className="text-[9px] text-muted-foreground w-6 shrink-0 uppercase tracking-tighter">{i === 0 ? "Int :" : "Ext :"}</span>
-                        <span className="text-xs leading-none">{v}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <span className="text-muted-foreground uppercase tracking-wider font-bold text-[8px]">Model</span>
-                  <div className="font-medium space-y-1">
-                    {result.model.toString().split(',').map((v, i) => (
-                      <div key={i} className="flex gap-1.5 items-baseline">
-                        <span className="text-[9px] text-muted-foreground w-6 shrink-0 uppercase tracking-tighter">{i === 0 ? "Int :" : "Ext :"}</span>
-                        <span className="text-xs leading-none">{v}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="col-span-2 flex flex-col gap-1 text-card-foreground">
-                  <span className="text-muted-foreground uppercase tracking-wider font-bold text-[8px]">Container Type</span>
-                  <div className="font-medium space-y-1">
-                    {result.containerType.toString().split(',').map((v, i) => (
-                      <div key={i} className="flex gap-1.5 items-baseline">
-                        <span className="text-[9px] text-muted-foreground w-6 shrink-0 uppercase tracking-tighter">{i === 0 ? "Int :" : "Ext :"}</span>
-                        <span className="text-xs leading-none">{v}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between border-t pt-3 mt-2">
-                <div className="flex flex-col">
-                  <span className="text-xs font-medium">
-                    {result.createdByName || "Unknown user"}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    {new Date(result.createdAt).toLocaleString()}
-                  </span>
-                </div>
-                <Button size="sm" asChild variant="outline" className="h-8 shadow-sm">
-                  <Link href={`/traces/${result.id}`}>
-                    <Eye className="h-3 w-3 mr-1.5" />
-                    View
-                  </Link>
-                </Button>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+            );
+          })
+        )}      </div>
       <PaginationControls
         currentPage={currentPage}
         totalPages={totalPages}
