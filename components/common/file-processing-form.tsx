@@ -27,6 +27,7 @@ import {
 import { DataTable } from "../data-table";
 import { PlayIcon, PlusIcon, XIcon } from "lucide-react";
 import { Row } from "@tanstack/react-table";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -153,53 +154,79 @@ export function FileProcessingFormContent() {
           closeButton: false,
           id: `upload-${item.file.name}`
         });
-        const presignResponse = await axios.post("/api/s3/presign-upload", {
-          fileName: item.file.name,
-          containerType: item.containerType,
-          region: item.region,
-          contentType: item.file.type,
-        });
 
-        const { presignedUrl, s3Uri } = presignResponse.data;
+        try {
+          const presignResponse = await axios.post("/api/s3/presign-upload", {
+            fileName: item.file.name,
+            containerType: item.containerType,
+            region: item.region,
+            contentType: item.file.type,
+          });
 
-        await axios.put(presignedUrl, item.file, {
-          headers: {
-            "Content-Type": item.file.type,
-          },
-          onUploadProgress: (progressEvent) => {
-            if (progressEvent.total) {
-              const percentCompleted = Math.round(
-                (progressEvent.loaded * 100) / progressEvent.total,
-              );
-              toast.loading(
-                <div className="flex flex-col gap-2">
-                  <div className="text-sm text-muted-foreground">Uploading</div>
-                  <div className="truncate max-w-md">{item.file.name}</div>
-                  <div className="text-sm text-muted-foreground">{percentCompleted}%</div>
-                </div>,
-                { id: uploadToastId },
-              );
+          const { presignedUrl, s3Uri } = presignResponse.data;
 
-              if (percentCompleted === 100) {
-                toast.dismiss(uploadToastId);
+          await axios.put(presignedUrl, item.file, {
+            headers: {
+              "Content-Type": item.file.type,
+            },
+            onUploadProgress: (progressEvent) => {
+              if (progressEvent.total) {
+                const percentCompleted = Math.round(
+                  (progressEvent.loaded * 100) / progressEvent.total,
+                );
+                toast.loading(
+                  <div className="flex flex-col gap-2">
+                    <div className="text-sm text-muted-foreground">Uploading</div>
+                    <div className="truncate max-w-md">{item.file.name}</div>
+                    <div className="text-sm text-muted-foreground">{percentCompleted}%</div>
+                  </div>,
+                  { id: uploadToastId },
+                );
+
+                if (percentCompleted === 100) {
+                  toast.dismiss(uploadToastId);
+                }
               }
-            }
-          },
-        });
+            },
+          });
 
-        return {
-          s3Uri,
-          containerType: item.containerType,
-          model: item.model,
-          region: item.region,
-          jobType: item.jobType,
-        };
+          return {
+            s3Uri,
+            containerType: item.containerType,
+            model: item.model,
+            region: item.region,
+            jobType: item.jobType,
+          };
+        } catch (error) {
+          const individualError = (error && typeof error === "object" && "response" in error
+            ? (error.response as { data?: { error?: string } })?.data?.error
+            : null) || (error instanceof Error ? error.message : "Upload failed");
+          
+          toast.error(`Upload failed for ${item.file.name}: ${individualError}`, {
+            id: uploadToastId,
+            closeButton: true
+          });
+          throw error;
+        }
       });
 
-      const jobs = await Promise.all(uploadPromises);
+      const results = await Promise.allSettled(uploadPromises);
+      
+      const failedJobs = results.filter(r => r.status === 'rejected');
+      const successfulJobs = results
+        .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
+        .map(r => r.value);
+
+      if (failedJobs.length > 0) {
+        toast.error(`${failedJobs.length} video(s) failed to upload. Please try again.`, {
+          id: toastId,
+          closeButton: true
+        });
+        return;
+      }
 
       const response = await axios.post("/api/process-batch", {
-        jobs,
+        jobs: successfulJobs,
       });
 
       toast.success("All videos have been submitted successfully!", {
@@ -216,6 +243,7 @@ export function FileProcessingFormContent() {
           ? (error.response as { data?: { error?: string } })?.data?.error
           : null) ||
         (error instanceof Error ? error.message : "Unknown error");
+      
       toast.error(`Failed to submit videos: ${errorMessage}`, {
         id: toastId,
         closeButton: true
@@ -340,54 +368,160 @@ export function FileProcessingFormContent() {
     ];
   }, [handleDeleteFile, isPending]);
 
+  const interiorFile = filesToProcess.find((f) => f.jobType === "interior");
+  const exteriorFile = filesToProcess.find((f) => f.jobType === "exterior");
+  const hasBoth = interiorFile && exteriorFile;
+
+  const renderMobileCard = (title: string, expectedJobType: "interior" | "exterior", fileObj: FileToProcess | undefined) => (
+    <div className="border rounded-xl p-4 bg-muted/20 flex flex-col gap-3">
+      <h3 className="font-semibold text-sm uppercase tracking-wider">{title}</h3>
+      {fileObj ? (
+        <div className="flex flex-col gap-3">
+          <div className="text-xs font-mono truncate bg-background p-2 rounded border border-border/50">
+            {fileObj.file.name}
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] uppercase font-bold text-muted-foreground w-max">Region</span>
+              <Input
+                value={fileObj.region}
+                disabled
+                className="h-9 text-xs bg-muted/50 font-medium"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] uppercase font-bold text-muted-foreground w-max">Job Type</span>
+              <Input
+                value={expectedJobType.charAt(0).toUpperCase() + expectedJobType.slice(1)}
+                disabled
+                className="h-9 text-xs bg-muted/50 font-medium"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] uppercase font-bold text-muted-foreground w-max">Container Type</span>
+              <Select
+                value={fileObj.containerType}
+                onValueChange={(val) => {
+                  setFilesToProcess((prev) =>
+                    prev.map((f) => (f.index === fileObj.index ? { ...f, containerType: val } : f))
+                  );
+                }}
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="trailer">Trailer</SelectItem>
+                  <SelectItem value="container">Container</SelectItem>
+                  <SelectItem value="flex">Flex</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] uppercase font-bold text-muted-foreground w-max">Model</span>
+              <Select
+                value={fileObj.model}
+                onValueChange={(val) => {
+                  setFilesToProcess((prev) =>
+                    prev.map((f) => (f.index === fileObj.index ? { ...f, model: val } : f))
+                  );
+                }}
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nova-2-omni">Nova 2 Omni</SelectItem>
+                  <SelectItem value="nova-2-pro">Nova 2 Pro</SelectItem>
+                  <SelectItem value="nova-2-lite">Nova 2 Lite</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex justify-end pt-1">
+            <Button
+              variant="destructive"
+              size="sm"
+              className="h-8 shadow-sm"
+              onClick={() => handleDeleteFile(fileObj.index)}
+              disabled={isPending}
+            >
+              <XIcon className="w-4 h-4 mr-1" />
+              Remove
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button
+          variant="outline"
+          className="w-full border-dashed h-12 text-muted-foreground hover:text-foreground bg-background/50 shadow-sm"
+          onClick={handleOpenFileInput}
+          disabled={isPending || files.length >= maxFiles}
+          type="button"
+        >
+          <PlusIcon className="w-5 h-5 mr-2" />
+          Upload {title}
+        </Button>
+      )}
+    </div>
+  );
+
   return (
     <Form {...form}>
       <form onSubmit={handleSubmit}>
         <FileHiddenInput />
         {files.length > 0 ? (
           <div className="space-y-4">
-            <Card className="py-0 gap-0">
-              <CardHeader className="border-b px-6 py-4! items-center">
-                <CardTitle>Files to Process</CardTitle>
-                <CardDescription>
+            <Card className="py-0 gap-0 border-none shadow-none bg-transparent md:border md:shadow-sm md:bg-card">
+              <CardHeader className="border-none px-0 py-4! items-center md:border-b md:px-6">
+                <CardTitle className="md:block hidden">Files to Process</CardTitle>
+                <CardDescription className="md:block hidden">
                   Maximum of {maxFiles} files can be processed at a time.
                 </CardDescription>
-                <CardAction>
-                  <ButtonGroup>
+                <CardAction className="w-full md:w-auto">
+                  <ButtonGroup className="w-full md:w-auto justify-between md:justify-end">
                     <Button
                       variant="outline"
                       size="sm"
                       type="button"
                       disabled={isPending}
+                      className="flex-1 md:flex-none"
                       onClick={() => {
                         handleClearFiles();
                         form.reset();
                       }}
                     >
-                      <XIcon />
+                      <XIcon className="mr-1 h-4 w-4" />
                       Clear all
                     </Button>
                     <Button
                       size="sm"
+                      className="hidden md:flex"
                       onClick={handleOpenFileInput}
                       type="button"
                       disabled={files.length >= maxFiles || isPending}
                     >
-                      <PlusIcon />
+                      <PlusIcon className="mr-1 h-4 w-4" />
                       Add More
                     </Button>
                   </ButtonGroup>
                 </CardAction>
               </CardHeader>
               <CardContent className="p-0">
-                <DataTable
-                  columns={columns}
-                  data={filesToProcess}
-                  enablePagination={false}
-                />
+                <div className="hidden md:block">
+                  <DataTable
+                    columns={columns}
+                    data={filesToProcess}
+                    enablePagination={false}
+                  />
+                </div>
+                <div className="md:hidden flex flex-col gap-4 py-4">
+                  {renderMobileCard("Interior Video", "interior", interiorFile)}
+                  {renderMobileCard("Exterior Video", "exterior", exteriorFile)}
+                </div>
               </CardContent>
-              <CardFooter className={"border-t justify-end mb-4"}>
-                <Button size="lg" type="submit" disabled={isPending}>
+              <CardFooter className={cn("border-none px-0 pt-4 md:border-t md:px-6 mb-4 justify-end", !hasBoth && "hidden md:flex")}>
+                <Button size="lg" type="submit" disabled={isPending || (!hasBoth && filesToProcess.length > 0)} className="w-full md:w-auto shadow-sm">
                   {isPending ? (
                     <>
                       Processing Videos...

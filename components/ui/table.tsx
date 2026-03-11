@@ -136,30 +136,32 @@ export function PaginationControls({
   const endItem = Math.min(currentPage * pageSize, totalItems);
 
   return (
-    <div className="flex items-center justify-between border-t px-4 py-3">
-      <p className="text-[10px] md:text-sm text-muted-foreground mr-2">
-        Showing {startItem}-{endItem} of {totalItems}
-      </p>
-      <div className="flex items-center gap-1 md:gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-          disabled={currentPage <= 1}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <p className="text-xs md:text-sm text-muted-foreground font-medium">
-          Page {currentPage} of {Math.max(1, totalPages)}
+    <div className="sticky bottom-0 z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t md:static md:bg-transparent md:backdrop-filter-none">
+      <div className="flex items-center justify-between px-4 py-3">
+        <p className="text-[10px] md:text-sm text-muted-foreground mr-2">
+          Showing {startItem}-{endItem} of {totalItems}
         </p>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-          disabled={currentPage >= totalPages}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1 md:gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+            disabled={currentPage <= 1}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <p className="text-xs md:text-sm text-muted-foreground font-medium">
+            Page {currentPage} of {Math.max(1, totalPages)}
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+            disabled={currentPage >= totalPages}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </div>
   );

@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { AccessGuard } from "@/components/access-guard";
 import { Header } from "@/components/Header";
-import { MobileNav } from "@/components/mobile-nav";
-
 export const metadata: Metadata = {
   title: "Users",
 };
@@ -15,12 +13,11 @@ export default async function UsersLayout({
   return (
     <div className="flex min-h-screen flex-col">
       <Header />
-      <main className="flex-1 overflow-y-auto pb-20 md:pb-0">
+      <main className="flex-1 overflow-y-auto">
         <div className="px-4 md:px-10">
           <AccessGuard allowed={["power_user"]}>{children}</AccessGuard>
         </div>
       </main>
-      <MobileNav />
     </div>
   );
 }

@@ -81,7 +81,7 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
   const endItem = Math.min(currentPage * pageSize, totalItems);
 
   return (
-    <div className="rounded-md md:border bg-white">
+    <div className="rounded-md md:border md:bg-white border-none bg-transparent">
       <div className="border-b p-3">
         <Input
           value={search}
@@ -197,7 +197,7 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
       </div>
 
       {/* Mobile Card Layout */}
-      <div className="md:hidden flex flex-col gap-4 mb-4 pt-2">
+      <div className="md:hidden flex flex-col gap-4 pt-2">
         {isLoading ? (
           <div className="text-center py-8 text-sm text-muted-foreground">
             Loading results...
@@ -208,45 +208,64 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
           </div>
         ) : (
           data.items.map((result: Result) => (
-            <div key={result.id} className="rounded-xl p-4 bg-card shadow-sm flex flex-col gap-4">
-              <div className="flex justify-between items-start gap-2">
-                <div className="font-mono text-[10px] break-all max-w-[70%]">
-                  {result.videoId.toString().split(',').map((v, i) => <div key={i}>{v}</div>)}
+            <div key={result.id} className="rounded-xl p-3 bg-card shadow-sm flex flex-col gap-3 text-card-foreground border md:border-none">
+              <div className="flex justify-between items-start gap-3">
+                <div className="font-mono text-[10px] break-all max-w-[70%] flex flex-col gap-1">
+                  <span className="text-muted-foreground uppercase tracking-widest text-[8px] font-bold">S3 URI</span>
+                  <div className="flex flex-col gap-1">
+                    {result.videoId.toString().split(',').map((v, i) => (
+                      <div key={i} className="flex gap-1.5 items-baseline">
+                        <span className="text-muted-foreground shrink-0 w-6 font-sans uppercase tracking-tighter text-[9px]">{i === 0 ? "Int :" : "Ext :"}</span>
+                        <span className="leading-none font-medium text-[10px]">{v}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 <Badge
                   variant={result.status === "completed" ? "default" : "secondary"}
-                  className="inline-flex items-center gap-1 capitalize shrink-0"
+                  className="inline-flex items-center gap-1 capitalize shrink-0 shadow-sm"
                 >
                   {result.status === "processing" && (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   )}
                   {result.status}
-                  {result.json?.error && (
-                    <Tooltip>
-                      <TooltipTrigger><Info className="h-3 w-3" /></TooltipTrigger>
-                      <TooltipContent><p>{result.json?.error}</p></TooltipContent>
-                    </Tooltip>
-                  )}
                 </Badge>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <span className="text-muted-foreground block mb-1 uppercase tracking-wider font-semibold text-[10px]">Region</span>
-                  <div className="font-medium">
-                    {result.regionName.toString().split(',').map((v, i) => <div key={i}>{v}</div>)}
+              <div className="grid grid-cols-2 gap-x-3 gap-y-3 pt-1">
+                <div className="flex flex-col gap-1">
+                  <span className="text-muted-foreground uppercase tracking-wider font-bold text-[8px]">Region</span>
+                  <div className="font-medium space-y-1">
+                    {result.regionName.toString().split(',').map((v, i) => (
+                      <div key={i} className="flex gap-1.5 items-baseline">
+                        <span className="text-[9px] text-muted-foreground w-6 shrink-0 uppercase tracking-tighter">{i === 0 ? "Int :" : "Ext :"}</span>
+                        <span className="text-xs leading-none">{v}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <div>
-                  <span className="text-muted-foreground block mb-1 uppercase tracking-wider font-semibold text-[10px]">Model</span>
-                  <div className="font-medium">
-                    {result.model.toString().split(',').map((v, i) => <div key={i}>{v}</div>)}
+
+                <div className="flex flex-col gap-1">
+                  <span className="text-muted-foreground uppercase tracking-wider font-bold text-[8px]">Model</span>
+                  <div className="font-medium space-y-1">
+                    {result.model.toString().split(',').map((v, i) => (
+                      <div key={i} className="flex gap-1.5 items-baseline">
+                        <span className="text-[9px] text-muted-foreground w-6 shrink-0 uppercase tracking-tighter">{i === 0 ? "Int :" : "Ext :"}</span>
+                        <span className="text-xs leading-none">{v}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                <div className="col-span-2">
-                  <span className="text-muted-foreground block mb-1 uppercase tracking-wider font-semibold text-[10px]">Container Type</span>
-                  <div className="font-medium">
-                    {result.containerType.toString().split(',').map((v, i) => <div key={i}>{v}</div>)}
+
+                <div className="col-span-2 flex flex-col gap-1 text-card-foreground">
+                  <span className="text-muted-foreground uppercase tracking-wider font-bold text-[8px]">Container Type</span>
+                  <div className="font-medium space-y-1">
+                    {result.containerType.toString().split(',').map((v, i) => (
+                      <div key={i} className="flex gap-1.5 items-baseline">
+                        <span className="text-[9px] text-muted-foreground w-6 shrink-0 uppercase tracking-tighter">{i === 0 ? "Int :" : "Ext :"}</span>
+                        <span className="text-xs leading-none">{v}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>

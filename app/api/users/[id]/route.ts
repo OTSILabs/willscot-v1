@@ -38,7 +38,22 @@ export async function PATCH(
     if (email !== undefined) values.email = email;
     if (role !== undefined) values.role = role as "power_user" | "normal_user";
     if (password !== undefined && password.trim().length > 0) {
-      values.passwordHash = createHash("md5").update(password).digest("hex");
+      const newPasswordHash = createHash("md5").update(password).digest("hex");
+
+      // Check if the new password is the same as the current password
+      const [existingUser] = await db
+        .select({ passwordHash: users.passwordHash })
+        .from(users)
+        .where(eq(users.id, id));
+
+      if (existingUser && existingUser.passwordHash === newPasswordHash) {
+        return NextResponse.json(
+          { error: "New password cannot be the same as the current password" },
+          { status: 400 }
+        );
+      }
+
+      values.passwordHash = newPasswordHash;
     }
 
     if (Object.keys(values).length === 0) {

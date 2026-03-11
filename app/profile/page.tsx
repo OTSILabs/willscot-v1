@@ -2,7 +2,7 @@
 
 import { useCurrentUser } from "@/components/current-user-provider";
 import { Button } from "@/components/ui/button";
-import { LogOut, User } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -27,22 +27,22 @@ export default function ProfilePage() {
   if (!currentUser) return null;
 
   return (
-    <div className="container mx-auto py-4 md:py-10 space-y-6 md:space-y-8 max-w-2xl px-4 md:px-0 pb-24 md:pb-10">
+    <div className="container mx-auto px-0 md:px-0 py-4 md:py-10 space-y-6 md:space-y-8 max-w-2xl">
       <div className="text-center md:text-left">
-        <h1 className="text-2xl font-bold tracking-tight">Your Profile</h1>
-        <p className="text-sm md:text-base text-muted-foreground mt-1">
+        <h1 className="text-xl md:text-2xl font-bold tracking-tight">Your Profile</h1>
+        <p className="text-xs md:text-base text-muted-foreground mt-1">
           View your account information and preferences.
         </p>
       </div>
 
-      <div className="border rounded-xl p-4 md:p-8 bg-card text-card-foreground shadow-sm flex flex-col gap-4 md:gap-6 mx-auto w-full max-w-sm md:max-w-full">
+      <div className="border-none shadow-none bg-transparent md:border md:rounded-xl p-0 md:p-8 md:bg-card text-card-foreground md:shadow-sm flex flex-col gap-4 md:gap-6 mx-auto w-full max-w-sm md:max-w-full">
         <div className="flex flex-col md:flex-row items-center gap-3 md:gap-4 border-b pb-4 md:pb-6">
-          <div className="w-20 h-20 md:w-16 md:h-16 bg-primary/10 rounded-full flex items-center justify-center text-primary font-semibold text-3xl md:text-xl shrink-0">
+          <div className="w-16 h-16 md:w-16 md:h-16 bg-primary/10 rounded-full flex items-center justify-center text-primary font-semibold text-2xl md:text-xl shrink-0">
             {currentUser.name.charAt(0).toUpperCase()}
           </div>
           <div className="flex flex-col gap-1 items-center md:items-start text-center md:text-left">
-            <h2 className="text-2xl md:text-xl font-semibold leading-none">{currentUser.name}</h2>
-            <p className="text-sm text-muted-foreground">{currentUser.email}</p>
+            <h2 className="text-xl md:text-xl font-semibold leading-none">{currentUser.name}</h2>
+            <p className="text-xs md:text-sm text-muted-foreground">{currentUser.email}</p>
           </div>
         </div>
 

@@ -182,10 +182,10 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="container mx-auto py-4 md:py-10 space-y-6 md:space-y-8 pb-24 md:pb-10">
+    <div className="container mx-auto px-0 md:px-0 py-4 md:py-10 space-y-6 md:space-y-8 pb-16 md:pb-10">
       <div className="flex flex-col space-y-4">
         {/* Mobile Header per reference */}
-        <div className="md:hidden flex items-center gap-3 border-b pb-3 -mx-4 px-4">
+        <div className="md:hidden flex items-center gap-3 border-b pb-3 -mx-3 px-3">
           <Link href="/traces">
             <ArrowLeft className="h-5 w-5" />
           </Link>
@@ -271,8 +271,8 @@ export default function UsersPage() {
         <p className="text-sm text-destructive">{errorMessage}</p>
       ) : null}
 
-      <div className="rounded-md md:border">
-        <div className="border-b p-3">
+      <div className="rounded-md md:border border-none">
+        <div className="border-b py-3 md:p-3">
           <Input
             value={search}
             onChange={(event) => {
@@ -434,7 +434,7 @@ export default function UsersPage() {
             </div>
           ) : usersQuery.data?.items?.length ? (
             usersQuery.data.items.map((user) => (
-              <div key={user.id} className="rounded-xl p-4 bg-card shadow-sm flex flex-col gap-4">
+              <div key={user.id} className="rounded-xl p-3 bg-card shadow-sm flex flex-col gap-3 border md:border-none text-card-foreground">
                 {editingId === user.id ? (
                   <div className="flex flex-col gap-3">
                     <Input
