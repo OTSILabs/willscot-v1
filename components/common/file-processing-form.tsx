@@ -24,7 +24,7 @@ import {
   FileInputProvider,
   useFileInput,
 } from "../file";
-import { CameraIcon, PlayIcon, PlusIcon, XIcon } from "lucide-react";
+import { CameraIcon, PlayIcon, PlusIcon, XIcon, UploadIcon } from "lucide-react";
 import { Row } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
 import {
@@ -76,11 +76,15 @@ export function FileProcessingFormContent() {
     handleDeleteFile,
     handleClearFiles,
     handleOpenFileInput,
-    addFiles,
     maxFiles,
     totalSize,
     remainingSize,
     formatFileSize,
+    isDragging,
+    handleOnDrag,
+    handleOnDragLeave,
+    handleDrop,
+    addFiles,
   } = useFileInput();
 
   const [filesToProcess, setFilesToProcess] = useState<FileToProcess[]>([]);
@@ -335,36 +339,45 @@ export function FileProcessingFormContent() {
           </div>
         </div>
       ) : (
-        <>
-          {/* Mobile View: Two Buttons */}
-          <div className="grid grid-cols-2 gap-3 md:hidden">
-            <Button
-              variant="outline"
-              className="w-full border-dashed h-16 text-muted-foreground hover:text-foreground bg-background/50 shadow-sm flex flex-col gap-1.5 items-center justify-center p-2"
-              onClick={handleOpenFileInput}
-              disabled={isPending || files.length >= maxFiles}
-              type="button"
-            >
-              <PlusIcon className="w-5 h-5" />
-              <span className="text-[10px] font-bold uppercase tracking-tight">Upload</span>
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full border-dashed h-16 text-muted-foreground hover:text-foreground bg-background/50 shadow-sm flex flex-col gap-1.5 items-center justify-center p-2"
-              onClick={() => setRecordingType(expectedJobType)}
-              disabled={isPending || files.length >= maxFiles}
-              type="button"
-            >
-              <CameraIcon className="w-5 h-5" />
-              <span className="text-[10px] font-bold uppercase tracking-tight">Record Live</span>
-            </Button>
-          </div>
-
-          {/* Desktop View: Full Drag and Drop Component */}
-          <div className="hidden md:block h-full min-h-[200px]">
-            <FileInput showInfo={false} className="h-full flex flex-col justify-center bg-background/50 border-2 border-dashed shadow-sm" />
-          </div>
-        </>
+        <div 
+          className={cn(
+            "flex flex-col md:flex-row gap-3 h-full min-h-[160px] p-4 bg-background/50 border-2 border-dashed rounded-lg transition-all items-center justify-center relative group",
+            isDragging && "border-blue-500 bg-blue-50/50 dark:bg-blue-900/10"
+          )}
+          onDragOver={handleOnDrag}
+          onDragLeave={handleOnDragLeave}
+          onDrop={handleDrop}
+        >
+          {isDragging && (
+             <div className="absolute inset-0 z-10 hidden md:flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg border-2 border-blue-500 pointer-events-none">
+               <span className="font-semibold text-blue-500 flex items-center gap-2">
+                 <UploadIcon className="w-5 h-5 animate-bounce" />
+                 Drop video here
+               </span>
+             </div>
+          )}
+          <Button
+            variant="outline"
+            className="w-full flex-1 h-20 md:h-32 text-muted-foreground hover:text-foreground hover:bg-muted/50 shadow-sm flex flex-col gap-2 items-center justify-center p-3 relative transition-all"
+            onClick={handleOpenFileInput}
+            disabled={isPending || files.length >= maxFiles}
+            type="button"
+          >
+            <UploadIcon className="w-6 h-6 md:w-8 md:h-8 mb-0 md:mb-1" />
+            <span className="text-xs md:text-sm font-semibold uppercase tracking-tight">Import from Device</span>
+            <span className="text-[10px] md:text-xs hidden md:block opacity-50">or drag and drop video here</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full flex-1 h-20 md:hidden text-muted-foreground hover:text-foreground hover:bg-muted/50 shadow-sm flex flex-col gap-2 items-center justify-center p-3"
+            onClick={() => setRecordingType(expectedJobType)}
+            disabled={isPending || files.length >= maxFiles}
+            type="button"
+          >
+            <CameraIcon className="w-6 h-6 mb-0" />
+            <span className="text-xs font-semibold uppercase tracking-tight">Record Video</span>
+          </Button>
+        </div>
       )}
     </div>
   );
