@@ -24,7 +24,6 @@ import {
   FileInputProvider,
   useFileInput,
 } from "../file";
-import { DataTable } from "../data-table";
 import { CameraIcon, PlayIcon, PlusIcon, XIcon } from "lucide-react";
 import { Row } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
@@ -79,6 +78,9 @@ export function FileProcessingFormContent() {
     handleOpenFileInput,
     addFiles,
     maxFiles,
+    totalSize,
+    remainingSize,
+    formatFileSize,
   } = useFileInput();
 
   const [filesToProcess, setFilesToProcess] = useState<FileToProcess[]>([]);
@@ -256,98 +258,11 @@ export function FileProcessingFormContent() {
     }
   };
 
-  const columns = useMemo(() => {
-    return [
-      {
-        header: "File Name",
-        accessorKey: "file.name",
-      },
-      {
-        header: "Container Type",
-        accessorKey: "containerType",
-        cell: ({ row }: { row: Row<FileToProcess> }) => (
-          <Select
-            value={row.original.containerType}
-            onValueChange={(value) => {
-              setFilesToProcess((prev) =>
-                prev.map((file) =>
-                  file.index === row.index
-                    ? { ...file, containerType: value }
-                    : file,
-                ),
-              );
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select container type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="trailer">Trailer</SelectItem>
-              <SelectItem value="container">Container</SelectItem>
-              <SelectItem value="flex">Flex</SelectItem>
-            </SelectContent>
-          </Select>
-        ),
-      },
-
-      {
-        header: "Model",
-        accessorKey: "model",
-        cell: ({ row }: { row: Row<FileToProcess> }) => (
-          <Select
-            value={row.original.model}
-            onValueChange={(value) => {
-              setFilesToProcess((prev) =>
-                prev.map((file) =>
-                  file.index === row.index ? { ...file, model: value } : file,
-                ),
-              );
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select model" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="nova-2-omni">Nova 2 Omni</SelectItem>
-              <SelectItem value="nova-2-pro">Nova 2 Pro</SelectItem>
-              <SelectItem value="nova-2-lite">Nova 2 Lite</SelectItem>
-            </SelectContent>
-          </Select>
-        ),
-      },
-      {
-        header: "Region",
-        accessorKey: "region",
-        cell: ({ row }: { row: Row<FileToProcess> }) => (
-          <Input value={row.original.region} disabled />
-        ),
-      },
-      {
-        header: "Action",
-        accessorKey: "action",
-        rowClassName: "w-10 text-center",
-        enableHiding: false,
-        cell: ({ row }: { row: Row<FileToProcess> }) => (
-          <Button
-            size="sm"
-            className="size-6 cursor-pointer"
-            onClick={() => handleDeleteFile(row.index)}
-            variant="destructive"
-            type="button"
-            disabled={isPending}
-          >
-            <XIcon className="size-4" />
-          </Button>
-        ),
-      },
-    ];
-  }, [handleDeleteFile, isPending]);
-
   const interiorFile = filesToProcess.find((f) => f.jobType === "interior");
   const exteriorFile = filesToProcess.find((f) => f.jobType === "exterior");
   const hasBoth = interiorFile && exteriorFile;
 
-  const renderMobileCard = (title: string, expectedJobType: "interior" | "exterior", fileObj: FileToProcess | undefined) => (
+  const renderUploadCard = (title: string, expectedJobType: "interior" | "exterior", fileObj: FileToProcess | undefined) => (
     <div className="border rounded-xl p-4 bg-muted/20 flex flex-col gap-3">
       <h3 className="font-semibold text-sm uppercase tracking-wider">{title}</h3>
       {fileObj ? (
@@ -420,28 +335,36 @@ export function FileProcessingFormContent() {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3">
-          <Button
-            variant="outline"
-            className="w-full border-dashed h-16 text-muted-foreground hover:text-foreground bg-background/50 shadow-sm flex flex-col gap-1.5 items-center justify-center p-2"
-            onClick={handleOpenFileInput}
-            disabled={isPending || files.length >= maxFiles}
-            type="button"
-          >
-            <PlusIcon className="w-5 h-5" />
-            <span className="text-[10px] font-bold uppercase tracking-tight">Upload</span>
-          </Button>
-          <Button
-            variant="outline"
-            className="w-full border-dashed h-16 text-muted-foreground hover:text-foreground bg-background/50 shadow-sm flex flex-col gap-1.5 items-center justify-center p-2"
-            onClick={() => setRecordingType(expectedJobType)}
-            disabled={isPending || files.length >= maxFiles}
-            type="button"
-          >
-            <CameraIcon className="w-5 h-5" />
-            <span className="text-[10px] font-bold uppercase tracking-tight">Record Live</span>
-          </Button>
-        </div>
+        <>
+          {/* Mobile View: Two Buttons */}
+          <div className="grid grid-cols-2 gap-3 md:hidden">
+            <Button
+              variant="outline"
+              className="w-full border-dashed h-16 text-muted-foreground hover:text-foreground bg-background/50 shadow-sm flex flex-col gap-1.5 items-center justify-center p-2"
+              onClick={handleOpenFileInput}
+              disabled={isPending || files.length >= maxFiles}
+              type="button"
+            >
+              <PlusIcon className="w-5 h-5" />
+              <span className="text-[10px] font-bold uppercase tracking-tight">Upload</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full border-dashed h-16 text-muted-foreground hover:text-foreground bg-background/50 shadow-sm flex flex-col gap-1.5 items-center justify-center p-2"
+              onClick={() => setRecordingType(expectedJobType)}
+              disabled={isPending || files.length >= maxFiles}
+              type="button"
+            >
+              <CameraIcon className="w-5 h-5" />
+              <span className="text-[10px] font-bold uppercase tracking-tight">Record Live</span>
+            </Button>
+          </div>
+
+          {/* Desktop View: Full Drag and Drop Component */}
+          <div className="hidden md:block h-full min-h-[200px]">
+            <FileInput showInfo={false} className="h-full flex flex-col justify-center bg-background/50 border-2 border-dashed shadow-sm" />
+          </div>
+        </>
       )}
     </div>
   );
@@ -450,26 +373,38 @@ export function FileProcessingFormContent() {
     <Form {...form}>
       <form onSubmit={handleSubmit}>
         <FileHiddenInput />
-        <div className={cn(files.length === 0 ? "md:block hidden" : "hidden")}>
-          <FileInput />
-        </div>
 
-        <div className={cn(files.length > 0 || "md:hidden" ? "block" : "hidden")}>
+        <div className="block">
           <div className="space-y-4">
             <Card className="py-0 gap-0 border-none shadow-none bg-transparent md:border md:shadow-sm md:bg-card">
               <CardHeader className="border-none px-0 py-4 items-center md:border-b md:px-6">
                 <CardTitle className="md:block hidden">Files to Process</CardTitle>
-                <CardDescription className="md:block hidden">
-                  Maximum of {maxFiles} files can be processed at a time.
+                <CardDescription className="text-xs text-muted-foreground mt-1 space-y-1 block max-w-sm">
+                  <p>You can upload up to 2 files.</p>
+                  <p>Allowed file types: <span className="font-mono bg-muted/50 px-1 rounded">video/*</span></p>
+                  <p>Max file size: 500.00 MB</p>
+                  <p>Total upload limit: 500.00 MB</p>
+                  {totalSize > 0 && (
+                    <div className="mt-3 p-2 bg-muted/30 rounded-md border border-border/50 text-foreground flex flex-col gap-1">
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Current total:</span>
+                        <span className="font-bold font-mono">{formatFileSize(totalSize)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Remaining limit:</span>
+                        <span className="font-bold font-mono text-blue-600 dark:text-blue-400">{formatFileSize(remainingSize)}</span>
+                      </div>
+                    </div>
+                  )}
                 </CardDescription>
-                <CardAction className="w-full md:w-auto">
+                <CardAction className="w-full md:w-auto mt-2 md:mt-0">
                   <ButtonGroup className="w-full md:w-auto justify-between md:justify-end">
                     <Button
                       variant="outline"
                       size="sm"
                       type="button"
                       disabled={isPending || files.length === 0}
-                      className={cn("flex-1 md:flex-none", files.length === 0 && "opacity-50 pointer-events-none md:hidden")}
+                      className={cn("flex-1 md:flex-none", files.length === 0 && "opacity-50 pointer-events-none")}
                       onClick={() => {
                         handleClearFiles();
                         form.reset();
@@ -478,36 +413,17 @@ export function FileProcessingFormContent() {
                       <XIcon className="mr-1 h-4 w-4" />
                       Clear all
                     </Button>
-                    <Button
-                      size="sm"
-                      className="hidden md:flex"
-                      onClick={handleOpenFileInput}
-                      type="button"
-                      disabled={files.length >= maxFiles || isPending}
-                    >
-                      <PlusIcon className="mr-1 h-4 w-4" />
-                      Add More
-                    </Button>
                   </ButtonGroup>
                 </CardAction>
               </CardHeader>
-              <CardContent className="p-0 px-0 md:px-0">
-                <div className="hidden md:block">
-                  {files.length > 0 && (
-                    <DataTable
-                      columns={columns}
-                      data={filesToProcess}
-                      enablePagination={false}
-                    />
-                  )}
-                </div>
-                <div className="md:hidden flex flex-col gap-4 py-4 px-0">
-                  {renderMobileCard("Interior Video", "interior", interiorFile)}
-                  {renderMobileCard("Exterior Video", "exterior", exteriorFile)}
+              <CardContent className="p-0 px-0 md:px-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 py-4 px-0 md:py-6">
+                  {renderUploadCard("Interior Video", "interior", interiorFile)}
+                  {renderUploadCard("Exterior Video", "exterior", exteriorFile)}
                 </div>
               </CardContent>
-              <CardFooter className={cn("border-none px-0 pt-4 md:border-t md:px-6 mb-4 justify-end", !hasBoth && "hidden md:flex")}>
-                <Button size="lg" type="submit" disabled={isPending || (!hasBoth && filesToProcess.length > 0)} className="w-full md:w-auto shadow-sm">
+              <CardFooter className={cn("border-none px-0 pt-4 md:border-t md:px-6 mb-4 justify-end", !hasBoth && "hidden")}>
+                <Button size="lg" type="submit" disabled={isPending || !hasBoth} className="w-full md:w-auto shadow-sm">
                   {isPending ? (
                     <>
                       Processing Videos...

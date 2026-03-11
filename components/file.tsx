@@ -253,7 +253,7 @@ export function FileInputProvider({
   );
 }
 
-export function FileInput({ className }: { className?: string }) {
+export function FileInput({ className, showInfo = true }: { className?: string; showInfo?: boolean }) {
   const {
     handleOnDrag,
     handleOnDragLeave,
@@ -294,28 +294,21 @@ export function FileInput({ className }: { className?: string }) {
             Drag and drop your files here or click to upload.
           </EmptyTitle>
           <EmptyDescription>
-            <div>
-              You can upload up to <b>{maxFiles}</b> files.
-            </div>
-            <div>
-              Allowed file types: <b>{accept}</b>
-            </div>
-            <div>
-              Max file size: <b>{formatFileSize(maxFileSize)}</b>
-            </div>
-            <div>
-              Total upload limit: <b>{formatFileSize(maxTotalSize)}</b>
-            </div>
-
-            {totalSize > 0 && (
-              <div className="mt-2 p-2 bg-muted rounded-md">
-                <div className="text-sm">
-                  Current total: <b>{formatFileSize(totalSize)}</b>
+            {showInfo && (
+              <>
+                <div>
+                  You can upload up to <b>{maxFiles}</b> files.
                 </div>
-                <div className="text-sm">
-                  Remaining: <b>{formatFileSize(remainingSize)}</b>
+                <div>
+                  Allowed file types: <b className="font-mono bg-muted/50 px-1 rounded">{accept}</b>
                 </div>
-              </div>
+                <div>
+                  Max file size: <b>{formatFileSize(maxFileSize)}</b>
+                </div>
+                <div>
+                  Total upload limit: <b>{formatFileSize(maxTotalSize)}</b>
+                </div>
+              </>
             )}
           </EmptyDescription>
         </EmptyHeader>

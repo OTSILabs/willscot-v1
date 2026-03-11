@@ -24,6 +24,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
   const [recordedVideo, setRecordedVideo] = useState<Blob | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -63,6 +64,18 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [isRecording]);
+
+  useEffect(() => {
+    if (recordedVideo) {
+      const url = URL.createObjectURL(recordedVideo);
+      setPreviewUrl(url);
+      return () => {
+        URL.revokeObjectURL(url);
+      };
+    } else {
+      setPreviewUrl(null);
+    }
+  }, [recordedVideo]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -117,7 +130,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
         setRecordedVideo(blob);
       };
 
-      mediaRecorder.start();
+      mediaRecorder.start(1000);
       setIsRecording(true);
       setRecordingTime(0);
     } catch (err) {
@@ -183,7 +196,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
             />
           ) : (
             <video
-              src={URL.createObjectURL(recordedVideo)}
+              src={previewUrl || undefined}
               controls
               className="w-full h-full object-contain bg-black"
             />
