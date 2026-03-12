@@ -84,6 +84,12 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
 
   const startCamera = async () => {
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast.error("Camera access is only available over a secure (HTTPS) connection. If you are developing locally, please use localhost or set up HTTPS.");
+        onClose();
+        return;
+      }
+
       const newStream = await navigator.mediaDevices.getUserMedia({
         video: { 
           width: { ideal: 1280 },
