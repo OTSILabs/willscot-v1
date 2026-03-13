@@ -55,9 +55,9 @@ export function VideoInfoPanel({ result, type }: VideoInfoPanelProps) {
         const valueElement = (
           <p
             className={cn(
-              "max-w-60 truncate",
+              "md:max-w-60 md:truncate w-full break-words whitespace-normal",
               item.mono
-                ? "break-all font-mono text-xs leading-5"
+                ? "font-mono text-xs leading-5"
                 : "text-xs leading-5"
             )}
           >

@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { Header } from "@/components/Header";
 export const metadata: Metadata = {
-  title: "Traces",
+  title: "Profile",
 };
 
-export default function TracesLayout({
+export default function ProfileLayout({
   children,
 }: {
   children: React.ReactNode;

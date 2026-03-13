@@ -10,6 +10,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -28,6 +30,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ButtonGroup } from "@/components/ui/button-group";
+import { PaginationControls } from "@/components/ui/table";
 
 type UserRole = "power_user" | "normal_user";
 
@@ -179,22 +182,33 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="container mx-auto py-10 space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">Users</h1>
-          <p className="text-muted-foreground">
-            Add, edit and delete application users.
-          </p>
+    <div className="container mx-auto px-0 md:px-0 py-4 md:py-10 space-y-6 md:space-y-8 pb-16 md:pb-10">
+      <div className="flex flex-col space-y-4">
+        {/* Mobile Header per reference */}
+        <div className="md:hidden flex items-center gap-3 border-b pb-3 -mx-3 px-3">
+          <Link href="/traces">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <span className="font-semibold text-lg">Users</span>
         </div>
-        <Button
-          onClick={() => {
-            setErrorMessage("");
-            setIsCreateOpen(true);
-          }}
-        >
-          New User
-        </Button>
+
+        {/* Global Header Layout matching Traces */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="hidden md:block">
+            <h1 className="text-xl font-bold tracking-tight">Users</h1>
+            <p className="text-muted-foreground">
+              Add, edit and delete application users.
+            </p>
+          </div>
+          <Button
+            onClick={() => {
+              setErrorMessage("");
+              setIsCreateOpen(true);
+            }}
+          >
+            New User
+          </Button>
+        </div>
       </div>
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -257,8 +271,8 @@ export default function UsersPage() {
         <p className="text-sm text-destructive">{errorMessage}</p>
       ) : null}
 
-      <div className="rounded-md border">
-        <div className="border-b p-3">
+      <div className="rounded-md md:border border-none">
+        <div className="border-b py-3 md:p-3">
           <Input
             value={search}
             onChange={(event) => {
@@ -269,6 +283,7 @@ export default function UsersPage() {
             className="max-w-sm"
           />
         </div>
+        <div className="hidden md:block">
         <Table className="table-fixed">
           <TableHeader>
             <TableRow>
@@ -409,42 +424,140 @@ export default function UsersPage() {
             )}
           </TableBody>
         </Table>
-        <div className="flex items-center justify-between border-t px-4 py-3">
-          <p className="text-sm text-muted-foreground">
-            Showing {usersQuery.data ? (usersQuery.data.pagination.total === 0 ? 0 : (usersQuery.data.pagination.page - 1) * usersQuery.data.pagination.pageSize + 1) : 0}
-            -
-            {usersQuery.data ? Math.min(usersQuery.data.pagination.page * usersQuery.data.pagination.pageSize, usersQuery.data.pagination.total) : 0}{" "}
-            of {usersQuery.data?.pagination.total ?? 0}
-          </p>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-              disabled={(usersQuery.data?.pagination.page ?? 1) <= 1}
-            >
-              Previous
-            </Button>
-            <p className="text-sm text-muted-foreground">
-              Page {usersQuery.data?.pagination.page ?? 1} / {usersQuery.data?.pagination.totalPages ?? 1}
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                setPage((prev) =>
-                  Math.min(usersQuery.data?.pagination.totalPages ?? 1, prev + 1),
-                )
-              }
-              disabled={
-                (usersQuery.data?.pagination.page ?? 1) >=
-                (usersQuery.data?.pagination.totalPages ?? 1)
-              }
-            >
-              Next
-            </Button>
-          </div>
         </div>
+
+        {/* Mobile Card Layout */}
+        <div className="md:hidden flex flex-col gap-4 pt-2">
+          {usersQuery.isLoading ? (
+            <div className="text-center py-8 text-sm text-muted-foreground">
+              Loading users...
+            </div>
+          ) : usersQuery.data?.items?.length ? (
+            usersQuery.data.items.map((user) => (
+              <div key={user.id} className="rounded-xl p-3 bg-card shadow-sm flex flex-col gap-3 border md:border-none text-card-foreground">
+                {editingId === user.id ? (
+                  <div className="flex flex-col gap-3">
+                    <Input
+                      placeholder="Name"
+                      value={editForm.name}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                      className="h-9"
+                    />
+                    <Input
+                      placeholder="Email"
+                      value={editForm.email}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                      className="h-9"
+                    />
+                    <Select
+                      value={editForm.role}
+                      onValueChange={(value: UserRole) => setEditForm(prev => ({ ...prev, role: value }))}
+                    >
+                      <SelectTrigger className="h-9 w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="power_user">Power user</SelectItem>
+                        <SelectItem value="normal_user">Normal user</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    
+                    <Input
+                      type="password"
+                      placeholder="New password (optional)"
+                      value={editForm.password}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, password: e.target.value }))}
+                      className="h-9"
+                    />
+
+                    <div className="flex gap-2 pt-2 border-t mt-1">
+                      <Button
+                        className="flex-1"
+                        size="sm"
+                        disabled={isSaving}
+                        onClick={() =>
+                          updateUser.mutate({
+                            id: user.id,
+                            payload: {
+                              name: editForm.name,
+                              email: editForm.email,
+                              role: editForm.role,
+                              password: editForm.password,
+                            },
+                          })
+                        }
+                      >
+                        Save
+                      </Button>
+                      <Button
+                        className="flex-1"
+                        size="sm"
+                        variant="outline"
+                        disabled={isSaving}
+                        onClick={() => {
+                          setEditingId(null);
+                          setEditForm(DEFAULT_FORM);
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="flex flex-col break-words max-w-[70%]">
+                        <span className="font-semibold">{user.name}</span>
+                        <span className="text-sm text-muted-foreground break-all">{user.email}</span>
+                      </div>
+                      <span className="px-2.5 py-0.5 rounded-full bg-accent text-[10px] font-medium shrink-0 uppercase tracking-wider">
+                        {user.role === "power_user" ? "Power User" : "Normal User"}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between border-t pt-3 mt-1">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                        Joined {new Date(user.createdAt).toLocaleDateString()}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs px-2.5 shadow-sm"
+                          onClick={() => startEdit(user)}
+                        >
+                          Edit
+                        </Button>
+                        {user.role !== "power_user" && (
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="h-7 text-xs px-2.5 shadow-sm"
+                            disabled={deleteUser.isPending}
+                            onClick={() => deleteUser.mutate(user.id)}
+                          >
+                            Delete
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-8 text-sm text-muted-foreground">
+              No users found.
+            </div>
+          )}
+        </div>
+        <PaginationControls
+          currentPage={usersQuery.data?.pagination.page ?? 1}
+          totalPages={usersQuery.data?.pagination.totalPages ?? 1}
+          totalItems={usersQuery.data?.pagination.total ?? 0}
+          pageSize={pageSize}
+          onPageChange={setPage}
+        />
       </div>
 
 

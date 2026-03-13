@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { humanizeString } from "@/lib/utils";
 
 import {
   Table,
@@ -23,24 +24,6 @@ interface AttributesTableProps {
   onAttributeUpdate: (index: number, newAttribute: TraceAttribute) => void;
 }
 
-function formatMeta(value?: string | null) {
-  if (!value || value.trim().length === 0) return "N/A";
-  return value;
-}
-
-function toTitleCase(value?: string | null) {
-  const raw = formatMeta(value);
-  if (raw === "N/A") return "NA";
-
-  return raw
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .split(" ")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join(" ");
-}
 
 export function AttributesTable({ attributes, onAttributeUpdate }: AttributesTableProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -96,7 +79,8 @@ export function AttributesTable({ attributes, onAttributeUpdate }: AttributesTab
 
   return (
     <>
-      <Table className="text-xs table-fixed">
+      <div className="hidden md:block">
+        <Table className="text-xs table-fixed">
         <TableHeader>
           <TableRow>
             <TableHead>Property</TableHead>
@@ -115,12 +99,12 @@ export function AttributesTable({ attributes, onAttributeUpdate }: AttributesTab
 
             return (
               <TableRow key={index}>
-                <TableCell>{toTitleCase(attribute.pipeline)}</TableCell>
-                <TableCell>{toTitleCase(attribute.attribute)}</TableCell>
-                <TableCell>{formatMeta(attribute.value)}</TableCell>
-                <TableCell>{formatMeta(attribute.source)}</TableCell>
+                <TableCell>{humanizeString(attribute.pipeline)}</TableCell>
+                <TableCell>{humanizeString(attribute.attribute)}</TableCell>
+                <TableCell>{humanizeString(attribute.value)}</TableCell>
+                <TableCell>{humanizeString(attribute.source)}</TableCell>
                 <TableCell className="whitespace-normal wrap-break-word">
-                  {formatMeta(attribute.evidence)}
+                  {humanizeString(attribute.evidence)}
                 </TableCell>
 
                 <TableCell>
@@ -166,6 +150,74 @@ export function AttributesTable({ attributes, onAttributeUpdate }: AttributesTab
           })}
         </TableBody>
       </Table>
+      </div>
+
+      {/* Mobile Card Layout */}
+      <div className="md:hidden flex flex-col gap-4 pb-20">
+        {attributes.map((attribute, index) => {
+          const isLocked =
+            attribute.status === "correct" || attribute.status === "wrong";
+
+          return (
+            <div key={index} className="flex flex-col gap-2 rounded-xl bg-card p-4 shadow-sm text-card-foreground">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground pb-0.5">
+                  {humanizeString(attribute.pipeline)} &gt; {humanizeString(attribute.attribute)}
+                </p>
+                <p className="font-semibold text-sm">
+                  {humanizeString(attribute.value)}{" "}
+                  <span className="font-normal text-muted-foreground">
+                    ({humanizeString(attribute.source)})
+                  </span>
+                </p>
+              </div>
+
+              <p className="text-sm text-muted-foreground leading-relaxed break-words whitespace-normal py-1">
+                {humanizeString(attribute.evidence)}
+              </p>
+
+              <div className="flex items-center justify-end pt-2 border-t mt-1">
+                {isLocked ? (
+                  attribute.status === "correct" ? (
+                    <span className="text-green-600 font-medium text-sm flex items-center gap-1">
+                      <CheckIcon className="w-4 h-4" /> Marked Correct
+                    </span>
+                  ) : (
+                    <div className="text-sm text-right">
+                      <p className="text-red-600 font-medium flex items-center justify-end gap-1">
+                        <XIcon className="w-4 h-4" /> Marked Wrong
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{attribute.feedback}</p>
+                    </div>
+                  )
+                ) : (
+                  <ButtonGroup>
+                    <ButtonGroupText className="text-xs font-medium px-3">
+                      Verify
+                    </ButtonGroupText>
+                    <Button
+                      size="sm"
+                      title="Mark as Correct"
+                      className="bg-green-600 text-white hover:bg-green-700 h-8 px-3"
+                      onClick={() => handleCorrectClick(index)}
+                    >
+                      <CheckIcon className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      title="Mark as Wrong"
+                      className="h-8 px-3"
+                      onClick={() => handleWrongClick(index)}
+                    >
+                      <XIcon className="w-4 h-4" />
+                    </Button>
+                  </ButtonGroup>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
       <FeedbackDialog
         open={dialogOpen}

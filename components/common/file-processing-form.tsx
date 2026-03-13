@@ -24,9 +24,9 @@ import {
   FileInputProvider,
   useFileInput,
 } from "../file";
-import { DataTable } from "../data-table";
-import { PlayIcon, PlusIcon, XIcon } from "lucide-react";
+import { CameraIcon, PlayIcon, PlusIcon, XIcon, UploadIcon } from "lucide-react";
 import { Row } from "@tanstack/react-table";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -39,6 +39,8 @@ import { Spinner } from "../ui/spinner";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import axios from "axios";
+import { VideoRecorder } from "./video-recorder";
+import { humanizeString, humanizeFileSize } from "@/lib/utils";
 
 type FileToProcess = {
   file: File;
@@ -76,18 +78,25 @@ export function FileProcessingFormContent() {
     handleClearFiles,
     handleOpenFileInput,
     maxFiles,
+    totalSize,
+    remainingSize,
+    isDragging,
+    handleOnDrag,
+    handleOnDragLeave,
+    handleDrop,
+    addFiles,
   } = useFileInput();
 
   const [filesToProcess, setFilesToProcess] = useState<FileToProcess[]>([]);
   const [isPending, setIsPending] = useState(false);
+  const [recordingType, setRecordingType] = useState<"interior" | "exterior" | null>(null);
   const router = useRouter();
 
   useEffect(() => {
     setFilesToProcess((prev) => {
-      const jobType = new Map<string, "interior" | "exterior">(
+      const jobTypes = new Map<string, "interior" | "exterior">(
         prev.map((p) => [p.jobType, p.jobType]),
       );
-
 
       const existingMap = new Map(prev.map((p) => [p.file.name, p]));
 
@@ -97,13 +106,21 @@ export function FileProcessingFormContent() {
           return { ...existing, file, index };
         }
 
+        // Auto-assign job type based on what's missing
+        let jobType: "interior" | "exterior" = "interior";
+        if (jobTypes.get("interior")) {
+          jobType = "exterior";
+        } else if (jobTypes.get("exterior")) {
+          jobType = "interior";
+        }
+
         return {
           file,
           index,
           containerType: "trailer",
-          model: "nova-2-omni",
+          model: "pegasus",
           region: "us-west-2",
-          jobType: jobType.get("interior") ? "exterior" : "interior",
+          jobType: (index === 0 && !jobTypes.has("interior")) ? "interior" : (index === 1 && !jobTypes.has("exterior")) ? "exterior" : jobType,
         };
       });
     });
@@ -124,16 +141,8 @@ export function FileProcessingFormContent() {
       return;
     }
 
-    let exteriorJobs = 0;
-    let interiorJobs = 0;
-
-    for (const item of filesToProcess) {
-      if (item.jobType === "exterior") {
-        exteriorJobs++;
-      } else {
-        interiorJobs++;
-      }
-    }
+    let exteriorJobs = filesToProcess.filter(f => f.jobType === "exterior").length;
+    let interiorJobs = filesToProcess.filter(f => f.jobType === "interior").length;
 
     if (!interiorJobs || !exteriorJobs) {
       toast.error("Invalid job type selection.", {
@@ -153,53 +162,79 @@ export function FileProcessingFormContent() {
           closeButton: false,
           id: `upload-${item.file.name}`
         });
-        const presignResponse = await axios.post("/api/s3/presign-upload", {
-          fileName: item.file.name,
-          containerType: item.containerType,
-          region: item.region,
-          contentType: item.file.type,
-        });
 
-        const { presignedUrl, s3Uri } = presignResponse.data;
+        try {
+          const presignResponse = await axios.post("/api/s3/presign-upload", {
+            fileName: item.file.name,
+            containerType: item.containerType,
+            region: item.region,
+            contentType: item.file.type,
+          });
 
-        await axios.put(presignedUrl, item.file, {
-          headers: {
-            "Content-Type": item.file.type,
-          },
-          onUploadProgress: (progressEvent) => {
-            if (progressEvent.total) {
-              const percentCompleted = Math.round(
-                (progressEvent.loaded * 100) / progressEvent.total,
-              );
-              toast.loading(
-                <div className="flex flex-col gap-2">
-                  <div className="text-sm text-muted-foreground">Uploading</div>
-                  <div className="truncate max-w-md">{item.file.name}</div>
-                  <div className="text-sm text-muted-foreground">{percentCompleted}%</div>
-                </div>,
-                { id: uploadToastId },
-              );
+          const { presignedUrl, s3Uri } = presignResponse.data;
 
-              if (percentCompleted === 100) {
-                toast.dismiss(uploadToastId);
+          await axios.put(presignedUrl, item.file, {
+            headers: {
+              "Content-Type": item.file.type,
+            },
+            onUploadProgress: (progressEvent) => {
+              if (progressEvent.total) {
+                const percentCompleted = Math.round(
+                  (progressEvent.loaded * 100) / progressEvent.total,
+                );
+                toast.loading(
+                  <div className="flex flex-col gap-2">
+                    <div className="text-sm text-muted-foreground">Uploading</div>
+                    <div className="truncate max-w-md">{item.file.name}</div>
+                    <div className="text-sm text-muted-foreground">{percentCompleted}%</div>
+                  </div>,
+                  { id: uploadToastId },
+                );
+
+                if (percentCompleted === 100) {
+                  toast.dismiss(uploadToastId);
+                }
               }
-            }
-          },
-        });
+            },
+          });
 
-        return {
-          s3Uri,
-          containerType: item.containerType,
-          model: item.model,
-          region: item.region,
-          jobType: item.jobType,
-        };
+          return {
+            s3Uri,
+            containerType: item.containerType,
+            model: item.model,
+            region: item.region,
+            jobType: item.jobType,
+          };
+        } catch (error) {
+          const individualError = (error && typeof error === "object" && "response" in error
+            ? (error.response as { data?: { error?: string } })?.data?.error
+            : null) || (error instanceof Error ? error.message : "Upload failed");
+          
+          toast.error(`Upload failed for ${item.file.name}: ${individualError}`, {
+            id: uploadToastId,
+            closeButton: true
+          });
+          throw error;
+        }
       });
 
-      const jobs = await Promise.all(uploadPromises);
+      const results = await Promise.allSettled(uploadPromises);
+      
+      const failedJobs = results.filter(r => r.status === 'rejected');
+      const successfulJobs = results
+        .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
+        .map(r => r.value);
+
+      if (failedJobs.length > 0) {
+        toast.error(`${failedJobs.length} video(s) failed to upload. Please try again.`, {
+          id: toastId,
+          closeButton: true
+        });
+        return;
+      }
 
       const response = await axios.post("/api/process-batch", {
-        jobs,
+        jobs: successfulJobs,
       });
 
       toast.success("All videos have been submitted successfully!", {
@@ -216,13 +251,10 @@ export function FileProcessingFormContent() {
           ? (error.response as { data?: { error?: string } })?.data?.error
           : null) ||
         (error instanceof Error ? error.message : "Unknown error");
+      
       toast.error(`Failed to submit videos: ${errorMessage}`, {
         id: toastId,
         closeButton: true
-      });
-
-      filesToProcess.forEach((item) => {
-        toast.dismiss(`upload-${item.file.name}`);
       });
 
     } finally {
@@ -230,164 +262,169 @@ export function FileProcessingFormContent() {
     }
   };
 
-  const columns = useMemo(() => {
-    return [
-      {
-        header: "File Name",
-        accessorKey: "file.name",
-      },
-      {
-        header: "Container Type",
-        accessorKey: "containerType",
-        cell: ({ row }: { row: Row<FileToProcess> }) => (
-          <Select
-            value={row.original.containerType}
-            onValueChange={(value) => {
-              setFilesToProcess((prev) =>
-                prev.map((file) =>
-                  file.index === row.index
-                    ? { ...file, containerType: value }
-                    : file,
-                ),
-              );
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select container type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="trailer">Trailer</SelectItem>
-              <SelectItem value="container">Container</SelectItem>
-              <SelectItem value="flex">Flex</SelectItem>
-            </SelectContent>
-          </Select>
-        ),
-      },
-      {
-        header: "Job Type",
-        accessorKey: "jobType",
-        cell: ({ row }: { row: Row<FileToProcess> }) => (
-          <Select
-            value={row.original.jobType}
-            onValueChange={(value: "interior" | "exterior") => {
-              setFilesToProcess((prev) =>
-                prev.map((file) =>
-                  file.index === row.index ? { ...file, jobType: value } : file,
-                ),
-              );
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="interior">Interior</SelectItem>
-              <SelectItem value="exterior">Exterior</SelectItem>
-            </SelectContent>
-          </Select>
-        ),
-      },
-      {
-        header: "Model",
-        accessorKey: "model",
-        cell: ({ row }: { row: Row<FileToProcess> }) => (
-          <Select
-            value={row.original.model}
-            onValueChange={(value) => {
-              setFilesToProcess((prev) =>
-                prev.map((file) =>
-                  file.index === row.index ? { ...file, model: value } : file,
-                ),
-              );
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select model" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="nova-2-omni">Nova 2 Omni</SelectItem>
-              <SelectItem value="nova-2-pro">Nova 2 Pro</SelectItem>
-              <SelectItem value="nova-2-lite">Nova 2 Lite</SelectItem>
-            </SelectContent>
-          </Select>
-        ),
-      },
-      {
-        header: "Region",
-        accessorKey: "region",
-        cell: ({ row }: { row: Row<FileToProcess> }) => (
-          <Input value={row.original.region} disabled />
-        ),
-      },
-      {
-        header: "Action",
-        accessorKey: "action",
-        rowClassName: "w-10 text-center",
-        enableHiding: false,
-        cell: ({ row }: { row: Row<FileToProcess> }) => (
+  const interiorFile = filesToProcess.find((f) => f.jobType === "interior");
+  const exteriorFile = filesToProcess.find((f) => f.jobType === "exterior");
+  const hasBoth = interiorFile && exteriorFile;
+
+  const renderUploadCard = (title: string, expectedJobType: "interior" | "exterior", fileObj: FileToProcess | undefined) => (
+    <div className="border rounded-xl p-4 bg-muted/20 flex flex-col gap-3">
+      <h3 className="font-semibold text-sm uppercase tracking-wider">{title}</h3>
+      {fileObj ? (
+        <div className="flex flex-col gap-3">
+          <div className="text-xs font-mono truncate bg-background p-2 rounded border border-border/50">
+            {fileObj.file.name}
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] uppercase font-bold text-muted-foreground w-max">Region</span>
+              <Input
+                value={fileObj.region}
+                disabled
+                className="h-9 text-xs bg-muted/50 font-medium"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] uppercase font-bold text-muted-foreground w-max">Container Type</span>
+              <Select
+                value={fileObj.containerType}
+                onValueChange={(val) => {
+                  setFilesToProcess((prev) =>
+                    prev.map((f) => (f.index === fileObj.index ? { ...f, containerType: val } : f))
+                  );
+                }}
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="trailer">Trailer</SelectItem>
+                  <SelectItem value="container">Container</SelectItem>
+                  <SelectItem value="flex">Flex</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] uppercase font-bold text-muted-foreground w-max">Model</span>
+              <Input
+                value={humanizeString(fileObj.model)}
+                disabled
+                className="h-9 text-xs bg-muted/50 font-medium"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end pt-1">
+            <Button
+              variant="destructive"
+              size="sm"
+              className="h-8 shadow-sm"
+              onClick={() => handleDeleteFile(fileObj.index)}
+              disabled={isPending}
+            >
+              <XIcon className="w-4 h-4 mr-1" />
+              Remove
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div 
+          className={cn(
+            "flex flex-col md:flex-row gap-3 h-full min-h-[160px] p-4 bg-background/50 border-2 border-dashed rounded-lg transition-all items-center justify-center relative group",
+            isDragging && "border-blue-500 bg-blue-50/50 dark:bg-blue-900/10"
+          )}
+          onDragOver={handleOnDrag}
+          onDragLeave={handleOnDragLeave}
+          onDrop={handleDrop}
+        >
+          {isDragging && (
+             <div className="absolute inset-0 z-10 hidden md:flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg border-2 border-blue-500 pointer-events-none">
+               <span className="font-semibold text-blue-500 flex items-center gap-2">
+                 <UploadIcon className="w-5 h-5 animate-bounce" />
+                 Drop video here
+               </span>
+             </div>
+          )}
           <Button
-            size="sm"
-            className="size-6 cursor-pointer"
-            onClick={() => handleDeleteFile(row.index)}
-            variant="destructive"
+            variant="outline"
+            className="w-full flex-1 h-20 md:h-32 text-muted-foreground hover:text-foreground hover:bg-muted/50 shadow-sm flex flex-col gap-2 items-center justify-center p-3 relative transition-all"
+            onClick={handleOpenFileInput}
+            disabled={isPending || files.length >= maxFiles}
             type="button"
-            disabled={isPending}
           >
-            <XIcon className="size-4" />
+            <UploadIcon className="w-6 h-6 md:w-8 md:h-8 mb-0 md:mb-1" />
+            <span className="text-xs md:text-sm font-semibold uppercase tracking-tight">Import from Device</span>
+            <span className="text-[10px] md:text-xs hidden md:block opacity-50">or drag and drop video here</span>
           </Button>
-        ),
-      },
-    ];
-  }, [handleDeleteFile, isPending]);
+          <Button
+            variant="outline"
+            className="w-full flex-1 h-20 md:hidden text-muted-foreground hover:text-foreground hover:bg-muted/50 shadow-sm flex flex-col gap-2 items-center justify-center p-3"
+            onClick={() => setRecordingType(expectedJobType)}
+            disabled={isPending || files.length >= maxFiles}
+            type="button"
+          >
+            <CameraIcon className="w-6 h-6 mb-0" />
+            <span className="text-xs font-semibold uppercase tracking-tight">Record Video</span>
+          </Button>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <Form {...form}>
       <form onSubmit={handleSubmit}>
         <FileHiddenInput />
-        {files.length > 0 ? (
+
+        <div className="block">
           <div className="space-y-4">
-            <Card className="py-0 gap-0">
-              <CardHeader className="border-b px-6 py-4! items-center">
-                <CardTitle>Files to Process</CardTitle>
-                <CardDescription>
-                  Maximum of {maxFiles} files can be processed at a time.
+            <Card className="py-0 gap-0 border-none shadow-none bg-transparent md:border md:shadow-sm md:bg-card">
+              <CardHeader className="border-none px-0 py-4 items-center md:border-b md:px-6">
+                <CardTitle className="md:block hidden">Files to Process</CardTitle>
+                <CardDescription className="text-xs text-muted-foreground mt-1 space-y-1 block max-w-sm">
+                  <p>You can upload up to 2 files.</p>
+                  <p>Allowed file types: <span className="font-mono bg-muted/50 px-1 rounded">video/*</span></p>
+                  <p>Max file size: 500.00 MB</p>
+                  <p>Total upload limit: 500.00 MB</p>
+                  {totalSize > 0 && (
+                    <div className="mt-3 p-2 bg-muted/30 rounded-md border border-border/50 text-foreground flex flex-col gap-1">
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Current total:</span>
+                        <span className="font-bold font-mono">{humanizeFileSize(totalSize)}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Remaining limit:</span>
+                        <span className="font-bold font-mono text-blue-600 dark:text-blue-400">{humanizeFileSize(remainingSize)}</span>
+                      </div>
+                    </div>
+                  )}
                 </CardDescription>
-                <CardAction>
-                  <ButtonGroup>
+                <CardAction className="w-full md:w-auto mt-2 md:mt-0">
+                  <ButtonGroup className="w-full md:w-auto justify-between md:justify-end">
                     <Button
                       variant="outline"
                       size="sm"
                       type="button"
-                      disabled={isPending}
+                      disabled={isPending || files.length === 0}
+                      className={cn("flex-1 md:flex-none", files.length === 0 && "opacity-50 pointer-events-none")}
                       onClick={() => {
                         handleClearFiles();
                         form.reset();
                       }}
                     >
-                      <XIcon />
+                      <XIcon className="mr-1 h-4 w-4" />
                       Clear all
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={handleOpenFileInput}
-                      type="button"
-                      disabled={files.length >= maxFiles || isPending}
-                    >
-                      <PlusIcon />
-                      Add More
                     </Button>
                   </ButtonGroup>
                 </CardAction>
               </CardHeader>
-              <CardContent className="p-0">
-                <DataTable
-                  columns={columns}
-                  data={filesToProcess}
-                  enablePagination={false}
-                />
+              <CardContent className="p-0 px-0 md:px-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 py-4 px-0 md:py-6">
+                  {renderUploadCard("Interior Video", "interior", interiorFile)}
+                  {renderUploadCard("Exterior Video", "exterior", exteriorFile)}
+                </div>
               </CardContent>
-              <CardFooter className={"border-t justify-end mb-4"}>
-                <Button size="lg" type="submit" disabled={isPending}>
+              <CardFooter className={cn("border-none px-0 pt-4 md:border-t md:px-6 mb-4 justify-end", !hasBoth && "hidden")}>
+                <Button size="lg" type="submit" disabled={isPending || !hasBoth} className="w-full md:w-auto shadow-sm">
                   {isPending ? (
                     <>
                       Processing Videos...
@@ -403,10 +440,18 @@ export function FileProcessingFormContent() {
               </CardFooter>
             </Card>
           </div>
-        ) : (
-          <FileInput />
-        )}
+        </div>
       </form>
+
+      <VideoRecorder
+        isOpen={!!recordingType}
+        title={`Record ${recordingType === "interior" ? "Interior" : "Exterior"} Video`}
+        onClose={() => setRecordingType(null)}
+        onCapture={(file) => {
+          addFiles([file]);
+          toast.success("Live video captured and added!");
+        }}
+      />
     </Form>
   );
 }

@@ -25,3 +25,14 @@ export function humanizeFileSize(size: number) {
     ["B", "KB", "MB", "GB", "TB"][i]
   );
 }
+export function humanizeString(s: string | null | undefined) {
+  if (!s || s.trim().length === 0) return "N/A";
+  return s
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
