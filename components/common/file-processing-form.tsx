@@ -101,7 +101,7 @@ export function FileProcessingFormContent() {
           file,
           index,
           containerType: "trailer",
-          model: "nova-2-omni",
+          model: "Pegasus",
           region: "us-west-2",
           jobType: jobType.get("interior") ? "exterior" : "interior",
         };
@@ -291,25 +291,7 @@ export function FileProcessingFormContent() {
         header: "Model",
         accessorKey: "model",
         cell: ({ row }: { row: Row<FileToProcess> }) => (
-          <Select
-            value={row.original.model}
-            onValueChange={(value) => {
-              setFilesToProcess((prev) =>
-                prev.map((file) =>
-                  file.index === row.index ? { ...file, model: value } : file,
-                ),
-              );
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select model" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="nova-2-omni">Nova 2 Omni</SelectItem>
-              <SelectItem value="nova-2-pro">Nova 2 Pro</SelectItem>
-              <SelectItem value="nova-2-lite">Nova 2 Lite</SelectItem>
-            </SelectContent>
-          </Select>
+          <Input value={row.original.model} disabled />
         ),
       },
       {
