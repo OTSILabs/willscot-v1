@@ -25,3 +25,7 @@ export function humanizeFileSize(size: number) {
     ["B", "KB", "MB", "GB", "TB"][i]
   );
 }
+export function toTitleCase(s: string) {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
