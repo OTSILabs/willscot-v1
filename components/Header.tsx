@@ -153,9 +153,7 @@ export function Header() {
                   <Menu className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>Navigation</DropdownMenuLabel>
-                <DropdownMenuSeparator />
+              <DropdownMenuContent align="end" className="w-10">
                 {navLinks.map((link) => (
                   <DropdownMenuItem key={link.href} asChild>
                     <Link href={link.href} className="w-full cursor-pointer">
