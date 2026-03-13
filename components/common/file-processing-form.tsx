@@ -57,6 +57,9 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
+function toTitleCase(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+}
 
 export function FileProcessingForm() {
   return (
@@ -118,7 +121,7 @@ export function FileProcessingFormContent() {
           file,
           index,
           containerType: "trailer",
-          model: "nova-2-omni",
+          model: "pegasus",
           region: "us-west-2",
           jobType: (index === 0 && !jobTypes.has("interior")) ? "interior" : (index === 1 && !jobTypes.has("exterior")) ? "exterior" : jobType,
         };
@@ -306,23 +309,11 @@ export function FileProcessingFormContent() {
             </div>
             <div className="flex flex-col gap-1.5">
               <span className="text-[10px] uppercase font-bold text-muted-foreground w-max">Model</span>
-              <Select
-                value={fileObj.model}
-                onValueChange={(val) => {
-                  setFilesToProcess((prev) =>
-                    prev.map((f) => (f.index === fileObj.index ? { ...f, model: val } : f))
-                  );
-                }}
-              >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="nova-2-omni">Nova 2 Omni</SelectItem>
-                  <SelectItem value="nova-2-pro">Nova 2 Pro</SelectItem>
-                  <SelectItem value="nova-2-lite">Nova 2 Lite</SelectItem>
-                </SelectContent>
-              </Select>
+              <Input
+                value={toTitleCase(fileObj.model)}
+                disabled
+                className="h-9 text-xs bg-muted/50 font-medium"
+              />
             </div>
           </div>
           <div className="flex justify-end pt-1">
