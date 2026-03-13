@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { humanizeString } from "@/lib/utils";
 
 import {
   Table,
@@ -23,24 +24,6 @@ interface AttributesTableProps {
   onAttributeUpdate: (index: number, newAttribute: TraceAttribute) => void;
 }
 
-function formatMeta(value?: string | null) {
-  if (!value || value.trim().length === 0) return "N/A";
-  return value;
-}
-
-function toTitleCase(value?: string | null) {
-  const raw = formatMeta(value);
-  if (raw === "N/A") return "NA";
-
-  return raw
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/[_-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .split(" ")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join(" ");
-}
 
 export function AttributesTable({ attributes, onAttributeUpdate }: AttributesTableProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -116,12 +99,12 @@ export function AttributesTable({ attributes, onAttributeUpdate }: AttributesTab
 
             return (
               <TableRow key={index}>
-                <TableCell>{toTitleCase(attribute.pipeline)}</TableCell>
-                <TableCell>{toTitleCase(attribute.attribute)}</TableCell>
-                <TableCell>{formatMeta(attribute.value)}</TableCell>
-                <TableCell>{formatMeta(attribute.source)}</TableCell>
+                <TableCell>{humanizeString(attribute.pipeline)}</TableCell>
+                <TableCell>{humanizeString(attribute.attribute)}</TableCell>
+                <TableCell>{humanizeString(attribute.value)}</TableCell>
+                <TableCell>{humanizeString(attribute.source)}</TableCell>
                 <TableCell className="whitespace-normal wrap-break-word">
-                  {formatMeta(attribute.evidence)}
+                  {humanizeString(attribute.evidence)}
                 </TableCell>
 
                 <TableCell>
@@ -179,18 +162,18 @@ export function AttributesTable({ attributes, onAttributeUpdate }: AttributesTab
             <div key={index} className="flex flex-col gap-2 rounded-xl bg-card p-4 shadow-sm text-card-foreground">
               <div>
                 <p className="text-xs font-medium text-muted-foreground pb-0.5">
-                  {toTitleCase(attribute.pipeline)} &gt; {toTitleCase(attribute.attribute)}
+                  {humanizeString(attribute.pipeline)} &gt; {humanizeString(attribute.attribute)}
                 </p>
                 <p className="font-semibold text-sm">
-                  {formatMeta(attribute.value)}{" "}
+                  {humanizeString(attribute.value)}{" "}
                   <span className="font-normal text-muted-foreground">
-                    ({formatMeta(attribute.source)})
+                    ({humanizeString(attribute.source)})
                   </span>
                 </p>
               </div>
 
               <p className="text-sm text-muted-foreground leading-relaxed break-words whitespace-normal py-1">
-                {formatMeta(attribute.evidence)}
+                {humanizeString(attribute.evidence)}
               </p>
 
               <div className="flex items-center justify-end pt-2 border-t mt-1">

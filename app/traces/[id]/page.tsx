@@ -71,23 +71,45 @@ export default function ResultDetailPage() {
   const isFailed = result.status === "failed";
 
   async function handleFeedbackChange(index: number, newAttribute: TraceAttribute) {
-    if (!result) return;
-    const currentAttributes = [...(result.json.attributes || [])] as TraceAttribute[];
+    const currentAttributes = [...(result?.json.attributes || [])] as TraceAttribute[];
+    if (index < 0 || index >= currentAttributes.length) return;
 
-    if (index >= 0 && index < currentAttributes.length) {
-      currentAttributes[index] = newAttribute;
-      try {
-        await axios.patch(`/api/results/${id}`, {
-          attributes: currentAttributes
-        });
-        refetch();
-      } catch {
-        toast.error("Failed to update feedback", {
-          description: "Please try again!",
-        });
-      }
+    currentAttributes[index] = newAttribute;
+    try {
+      await axios.patch(`/api/results/${id}`, { attributes: currentAttributes });
+      refetch();
+    } catch {
+      toast.error("Failed to update feedback", { description: "Please try again!" });
     }
   }
+
+  const VideoPreviewTabs = ({ isMobile = false }: { isMobile?: boolean }) => (
+    <Tabs 
+      defaultValue="interior" 
+      value={type} 
+      onValueChange={(v) => setType(v as "interior" | "exterior")} 
+      className={isMobile ? "w-full mt-4" : "flex h-full min-h-0 flex-col"}
+    >
+      <div className={!isMobile ? "border-b" : ""}>
+        <TabsList variant={!isMobile ? "line" : undefined} className={!isMobile ? "grid w-[220px] grid-cols-2" : "grid w-full grid-cols-2 mb-2"}>
+          <TabsTrigger value="interior">{isMobile ? "Interior Video" : "Interior"}</TabsTrigger>
+          <TabsTrigger value="exterior">{isMobile ? "Exterior Video" : "Exterior"}</TabsTrigger>
+        </TabsList>
+      </div>
+
+      <div className={isMobile ? "aspect-video w-full rounded-lg overflow-hidden bg-black shadow-sm" : "flex-1 min-h-0"}>
+        {(["interior", "exterior"] as const).map((t) => (
+          <TabsContent key={t} value={t} className="m-0 h-full w-full overflow-auto">
+            <VideoPreviewPanel
+              videoRef={videoRef}
+              videoSource={result.json.video?.[`${t}_s3_uri` as keyof typeof result.json.video] as string}
+              regionName={result.json.video?.[`${t}_region` as keyof typeof result.json.video] as string}
+            />
+          </TabsContent>
+        ))}
+      </div>
+    </Tabs>
+  );
 
   return (
     <div className="space-y-6 py-4">
@@ -156,34 +178,7 @@ export default function ResultDetailPage() {
                     <ResizableHandle withHandle />
 
                     <ResizablePanel defaultSize={30} minSize={0}>
-                      <Tabs defaultValue="interior" value={type} onValueChange={(value) => setType(value as "interior" | "exterior")} className="flex h-full min-h-0 flex-col">
-                        <div className="border-b">
-                          <TabsList variant="line" className="grid w-[220px] grid-cols-2">
-                            <TabsTrigger value="interior">Interior</TabsTrigger>
-                            <TabsTrigger value="exterior">Exterior</TabsTrigger>
-                          </TabsList>
-                        </div>
-
-                        <TabsContent value="exterior" className="m-0 min-h-0 flex-1 overflow-auto">
-                          <div className="flex h-full min-h-0">
-                            <VideoPreviewPanel
-                              videoRef={videoRef}
-                              videoSource={result.json.video?.exterior_s3_uri}
-                              regionName={result.json.video?.exterior_region}
-                            />
-                          </div>
-                        </TabsContent>
-
-                        <TabsContent value="interior" className="m-0 min-h-0 flex-1 overflow-auto">
-                          <div className="flex h-full min-h-0">
-                            <VideoPreviewPanel
-                              videoRef={videoRef}
-                              videoSource={result.json.video?.interior_s3_uri}
-                              regionName={result.json.video?.interior_region}
-                            />
-                          </div>
-                        </TabsContent>
-                      </Tabs>
+                      <VideoPreviewTabs />
                     </ResizablePanel>
                   </ResizablePanelGroup>
                 </div>
@@ -191,29 +186,7 @@ export default function ResultDetailPage() {
                 {/* Mobile Stacked View */}
                 <div className="md:hidden flex flex-col gap-6">
                   {/* Video Preview with Tab switch */}
-                  <Tabs defaultValue="interior" value={type} onValueChange={(value) => setType(value as "interior" | "exterior")} className="w-full mt-4">
-                    <TabsList className="grid w-full grid-cols-2 mb-2">
-                      <TabsTrigger value="interior">Interior Video</TabsTrigger>
-                      <TabsTrigger value="exterior">Exterior Video</TabsTrigger>
-                    </TabsList>
-                    
-                    <div className="aspect-video w-full rounded-lg overflow-hidden bg-black shadow-sm">
-                      <TabsContent value="exterior" className="m-0 h-full w-full">
-                        <VideoPreviewPanel
-                          videoRef={videoRef}
-                          videoSource={result.json.video?.exterior_s3_uri}
-                          regionName={result.json.video?.exterior_region}
-                        />
-                      </TabsContent>
-                      <TabsContent value="interior" className="m-0 h-full w-full">
-                        <VideoPreviewPanel
-                          videoRef={videoRef}
-                          videoSource={result.json.video?.interior_s3_uri}
-                          regionName={result.json.video?.interior_region}
-                        />
-                      </TabsContent>
-                    </div>
-                  </Tabs>
+                  <VideoPreviewTabs isMobile />
 
                   {/* Results Section */}
                   <div>

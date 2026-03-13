@@ -40,6 +40,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import { VideoRecorder } from "./video-recorder";
+import { humanizeString, humanizeFileSize } from "@/lib/utils";
 
 type FileToProcess = {
   file: File;
@@ -57,9 +58,6 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
-function toTitleCase(s: string) {
-  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
-}
 
 export function FileProcessingForm() {
   return (
@@ -82,7 +80,6 @@ export function FileProcessingFormContent() {
     maxFiles,
     totalSize,
     remainingSize,
-    formatFileSize,
     isDragging,
     handleOnDrag,
     handleOnDragLeave,
@@ -310,7 +307,7 @@ export function FileProcessingFormContent() {
             <div className="flex flex-col gap-1.5">
               <span className="text-[10px] uppercase font-bold text-muted-foreground w-max">Model</span>
               <Input
-                value={toTitleCase(fileObj.model)}
+                value={humanizeString(fileObj.model)}
                 disabled
                 className="h-9 text-xs bg-muted/50 font-medium"
               />
@@ -392,11 +389,11 @@ export function FileProcessingFormContent() {
                     <div className="mt-3 p-2 bg-muted/30 rounded-md border border-border/50 text-foreground flex flex-col gap-1">
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground">Current total:</span>
-                        <span className="font-bold font-mono">{formatFileSize(totalSize)}</span>
+                        <span className="font-bold font-mono">{humanizeFileSize(totalSize)}</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground">Remaining limit:</span>
-                        <span className="font-bold font-mono text-blue-600 dark:text-blue-400">{formatFileSize(remainingSize)}</span>
+                        <span className="font-bold font-mono text-blue-600 dark:text-blue-400">{humanizeFileSize(remainingSize)}</span>
                       </div>
                     </div>
                   )}

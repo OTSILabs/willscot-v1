@@ -26,19 +26,17 @@ async function runBatchProcessingJob({
   }[];
 }) {
   try {
-    const interiorJobs = jobs.filter((j) => j.jobType === "interior");
-    const exteriorJobs = jobs.filter((j) => j.jobType === "exterior");
+    const mapJobs = (type: string) => jobs
+      .filter((j) => j.jobType === type)
+      .map((j) => ({
+        s3_uri: j.s3Uri,
+        region: j.regionName,
+        container_type: j.containerType,
+      }));
+
     const payload = {
-      interior_jobs: interiorJobs.length > 0 ? interiorJobs.map((j) => ({
-        s3_uri: j.s3Uri,
-        region: j.regionName,
-        container_type: j.containerType,
-      })) : [],
-      exterior_jobs: exteriorJobs.length > 0 ? exteriorJobs.map((j) => ({
-        s3_uri: j.s3Uri,
-        region: j.regionName,
-        container_type: j.containerType,
-      })) : [],
+      interior_jobs: mapJobs("interior"),
+      exterior_jobs: mapJobs("exterior"),
       temperature: 0.2,
     };
 
@@ -99,24 +97,19 @@ export async function POST(req: Request) {
       );
     }
 
-    // Validate all required fields are present
-    for (const job of jobs) {
+    // Transform and validate jobs
+    const formattedJobs = jobs.map((job) => {
       if (!job.s3Uri || !job.containerType || !job.model || !job.region || !job.jobType) {
-        return NextResponse.json(
-          { error: "Each job must have s3Uri, containerType, model, region, and jobType" },
-          { status: 400 },
-        );
+        throw new Error("Missing required fields in job data");
       }
-    }
-
-    // Transform jobs to match the expected format
-    const formattedJobs = jobs.map((job) => ({
-      s3Uri: job.s3Uri,
-      containerType: job.containerType,
-      model: job.model,
-      regionName: job.region,
-      jobType: job.jobType,
-    }));
+      return {
+        s3Uri: job.s3Uri,
+        containerType: job.containerType,
+        model: job.model,
+        regionName: job.region,
+        jobType: job.jobType,
+      };
+    });
 
     // Insert initial record for the batch
     const [inserted] = await db

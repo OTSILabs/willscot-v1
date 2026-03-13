@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Eye, Info, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import {
   Tooltip,
@@ -51,6 +52,46 @@ interface ResultsApiResponse {
 interface ResultsTableProps {
   pollingMs?: number;
 }
+
+const TraceDataCell = ({ 
+  value, 
+  showLabels = true, 
+  mono = false,
+  labelClassName = "" 
+}: { 
+  value: string; 
+  showLabels?: boolean; 
+  mono?: boolean;
+  labelClassName?: string;
+}) => {
+  const values = String(value || "").split(',');
+  return (
+    <div className="flex flex-col gap-2">
+      {values.map((v, i) => {
+        if (i > 1) return null; // Only support Interior/Exterior
+        const type = i === 0 ? "Interior :" : "Exterior :";
+        return (
+          <div key={i} className="flex flex-col">
+            {showLabels && (
+              <span className={cn(
+                "uppercase text-[8px] font-bold mb-0.5",
+                labelClassName || "text-muted-foreground"
+              )}>
+                {type}
+              </span>
+            )}
+            <span className={cn(
+              "leading-tight",
+              mono ? "font-mono text-[10px]" : "text-xs font-medium"
+            )}>
+              {v || "N/A"}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
   const [page, setPage] = useState(1);
@@ -123,53 +164,17 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
           ) :
             data?.items?.map((result: Result) => (
               <TableRow key={result.id}>
-                <TableCell className="font-mono text-[10px] max-w-[300px] whitespace-normal break-all">
-                  <div className="flex flex-col gap-2">
-                    {result.videoId.toString().split(',').map((v, i) => (
-                      <div key={i} className="flex flex-col">
-                        <span className="text-muted-foreground uppercase text-[8px] font-bold mb-0.5">
-                          {i === 0 ? "Interior :" : "Exterior :"}
-                        </span>
-                        <span className="leading-tight">{v}</span>
-                      </div>
-                    ))}
-                  </div>
+                <TableCell className="max-w-[300px] whitespace-normal break-all">
+                  <TraceDataCell value={result.videoId} mono />
                 </TableCell>
                 <TableCell>
-                  <div className="flex flex-col gap-2">
-                    {result.regionName.toString().split(',').map((v, i) => (
-                      <div key={i} className="flex flex-col">
-                        <span className="text-transparent select-none uppercase text-[8px] font-bold mb-0.5">
-                          {i === 0 ? "Interior :" : "Exterior :"}
-                        </span>
-                        <span className="text-xs leading-tight">{v}</span>
-                      </div>
-                    ))}
-                  </div>
+                  <TraceDataCell value={result.regionName} labelClassName="text-transparent select-none" />
                 </TableCell>
                 <TableCell>
-                  <div className="flex flex-col gap-2">
-                    {result.containerType.toString().split(',').map((v, i) => (
-                      <div key={i} className="flex flex-col">
-                        <span className="text-transparent select-none uppercase text-[8px] font-bold mb-0.5">
-                          {i === 0 ? "Interior :" : "Exterior :"}
-                        </span>
-                        <span className="text-xs leading-tight">{v}</span>
-                      </div>
-                    ))}
-                  </div>
+                  <TraceDataCell value={result.containerType} labelClassName="text-transparent select-none" />
                 </TableCell>
                 <TableCell>
-                  <div className="flex flex-col gap-2">
-                    {result.model.toString().split(',').map((v, i) => (
-                      <div key={i} className="flex flex-col">
-                        <span className="text-transparent select-none uppercase text-[8px] font-bold mb-0.5">
-                          {i === 0 ? "Interior :" : "Exterior :"}
-                        </span>
-                        <span className="text-xs leading-tight">{v}</span>
-                      </div>
-                    ))}
-                  </div>
+                  <TraceDataCell value={result.model} labelClassName="text-transparent select-none" />
                 </TableCell>
                 <TableCell>
                   <Badge
@@ -236,11 +241,6 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
           </div>
         ) : (
           data.items.map((result: Result) => {
-            const videoIds = result.videoId.toString().split(',');
-            const regions = result.regionName.toString().split(',');
-            const models = result.model.toString().split(',');
-            const containers = result.containerType.toString().split(',');
-
             return (
               <div key={result.id} className="rounded-xl p-3 bg-card shadow-sm flex flex-col gap-2.5 text-card-foreground border md:border-none">
                 <div className="flex justify-between items-center border-b pb-1.5">
@@ -257,47 +257,32 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
                 </div>
 
                 <div className="flex flex-col gap-3">
-                  {[0, 1].map((i) => {
-                    const type = i === 0 ? "Interior" : "Exterior";
-                    const vid = videoIds[i];
-                    const reg = regions[i];
-                    const mod = models[i];
-                    const con = containers[i];
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-[9px] font-extrabold uppercase tracking-widest text-foreground opacity-90 underline underline-offset-4 decoration-border/40">Trace Details</span>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 gap-2 pl-1">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[7.5px] uppercase font-bold text-muted-foreground opacity-60">Video Sources</span>
+                      <TraceDataCell value={result.videoId} mono labelClassName="text-muted-foreground" />
+                    </div>
 
-                    if (!vid && !reg && !mod && !con) return null;
-
-                    return (
-                      <div key={type} className="flex flex-col gap-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[9px] font-extrabold uppercase tracking-widest text-foreground opacity-90">{type}</span>
-                          <div className="h-px flex-1 bg-border/40" />
-                        </div>
-                        
-                        <div className="grid grid-cols-1 gap-2 pl-1">
-                          <div className="flex flex-col gap-0.5">
-                            <span className="text-[7.5px] uppercase font-bold text-muted-foreground opacity-60">Video ID</span>
-                            <span className="text-[9.5px] font-mono break-all leading-tight bg-muted/20 p-1 rounded border border-border/10">{vid || "N/A"}</span>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-2">
-                            <div className="flex flex-col">
-                              <span className="text-[7.5px] uppercase font-bold text-muted-foreground opacity-60">Region</span>
-                              <span className="text-[11px] font-medium leading-tight">{reg || "N/A"}</span>
-                            </div>
-                            <div className="flex flex-col">
-                              <span className="text-[7.5px] uppercase font-bold text-muted-foreground opacity-60">Model</span>
-                              <span className="text-[11px] font-medium leading-tight">{mod || "N/A"}</span>
-                            </div>
-                          </div>
-
-                          <div className="flex flex-col">
-                            <span className="text-[7.5px] uppercase font-bold text-muted-foreground opacity-60">Container Type</span>
-                            <span className="text-[11px] font-medium leading-tight">{con || "N/A"}</span>
-                          </div>
-                        </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex flex-col">
+                        <span className="text-[7.5px] uppercase font-bold text-muted-foreground opacity-60">Region</span>
+                        <TraceDataCell value={result.regionName} showLabels={false} />
                       </div>
-                    );
-                  })}
+                      <div className="flex flex-col">
+                        <span className="text-[7.5px] uppercase font-bold text-muted-foreground opacity-60">Model</span>
+                        <TraceDataCell value={result.model} showLabels={false} />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col">
+                      <span className="text-[7.5px] uppercase font-bold text-muted-foreground opacity-60">Container Type</span>
+                      <TraceDataCell value={result.containerType} showLabels={false} />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between border-t pt-2 mt-0.5">
