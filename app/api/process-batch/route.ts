@@ -10,7 +10,7 @@ export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
 const BATCH_LAMBDA_ENDPOINT =
-  `${process.env.LAMBDA_ENDPOINT}/process-video-with-targeted-frame-batch`;
+  `${process.env.LAMBDA_ENDPOINT}/process-video-with-targeted-frame-batch-pegasus`;
 
 async function runBatchProcessingJob({
   resultId,
@@ -31,26 +31,15 @@ async function runBatchProcessingJob({
     const payload = {
       interior_jobs: interiorJobs.length > 0 ? interiorJobs.map((j) => ({
         s3_uri: j.s3Uri,
-        model: j.model,
         region: j.regionName,
         container_type: j.containerType,
-      })) : {
-        s3_uri: "string",
-        model: "string",
-        region: "string",
-        container_type: "string",
-      },
+      })) : [],
       exterior_jobs: exteriorJobs.length > 0 ? exteriorJobs.map((j) => ({
         s3_uri: j.s3Uri,
-        model: j.model,
         region: j.regionName,
         container_type: j.containerType,
-      })) : {
-        s3_uri: "string",
-        model: "string",
-        region: "string",
-        container_type: "string",
-      },
+      })) : [],
+      temperature: 0.2,
     };
 
     console.log("payload :", payload);
