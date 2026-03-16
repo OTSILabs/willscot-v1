@@ -390,10 +390,22 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
                           Too Dark
                         </div>
                       )}
-                      {warnings.includes("FAST_MOTION") && (
+                      {warnings.includes("TOO_BRIGHT") && (
+                        <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur px-3 py-1.5 rounded-full border border-blue-500/50 text-blue-400 text-[11px] font-bold shadow-md tracking-wide animate-in fade-in slide-in-from-top-1">
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          Too Bright, Adjust Angle
+                        </div>
+                      )}
+                      {warnings.includes("TOO_FAST") && (
                         <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur px-3 py-1.5 rounded-full border border-rose-500/50 text-rose-400 text-[11px] font-bold shadow-md tracking-wide animate-in fade-in slide-in-from-top-1">
                           <AlertTriangle className="w-3.5 h-3.5" />
-                          Hold Steady
+                          Too Fast, Slow Down
+                        </div>
+                      )}
+                      {warnings.includes("TOO_SHAKY") && (
+                        <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur px-3 py-1.5 rounded-full border border-orange-500/50 text-orange-400 text-[11px] font-bold shadow-md tracking-wide animate-in fade-in slide-in-from-top-1">
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          Too Shaky
                         </div>
                       )}
                       {warnings.includes("BLURRY") && (
