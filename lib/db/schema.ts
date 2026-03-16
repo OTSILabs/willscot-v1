@@ -25,6 +25,8 @@ export const results = pgTable("results", {
   containerType: text("container_type"),
   model: text("model"),
   regionName: text("region_name"),
+  videoName: text("video_name"),
+  customId: text("custom_id").unique(),
   json: jsonb("json").notNull(),
   createdByUserId: uuid("created_by_user_id").references(() => users.id, {
     onDelete: "set null",

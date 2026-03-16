@@ -28,7 +28,12 @@ export async function GET(req: Request) {
       ? await db
         .select({ count: sql<number>`count(*)` })
         .from(results)
-        .where(and(ilike(results.videoId, `%${search}%`), filter))
+        .where(
+          and(
+            filter,
+            sql`(${results.videoId} ILIKE ${`%${search}%`} OR ${results.videoName} ILIKE ${`%${search}%`} OR ${results.customId} ILIKE ${`%${search}%`})`
+          )
+        )
       : await db
         .select({ count: sql<number>`count(*)` })
         .from(results)
@@ -40,6 +45,8 @@ export async function GET(req: Request) {
         .select({
           id: results.id,
           videoId: results.videoId,
+          videoName: results.videoName,
+          customId: results.customId,
           status: results.status,
           containerType: results.containerType,
           model: results.model,
@@ -52,7 +59,12 @@ export async function GET(req: Request) {
         })
         .from(results)
         .leftJoin(users, eq(results.createdByUserId, users.id))
-        .where(and(ilike(results.videoId, `%${search}%`), filter))
+        .where(
+          and(
+            filter,
+            sql`(${results.videoId} ILIKE ${`%${search}%`} OR ${results.videoName} ILIKE ${`%${search}%`} OR ${results.customId} ILIKE ${`%${search}%`})`
+          )
+        )
         .orderBy(desc(results.createdAt))
         .limit(pageSize)
         .offset(offset)
@@ -60,6 +72,8 @@ export async function GET(req: Request) {
         .select({
           id: results.id,
           videoId: results.videoId,
+          videoName: results.videoName,
+          customId: results.customId,
           status: results.status,
           containerType: results.containerType,
           model: results.model,

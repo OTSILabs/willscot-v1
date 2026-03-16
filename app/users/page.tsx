@@ -14,6 +14,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { BackButton } from "@/components/back-button";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { humanizeDateTime } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { PageTitle, PageDescription } from "@/components/typography";
 import {
@@ -68,6 +69,44 @@ const DEFAULT_FORM: UserPayload = {
   password: "",
 };
 
+// API Fetch Helpers extracted to reduce component bloat
+async function fetchUsersApi(page: number, pageSize: number, search: string): Promise<UsersApiResponse> {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  if (search.trim()) params.set("search", search.trim());
+  const response = await fetch(`/api/users?${params.toString()}`);
+  if (!response.ok) throw new Error("Failed to fetch users");
+  return response.json();
+}
+
+async function createUserApi(payload: UserPayload) {
+  const response = await fetch("/api/users", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...payload, role: "normal_user" }),
+  });
+  const data = (await response.json()) as { error?: string };
+  if (!response.ok) throw new Error(data.error || "Failed to create user");
+  return data;
+}
+
+async function updateUserApi({ id, payload }: { id: string; payload: Partial<UserPayload> }) {
+  const response = await fetch(`/api/users/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = (await response.json()) as { error?: string };
+  if (!response.ok) throw new Error(data.error || "Failed to update user");
+  return data;
+}
+
+async function deleteUserApi(id: string) {
+  const response = await fetch(`/api/users/${id}`, { method: "DELETE" });
+  const data = (await response.json()) as { error?: string };
+  if (!response.ok) throw new Error(data.error || "Failed to delete user");
+  return data;
+}
+
 export default function UsersPage() {
   const queryClient = useQueryClient();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -81,34 +120,11 @@ export default function UsersPage() {
 
   const usersQuery = useQuery({
     queryKey: ["users", page, pageSize, search],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        page: String(page),
-        pageSize: String(pageSize),
-      });
-      if (search.trim()) {
-        params.set("search", search.trim());
-      }
-      const response = await fetch(`/api/users?${params.toString()}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch users");
-      }
-      return (await response.json()) as UsersApiResponse;
-    },
+    queryFn: () => fetchUsersApi(page, pageSize, search),
   });
 
   const createUser = useMutation({
-    mutationFn: async (payload: UserPayload) => {
-      const response = await fetch("/api/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, role: "normal_user" }),
-      });
-      const data = (await response.json()) as { error?: string };
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to create user");
-      }
-    },
+    mutationFn: createUserApi,
     onSuccess: async () => {
       setPage(1);
       setCreateForm(DEFAULT_FORM);
@@ -116,54 +132,26 @@ export default function UsersPage() {
       setErrorMessage("");
       await queryClient.invalidateQueries({ queryKey: ["users"] });
     },
-    onError: (error: unknown) => {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to create user");
-    },
+    onError: (error: unknown) => setErrorMessage(error instanceof Error ? error.message : "Failed to create user"),
   });
 
   const updateUser = useMutation({
-    mutationFn: async ({
-      id,
-      payload,
-    }: {
-      id: string;
-      payload: Partial<UserPayload>;
-    }) => {
-      const response = await fetch(`/api/users/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = (await response.json()) as { error?: string };
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to update user");
-      }
-    },
+    mutationFn: updateUserApi,
     onSuccess: async () => {
       setEditingId(null);
       setEditForm(DEFAULT_FORM);
       setErrorMessage("");
       await queryClient.invalidateQueries({ queryKey: ["users"] });
     },
-    onError: (error: unknown) => {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to update user");
-    },
+    onError: (error: unknown) => setErrorMessage(error instanceof Error ? error.message : "Failed to update user"),
   });
 
   const deleteUser = useMutation({
-    mutationFn: async (id: string) => {
-      const response = await fetch(`/api/users/${id}`, { method: "DELETE" });
-      const data = (await response.json()) as { error?: string };
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to delete user");
-      }
-    },
+    mutationFn: deleteUserApi,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["users"] });
     },
-    onError: (error: unknown) => {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to delete user");
-    },
+    onError: (error: unknown) => setErrorMessage(error instanceof Error ? error.message : "Failed to delete user"),
   });
 
   const isSaving = useMemo(
@@ -355,7 +343,7 @@ export default function UsersPage() {
                     )}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
-                    {new Date(user.createdAt).toLocaleString()}
+                    {humanizeDateTime(user.createdAt, "dd MMM yy")}
                   </TableCell>
                   <TableCell className="text-right space-x-2">
                     {editingId === user.id ? (
@@ -514,9 +502,12 @@ export default function UsersPage() {
                     </div>
                     
                     <div className="flex items-center justify-between border-t pt-3 mt-1">
-                      <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                        Joined {new Date(user.createdAt).toLocaleDateString()}
-                      </span>
+                      <div className="flex flex-col">
+                        <span className="text-xs uppercase text-muted-foreground font-normal mb-1">Created At</span>
+                        <span className="text-sm font-normal text-foreground">
+                          {humanizeDateTime(user.createdAt, "dd MMM yy")}
+                        </span>
+                      </div>
                       <div className="flex items-center gap-2">
                         <Button
                           size="sm"

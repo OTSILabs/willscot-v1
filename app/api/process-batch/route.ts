@@ -84,6 +84,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const jobs = body.jobs as {
       s3Uri: string;
+      fileName: string;
       containerType: string;
       model: string;
       region: string;
@@ -104,6 +105,7 @@ export async function POST(req: Request) {
       }
       return {
         s3Uri: job.s3Uri,
+        fileName: job.fileName,
         containerType: job.containerType,
         model: job.model,
         regionName: job.region,
@@ -112,10 +114,13 @@ export async function POST(req: Request) {
     });
 
     // Insert initial record for the batch
+    const customId = `TRC-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
     const [inserted] = await db
       .insert(results)
       .values({
         videoId: formattedJobs.map((j) => j.s3Uri).join(","),
+        videoName: formattedJobs.map((j) => j.fileName).join(","),
+        customId: customId,
         status: "processing",
         containerType: formattedJobs.map((j) => j.containerType).join(","),
         model: formattedJobs.map((j) => j.model).join(","),
@@ -133,7 +138,7 @@ export async function POST(req: Request) {
       })
     );
 
-    return NextResponse.json({ id: inserted.id, jobs: formattedJobs }, { status: 202 });
+    return NextResponse.json({ id: inserted.id, customId, jobs: formattedJobs }, { status: 202 });
   } catch (error: any) {
     return NextResponse.json(
       { error: "Failed to process batch", details: error.message },

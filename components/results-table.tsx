@@ -15,11 +15,12 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Eye, Info, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, humanizeDateTime, extractFilenames } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import {
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ResultJson } from "@/app/traces/[id]/components/types";
@@ -35,6 +36,8 @@ interface Result {
   createdByUserId: string | null;
   createdByName: string | null;
   createdByEmail: string | null;
+  videoName: string;
+  customId: string;
   createdAt: string;
   json: ResultJson;
 }
@@ -93,6 +96,46 @@ const TraceDataCell = ({
   );
 };
 
+const StatusBadge = ({ status, error }: { status: string; error?: string }) => {
+  const config: Record<string, { variant: "default" | "secondary" | "destructive" | "outline", className: string, icon?: boolean }> = {
+    completed: { 
+      variant: "outline", 
+      className: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 font-medium" 
+    },
+    processing: { 
+      variant: "outline", 
+      className: "bg-blue-500/10 text-blue-600 border-blue-500/20 font-medium",
+      icon: true
+    },
+    failed: { 
+      variant: "destructive", 
+      className: "font-medium" 
+    }
+  };
+
+  const style = config[status] || { variant: "secondary", className: "" };
+
+  return (
+    <Badge
+      variant={style.variant}
+      className={cn("inline-flex items-center gap-1.5 capitalize py-0.5 px-2", style.className)}
+    >
+      {style.icon && <Loader2 className="h-3 w-3 animate-spin" />}
+      {status}
+      {error && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Info className="h-3.5 w-3.5 ml-1 cursor-help opacity-70 hover:opacity-100 transition-opacity" />
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="text-xs max-w-xs">{error}</p>
+          </TooltipContent>
+        </Tooltip>
+      )}
+    </Badge>
+  );
+};
+
 export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -130,7 +173,7 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
             setSearch(event.target.value);
             setPage(1);
           }}
-          placeholder="Search by Video ID..."
+          placeholder="Search by Trace ID..."
           className="max-w-xs md:max-w-sm"
         />
       </div>
@@ -138,7 +181,7 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
         <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Video Source</TableHead>
+            <TableHead>Trace ID / Source</TableHead>
             <TableHead>Region</TableHead>
             <TableHead>Container Type</TableHead>
             <TableHead>Model</TableHead>
@@ -165,7 +208,42 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
             data?.items?.map((result: Result) => (
               <TableRow key={result.id}>
                 <TableCell className="max-w-[300px] whitespace-normal break-all">
-                  <TraceDataCell value={result.videoId} mono />
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex flex-col gap-2">
+                            <span className="text-sm font-medium text-foreground">
+                              {result.customId || "N/A"}
+                            </span>
+                            <div className="flex flex-col gap-2">
+                              {(result.videoName || extractFilenames(result.videoId))
+                                .split(',')
+                                .map((name, i) => {
+                                  if (i > 1) return null;
+                                  const label = i === 0 ? "Interior :" : "Exterior :";
+                                  return (
+                                    <div key={i} className="flex flex-col">
+                                      <span className="uppercase text-[10px] font-normal mb-0.5 text-muted-foreground">
+                                        {label}
+                                      </span>
+                                      <span className="text-[10px] text-muted-foreground truncate max-w-[200px] leading-tight font-normal">
+                                        {name.trim() || "N/A"}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-xs">
+                          <p className="text-xs break-all">
+                            {(result.videoName || result.videoId)}
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                 </TableCell>
                 <TableCell>
                   <TraceDataCell value={result.regionName} labelClassName="text-transparent select-none" />
@@ -177,23 +255,7 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
                   <TraceDataCell value={result.model} labelClassName="text-transparent select-none" />
                 </TableCell>
                 <TableCell>
-                  <Badge
-                    variant={
-                      result.status === "completed" ? "default" : "secondary"
-                    }
-                    className="inline-flex items-center gap-1 capitalize"
-                  >
-                    {result.status === "processing" ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : null}
-                    {result.status}
-                    {
-                      result.json?.error && <Tooltip>
-                        <TooltipTrigger><Info className="h-3 w-3" /></TooltipTrigger>
-                        <TooltipContent><p>{result.json?.error}</p></TooltipContent>
-                      </Tooltip>
-                    }
-                  </Badge>
+                  <StatusBadge status={result.status} error={(result.json as any)?.error as string | undefined} />
                 </TableCell>
                 <TableCell className="text-sm">
                   <div className="flex flex-col">
@@ -206,7 +268,7 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
                   </div>
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
-                  {new Date(result.createdAt).toLocaleString()}
+                  {humanizeDateTime(result.createdAt, "dd MMM yy, h:mm a")}
                 </TableCell>
                 <TableCell className="text-right">
                   <Tooltip>
@@ -259,67 +321,64 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
 function MobileResultCard({ result }: { result: Result }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  const videoIds = String(result.videoId || "").split(',');
-  const regions = String(result.regionName || "").split(',');
-  const models = String(result.model || "").split(',');
-  const containers = String(result.containerType || "").split(',');
-
-  const items = [];
-  if (videoIds[0] || containers[0] || regions[0] || models[0]) {
-    items.push({ type: "Interior", vid: videoIds[0], reg: regions[0], mod: models[0], con: containers[0] });
-  }
-  if (videoIds[1] || containers[1] || regions[1] || models[1]) {
-    items.push({ type: "Exterior", vid: videoIds[1], reg: regions[1], mod: models[1], con: containers[1] });
-  }
+  const getProp = (val: string | null | undefined, index: number) => String(val || "").split(',')[index];
+  
+  const items = ["Interior", "Exterior"].map((type, i) => ({
+    type,
+    vid: getProp(result.videoName || extractFilenames(result.videoId), i),
+    reg: getProp(result.regionName, i),
+    mod: getProp(result.model, i),
+    con: getProp(result.containerType, i),
+  })).filter(item => item.vid || item.con || item.reg || item.mod);
 
   return (
     <div className="rounded-xl p-4 bg-card shadow-md flex flex-col gap-3.5 text-card-foreground border md:border-none">
       <div className="flex justify-between items-center border-b pb-2">
         <span className="text-xs text-muted-foreground font-normal uppercase tracking-wider">Trace Details</span>
         <div className="flex items-center gap-2">
-          <Badge
-            variant={result.status === "completed" ? "default" : "secondary"}
-            className="inline-flex items-center gap-1.5 capitalize shrink-0 shadow-sm text-xs py-1 px-2.5 h-6 font-normal"
-          >
-            {result.status === "processing" && (
-              <Loader2 className="h-2.5 w-2.5 animate-spin" />
-            )}
-            {result.status}
-          </Badge>
+          <StatusBadge status={result.status} />
           <button onClick={() => setIsExpanded(!isExpanded)} className="p-1 -mr-1 rounded-full hover:bg-muted text-muted-foreground transition-colors focus:outline-none">
             <ChevronDown className={cn("h-4 w-4 transition-transform", isExpanded && "rotate-180")} />
           </button>
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 relative pt-1 pb-1">
+      <div className="grid grid-cols-2 gap-4 relative pt-1 pb-1">
         {items.map((item) => (
           <div key={item.type} className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-normal uppercase tracking-widest text-foreground opacity-90">{item.type}</span>
+              <span className="text-[10px] font-normal uppercase tracking-widest text-foreground opacity-90">{item.type}</span>
               <div className="h-px flex-1 bg-border/40" />
             </div>
 
-            <div className="grid grid-cols-1 gap-3 pl-1">
+            <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-1">
-                <span className="text-[11px] uppercase font-normal text-muted-foreground">Video Source</span>
-                <span className="font-mono text-xs text-foreground break-all leading-tight">{item.vid || "N/A"}</span>
+                <span className="text-[10px] uppercase font-normal text-muted-foreground">Trace ID</span>
+                <span className="font-mono text-xs text-foreground mt-0.5">
+                  {result.customId || "N/A"}
+                </span>
               </div>
 
               <div className="flex flex-col gap-1">
-                <span className="text-[11px] uppercase font-normal text-muted-foreground">Container Type</span>
-                <span className="text-base font-normal text-foreground">{item.con || "N/A"}</span>
+                <span className="text-[10px] uppercase font-normal text-muted-foreground">Container</span>
+                <span className="text-sm font-normal text-foreground">{item.con || "N/A"}</span>
               </div>
 
               {isExpanded && (
-                <div className="grid grid-cols-2 gap-3 mt-1 pt-3 border-t border-border/40 animate-in fade-in slide-in-from-top-1">
+                <div className="flex flex-col gap-3 pt-3 border-t border-border/40 animate-in fade-in slide-in-from-top-1">
                   <div className="flex flex-col gap-1">
-                    <span className="text-[11px] uppercase font-normal text-muted-foreground">Region</span>
-                    <span className="text-sm font-normal text-foreground">{item.reg || "N/A"}</span>
+                    <span className="text-[10px] uppercase font-normal text-muted-foreground">Video Source</span>
+                    <span className="text-xs font-normal text-foreground break-all leading-tight">
+                      {item.vid || "N/A"}
+                    </span>
                   </div>
                   <div className="flex flex-col gap-1">
-                    <span className="text-[11px] uppercase font-normal text-muted-foreground">Model</span>
-                    <span className="text-sm font-normal text-foreground">{item.mod || "N/A"}</span>
+                    <span className="text-[10px] uppercase font-normal text-muted-foreground">Region</span>
+                    <span className="text-xs font-normal text-foreground">{item.reg || "N/A"}</span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] uppercase font-normal text-muted-foreground">Model</span>
+                    <span className="text-xs font-normal text-foreground">{item.mod || "N/A"}</span>
                   </div>
                 </div>
               )}
@@ -335,12 +394,17 @@ function MobileResultCard({ result }: { result: Result }) {
             {result.createdByName || "Unknown user"}
           </span>
           <span className="text-xs text-muted-foreground tracking-tight mt-1.5">
-            {new Date(result.createdAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+            {humanizeDateTime(result.createdAt, "dd MMM yy, h:mm a")}
           </span>
         </div>
-        <Button size="sm" asChild variant="outline" className="h-8 shadow-sm px-3.5 rounded-lg text-xs font-normal">
-          <Link href={`/traces/${result.id}`}>
-            <Eye className="h-3.5 w-3.5 mr-1.5" />
+        <Button 
+          size="sm" 
+          asChild 
+          variant="outline" 
+          className="h-8 shadow-sm px-4 rounded-lg text-xs font-semibold tracking-wide border-primary/20 hover:border-primary/50 text-primary hover:bg-primary/5 transition-all duration-200"
+        >
+          <Link href={`/traces/${result.id}`} className="flex items-center">
+            <Eye className="h-3.5 w-3.5 mr-2" />
             View
           </Link>
         </Button>

@@ -3,7 +3,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Loader2 } from "lucide-react";
 import { ResultDetail } from "./types";
-import { cn } from "@/lib/utils";
+import { cn, humanizeDateTime, extractFilenames } from "@/lib/utils";
 import {
   Tooltip,
   TooltipContent,
@@ -24,12 +24,20 @@ function formatValue(value?: string | null) {
 export function VideoInfoPanel({ result, type }: VideoInfoPanelProps) {
   const videoInfo = result.json.video || {};
 
+  const getProp = (val: string | null | undefined, index: number) => String(val || "").split(',')[index];
+  const rawName = getProp(result.videoName || extractFilenames(result.videoId), type === "interior" ? 0 : 1);
+
   const items = [
     {
-      label: "S3 URI",
-      value: formatValue(type === "interior" ? videoInfo.interior_s3_uri : videoInfo.exterior_s3_uri),
+      label: "Trace ID",
+      value: formatValue(result.customId),
       mono: true,
-      tooltip: true
+      bold: true
+    },
+    {
+      label: "Video Source",
+      value: rawName || "N/A",
+      mono: false,
     },
     {
       label: "Region",
@@ -41,7 +49,7 @@ export function VideoInfoPanel({ result, type }: VideoInfoPanelProps) {
     },
     {
       label: "Created At",
-      value: new Date(result.createdAt).toLocaleString(),
+      value: humanizeDateTime(result.createdAt, "dd MMM yy, h:mm a"),
     },
     {
       label: "Created By",
@@ -58,7 +66,8 @@ export function VideoInfoPanel({ result, type }: VideoInfoPanelProps) {
               "md:max-w-60 md:truncate w-full break-words whitespace-normal text-foreground",
               item.mono
                 ? "font-mono text-xs leading-5"
-                : "text-sm leading-5 font-normal"
+                : "text-sm leading-5 font-normal",
+              item.bold && "font-bold text-sm"
             )}
           >
             {item.value}
@@ -70,7 +79,7 @@ export function VideoInfoPanel({ result, type }: VideoInfoPanelProps) {
             <p className="text-[10px] font-normal uppercase tracking-wider text-muted-foreground">
               {item.label}
             </p>
-            {item.tooltip ? (
+            {('tooltip' in item && item.tooltip) ? (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -92,12 +101,18 @@ export function VideoInfoPanel({ result, type }: VideoInfoPanelProps) {
           Status
         </p>
         <Badge
-          variant={result.status === "completed" ? "default" : "secondary"}
-          className="inline-flex h-5 items-center gap-1 text-xs capitalize"
+          variant={
+            result.status === "failed" ? "destructive" : "outline"
+          }
+          className={cn(
+            "inline-flex h-5 items-center gap-1.5 text-xs capitalize py-0.5 px-2 font-medium",
+            result.status === "completed" && "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+            result.status === "processing" && "bg-blue-500/10 text-blue-600 border-blue-500/20"
+          )}
         >
-          {result.status === "processing" ? (
+          {result.status === "processing" && (
             <Loader2 className="h-3 w-3 animate-spin" />
-          ) : null}
+          )}
           {result.status}
         </Badge>
       </div>

@@ -200,6 +200,7 @@ export function FileProcessingFormContent() {
 
           return {
             s3Uri,
+            fileName: item.file.name,
             containerType: item.containerType,
             model: item.model,
             region: item.region,
