@@ -161,12 +161,12 @@ export function AttributesTable({ attributes, onAttributeUpdate }: AttributesTab
           return (
             <div key={index} className="flex flex-col gap-2 rounded-xl bg-card p-4 shadow-sm text-card-foreground">
               <div>
-                <p className="text-xs font-medium text-muted-foreground pb-0.5">
+                <p className="text-xs font-normal text-muted-foreground uppercase pb-1 tracking-wide">
                   {humanizeString(attribute.pipeline)} &gt; {humanizeString(attribute.attribute)}
                 </p>
-                <p className="font-semibold text-sm">
-                  {humanizeString(attribute.value)}{" "}
-                  <span className="font-normal text-muted-foreground">
+                <p className="font-normal text-base text-foreground leading-tight">
+                  {humanizeString(attribute.value)}
+                  <span className="text-xs font-normal text-muted-foreground ml-2">
                     ({humanizeString(attribute.source)})
                   </span>
                 </p>
@@ -179,37 +179,39 @@ export function AttributesTable({ attributes, onAttributeUpdate }: AttributesTab
               <div className="flex items-center justify-end pt-2 border-t mt-1">
                 {isLocked ? (
                   attribute.status === "correct" ? (
-                    <span className="text-green-600 font-medium text-sm flex items-center gap-1">
+                    <span className="text-green-600 font-normal text-sm flex items-center gap-1.5 pt-1">
                       <CheckIcon className="w-4 h-4" /> Marked Correct
                     </span>
                   ) : (
                     <div className="text-sm text-right">
-                      <p className="text-red-600 font-medium flex items-center justify-end gap-1">
+                      <p className="text-red-500 font-normal flex items-center justify-end gap-1.5">
                         <XIcon className="w-4 h-4" /> Marked Wrong
                       </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">{attribute.feedback}</p>
+                      <p className="mt-1 text-sm text-muted-foreground font-normal italic">
+                        "{attribute.feedback}"
+                      </p>
                     </div>
                   )
                 ) : (
                   <ButtonGroup>
-                    <ButtonGroupText className="text-xs font-medium px-3">
+                    <ButtonGroupText className="text-sm font-normal px-4">
                       Verify
                     </ButtonGroupText>
                     <Button
                       size="sm"
                       title="Mark as Correct"
-                      className="bg-green-600 text-white hover:bg-green-700 h-8 px-3"
+                      className="bg-green-600 text-white hover:bg-green-700 h-9 px-4"
                       onClick={() => handleCorrectClick(index)}
                     >
-                      <CheckIcon className="w-4 h-4" />
+                      <CheckIcon className="w-4.5 h-4.5" />
                     </Button>
                     <Button
                       size="sm"
                       title="Mark as Wrong"
-                      className="h-8 px-3"
+                      className="h-9 px-4"
                       onClick={() => handleWrongClick(index)}
                     >
-                      <XIcon className="w-4 h-4" />
+                      <XIcon className="w-4.5 h-4.5" />
                     </Button>
                   </ButtonGroup>
                 )}

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { StopCircle, RefreshCcw, Check } from "lucide-react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { StopCircle, RefreshCcw, Check, AlertTriangle, X, ChevronLeft } from "lucide-react";
 import { Button } from "../ui/button";
 import {
   Dialog,
@@ -35,12 +35,19 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const RECORDING_LIMIT_SECONDS = 600; // 10 minutes
+  // 4. Analysis State & Refs
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const workerRef = useRef<Worker | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const analysisIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const RECORDING_LIMIT_SECONDS = 300; // 5 minutes
 
   // --- LIFECYCLE: Dialog Open/Close ---
   useEffect(() => {
     if (isOpen) {
       startCamera();
+      initWorker();
     } else {
       handleCompleteReset();
     }
@@ -55,7 +62,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
         setRecordingTime((prev) => {
           if (prev >= RECORDING_LIMIT_SECONDS - 1) {
             stopRecording();
-            toast.info("Recording limit reached (10m)");
+            toast.info("Recording limit reached (5m)");
             return RECORDING_LIMIT_SECONDS;
           }
           return prev + 1;
@@ -81,6 +88,54 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
   }, [recordedBlob]);
 
   const formatTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
+
+  const initWorker = useCallback(() => {
+    if (typeof window !== "undefined" && !workerRef.current) {
+      workerRef.current = new Worker("/workers/video-analyzer.worker.js");
+      workerRef.current.onmessage = (e) => {
+        if (e.data.warnings) {
+          setWarnings(e.data.warnings);
+        }
+      };
+      
+      // Initialize an offscreen canvas for downsampling frames
+      const canvas = document.createElement("canvas");
+      canvas.width = 150;
+      canvas.height = 150;
+      canvasRef.current = canvas;
+    }
+  }, []);
+
+  const startAnalysis = useCallback(() => {
+    if (analysisIntervalRef.current) clearInterval(analysisIntervalRef.current);
+    
+    analysisIntervalRef.current = setInterval(() => {
+      if (!videoRef.current || !canvasRef.current || !workerRef.current) return;
+      if (videoRef.current.readyState !== videoRef.current.HAVE_ENOUGH_DATA) return;
+
+      const ctx = canvasRef.current.getContext("2d", { willReadFrequently: true });
+      if (!ctx) return;
+
+      // Draw the current video frame downsampled to 150x150
+      ctx.drawImage(videoRef.current, 0, 0, 150, 150);
+      const imageData = ctx.getImageData(0, 0, 150, 150);
+
+      // Send pixel buffer to the background worker
+      workerRef.current.postMessage({
+        imageData: imageData,
+        width: 150,
+        height: 150
+      });
+    }, 200); // 5 FPS is enough for quality checking
+  }, []);
+
+  const stopAnalysis = useCallback(() => {
+    if (analysisIntervalRef.current) {
+      clearInterval(analysisIntervalRef.current);
+      analysisIntervalRef.current = null;
+    }
+    setWarnings([]); // Clear warnings immediately on stop
+  }, []);
 
   const startCamera = async () => {
     try {
@@ -142,6 +197,8 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
 
       mediaRecorder.start(1000); // Trigger data chunks every second
       setStatus("recording");    // Start the timer visually
+      startAnalysis();           // Start analyzing quality in background
+
       
     } catch (err) {
       console.error("MediaRecorder error:", err);
@@ -158,6 +215,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
       // Fallback just in case recorder failed internally but state is stuck
       setStatus("preview"); 
     }
+    stopAnalysis();
   };
 
   const resetState = () => {
@@ -170,14 +228,21 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
 
   const handleRetake = () => {
     resetState();
-    if (stream && videoRef.current) videoRef.current.srcObject = stream;
+    setTimeout(() => {
+      if (stream && videoRef.current) videoRef.current.srcObject = stream;
+    }, 0);
   };
 
   const handleCompleteReset = () => {
     resetState();
+    stopAnalysis();
     if (stream) stream.getTracks().forEach(track => track.stop());
     setStream(null);
     if (timerRef.current) clearInterval(timerRef.current);
+    if (workerRef.current) {
+      workerRef.current.terminate();
+      workerRef.current = null;
+    }
   };
 
   const handleSave = () => {
@@ -197,10 +262,47 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
       if (!open && status !== "recording") onClose();
       else if (!open && status === "recording") toast.warning("Please stop recording first");
     }}>
-      <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-black border-none h-[85vh] md:h-[80vh] flex flex-col gap-0 max-w-[95vw] rounded-3xl shadow-2xl transition-all duration-300">
-        <DialogHeader className="p-4 bg-zinc-900/90 backdrop-blur-md border-b border-zinc-800 shrink-0 z-10 transition-colors">
-          <DialogTitle className="text-zinc-400 text-[10px] font-black uppercase tracking-[0.2em] text-center">{title}</DialogTitle>
-        </DialogHeader>
+      {/* 
+        Changes for "Native Feel":
+        1. max-w-[100vw] h-[100dvh] (full viewport height/width on mobile)
+        2. Removed rounded corners and borders for edge-to-edge feel
+        3. Removed default bg and default header
+      */}
+      <DialogContent 
+        className="p-0 overflow-hidden bg-black border-none h-[100dvh] max-h-[100dvh] max-w-[100vw] sm:max-w-[400px] sm:h-[85vh] sm:rounded-[40px] shadow-2xl transition-all duration-300 flex flex-col gap-0"
+        aria-describedby="video-recorder-description" // Adding standard accessibility prop
+      >
+        {/* Invisible Description for Screen Readers to satisfy Dialog requirements */}
+        <div id="video-recorder-description" className="sr-only">
+          Record a live video trace.
+        </div>
+        <DialogTitle className="sr-only">{title}</DialogTitle>
+
+        {/* 
+          TOP OVERLAY BAR 
+          Positioned absolute over the video for native feel overlay
+        */}
+        <div className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between p-4 sm:p-6 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
+          {/* Back/Close Button */}
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => {
+              if (status === "recording") {
+                toast.warning("Please stop recording first");
+                return;
+              }
+              onClose();
+            }}
+            className="rounded-full w-10 h-10 bg-black/40 backdrop-blur-md hover:bg-black/60 text-white pointer-events-auto border border-white/10"
+          >
+            <ChevronLeft className="w-6 h-6" />
+            <span className="sr-only">Close Camera</span>
+          </Button>
+
+          {/* Optional: Add flash or settings icons here on the right to balance it */}
+          <div className="w-10 h-10" /> 
+        </div>
 
         <div className="flex-1 relative bg-zinc-950 flex items-center justify-center overflow-hidden group">
           
@@ -227,96 +329,119 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
 
           {/* OVERLAY UI (Only when NOT previewing) */}
           {status !== "preview" && (
-            <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-6">
-              <div className="flex justify-between items-start">
-                {status === "recording" ? (
-                  <div className="flex items-center gap-2.5 bg-red-600/90 backdrop-blur-md px-3.5 py-1.5 rounded-full text-white text-[11px] font-black animate-pulse shadow-lg ring-1 ring-white/20">
-                    <div className="w-2 h-2 rounded-full bg-white shadow-[0_0_8px_white]" />
-                    {formatTime(recordingTime)}
-                  </div>
-                ) : (
-                  <div className="bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-full text-white/70 text-[10px] font-bold ring-1 ring-white/10 uppercase tracking-wider">
-                    Ready to capture
-                  </div>
-                )}
-                <div className="bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-full text-white/70 text-[10px] font-bold ring-1 ring-white/10">
-                  720p 30fps
+            <div className="absolute inset-x-0 top-16 pointer-events-none flex flex-col justify-between p-6">
+              <div className="flex justify-center items-start w-full">
+                {/* 
+                  Moved Center Top: Timer and Quality Warnings 
+                  This is the standard iOS/Android place for the recording dot
+                */}
+                <div className="flex flex-col items-center gap-2 relative">
+                  {status === "recording" && (
+                    <div className="flex items-center gap-2 bg-red-600/90 backdrop-blur-md px-3 py-1 rounded-md text-white text-[13px] font-mono font-bold shadow-lg ring-1 ring-white/20">
+                      <div className="w-2 h-2 rounded-full bg-white shadow-[0_0_8px_white] animate-pulse" />
+                      {formatTime(recordingTime)}
+                    </div>
+                  )}
+
+                  {/* Quality Warnings List */}
+                  {status === "recording" && warnings.length > 0 && (
+                    <div className="flex flex-col gap-1.5 mt-2 items-center">
+                      {warnings.includes("LOW_LIGHT") && (
+                        <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur px-3 py-1.5 rounded-full border border-yellow-500/50 text-yellow-400 text-[11px] font-bold shadow-md tracking-wide animate-in fade-in slide-in-from-top-1">
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          Too Dark
+                        </div>
+                      )}
+                      {warnings.includes("FAST_MOTION") && (
+                        <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur px-3 py-1.5 rounded-full border border-rose-500/50 text-rose-400 text-[11px] font-bold shadow-md tracking-wide animate-in fade-in slide-in-from-top-1">
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          Hold Steady
+                        </div>
+                      )}
+                      {warnings.includes("BLURRY") && (
+                        <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur px-3 py-1.5 rounded-full border border-indigo-500/50 text-indigo-400 text-[11px] font-bold shadow-md tracking-wide animate-in fade-in slide-in-from-top-1">
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          Blurry
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
-              
-              {/* Corner brackets for "camera" UI feel */}
-              {[
-                "top-10 left-10 border-t-2 border-l-2 rounded-tl-lg",
-                "top-10 right-10 border-t-2 border-r-2 rounded-tr-lg",
-                "bottom-10 left-10 border-b-2 border-l-2 rounded-bl-lg",
-                "bottom-10 right-10 border-b-2 border-r-2 rounded-br-lg",
-              ].map((c) => (
-                <div key={c} className={`absolute w-8 h-8 border-white/20 ${c}`} />
-              ))}
             </div>
           )}
         </div>
 
-        <DialogFooter className="p-8 pb-10 bg-zinc-900 shrink-0 flex flex-row items-center justify-center gap-8 border-t border-zinc-800/50 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+        {/* 
+          BOTTOM CONTROL BAR
+          Solid black backdrop, native feeling controls
+        */}
+        <DialogFooter className="h-32 sm:h-36 bg-black flex flex-col items-center justify-center border-t border-white/10 shrink-0">
           
           {/* FOOTER CONTROLS BASED ON STATUS */}
           {status === "idle" && (
-            <div className="relative group">
-              <div className="absolute -inset-4 bg-red-500/20 rounded-full blur-xl group-hover:bg-red-500/30 transition-all duration-500 opacity-0 group-hover:opacity-100" />
-              <Button 
+            <div className="flex items-center justify-center w-full relative">
+              <span className="absolute left-6 text-white/50 text-xs font-semibold tracking-widest uppercase">Video</span>
+              {/* Native Style Record Button (White Outer Ring, Red Inner Circle) */}
+              <button 
                 onClick={startRecording} 
-                variant="destructive" 
-                size="lg" 
-                className="relative rounded-full w-20 h-20 p-0 border-[4px] border-white shadow-2xl hover:scale-110 active:scale-95 transition-all duration-300 bg-red-600"
+                className="relative group flex items-center justify-center w-[72px] h-[72px]"
               >
-                <div className="w-16 h-16 rounded-full border-2 border-black/10 flex items-center justify-center">
-                  <div className="w-8 h-8 rounded-full bg-white transition-all duration-300" />
-                </div>
+                {/* Outer Ring */}
+                <div className="absolute inset-0 rounded-full border-[4px] border-white/80 group-hover:border-white transition-colors duration-200" />
+                {/* Inner Red Fill (Shrinks slightly when pressed) */}
+                <div className="absolute w-[56px] h-[56px] rounded-full bg-red-600 shadow-inner scale-100 group-active:scale-90 transition-transform duration-150" />
                 <span className="sr-only">Start Recording</span>
-              </Button>
+              </button>
             </div>
           )}
 
           {status === "recording" && (
-            <div className="flex flex-col items-center gap-4 w-full">
-              <Button 
+            <div className="flex flex-col items-center justify-center w-full">
+              {/* Native Style Stop Button (White Outer Ring, Red Inner Square) */}
+              <button 
                 onClick={stopRecording} 
-                variant="outline" 
-                size="lg" 
-                className="rounded-full w-20 h-20 p-0 border-[4px] border-white shadow-2xl bg-white hover:bg-zinc-100 hover:scale-110 active:scale-95 transition-all duration-300"
+                className="relative group flex items-center justify-center w-[72px] h-[72px]"
               >
-                <StopCircle className="w-10 h-10 text-red-600 fill-red-600 animate-pulse" />
+                 {/* Outer Ring indicating progress roughly */}
+                <div className="absolute inset-0 rounded-full border-[4px] border-white/80" />
+                 {/* Circular progress bar overlay for the 5-minute limit */}
+                 <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none">
+                    <circle 
+                      cx="36" cy="36" r="34" 
+                      fill="none" 
+                      stroke="red" 
+                      strokeWidth="4" 
+                      strokeDasharray="213" /* 2 * PI * r */
+                      strokeDashoffset={213 - (213 * (recordingTime / RECORDING_LIMIT_SECONDS))}
+                      className="transition-all duration-1000 ease-linear"
+                    />
+                 </svg>
+                {/* Inner Red Square (Morphed from Circle) */}
+                <div className="absolute w-[32px] h-[32px] rounded border border-red-500/50 bg-red-600 scale-100 group-active:scale-90 transition-all duration-300" />
                 <span className="sr-only">Stop Recording</span>
-              </Button>
-              <div className="w-48 h-1 bg-zinc-800 rounded-full overflow-hidden shrink-0 ring-1 ring-white/5">
-                <div 
-                  className="h-full bg-red-500 transition-all duration-1000 ease-linear"
-                  style={{ width: `${(recordingTime / RECORDING_LIMIT_SECONDS) * 100}%` }}
-                />
-              </div>
+              </button>
             </div>
           )}
 
           {status === "preview" && (
-            <div className="flex gap-4 w-full max-w-xs transition-all duration-500 translate-y-0 opacity-100 animate-in fade-in slide-in-from-bottom-4">
-              <Button 
-                variant="outline" 
-                className="flex-1 bg-zinc-800/50 border-zinc-700 text-zinc-300 hover:bg-zinc-700 hover:text-white h-14 rounded-2xl font-bold transition-all" 
+            <div className="flex justify-between items-center w-full px-8 max-w-[400px]">
+              {/* Native-style text buttons for post-capture */}
+              <button 
+                className="text-white/90 hover:text-white text-[15px] p-2 transition-colors active:scale-95 flex items-center gap-1"
                 onClick={handleRetake}
               >
-                <RefreshCcw className="w-5 h-5 mr-2" />
                 Retake
-              </Button>
-              <Button 
-                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white h-14 rounded-2xl font-bold shadow-lg shadow-blue-900/40 transition-all active:scale-95" 
+              </button>
+              <button 
+                className="bg-white text-black font-semibold text-[15px] px-6 py-2.5 rounded-full hover:bg-zinc-200 transition-colors active:scale-95 flex items-center gap-2"
                 onClick={handleSave}
               >
-                <Check className="w-5 h-5 mr-2" />
-                Upload Recording
-              </Button>
+                Use Video
+                <Check className="w-4 h-4" />
+              </button>
             </div>
           )}
-
         </DialogFooter>
       </DialogContent>
     </Dialog>

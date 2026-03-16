@@ -36,3 +36,23 @@ export function humanizeString(s: string | null | undefined) {
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
     .join(" ");
 }
+
+export function extractFilenames(videoId: string | null | undefined) {
+  if (!videoId) return "";
+  return videoId
+    .split(",")
+    .map((uri) => {
+      const parts = uri.split("/");
+      let lastPart = parts[parts.length - 1] || "";
+      
+      // Smart Cleaning:
+      // 1. Remove leading timestamp (digits followed by underscore)
+      lastPart = lastPart.replace(/^\d+_/, "");
+      
+      // 2. Remove file extension (last dot and everything following)
+      lastPart = lastPart.replace(/\.[^/.]+$/, "");
+      
+      return lastPart || uri;
+    })
+    .join(",");
+}

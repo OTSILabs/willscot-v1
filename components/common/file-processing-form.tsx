@@ -200,6 +200,7 @@ export function FileProcessingFormContent() {
 
           return {
             s3Uri,
+            fileName: item.file.name,
             containerType: item.containerType,
             model: item.model,
             region: item.region,
@@ -276,7 +277,7 @@ export function FileProcessingFormContent() {
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="flex flex-col gap-1.5">
-              <span className="text-[10px] uppercase font-bold text-muted-foreground w-max">Region</span>
+              <span className="text-[10px] uppercase font-normal text-muted-foreground tracking-wider w-max">Region</span>
               <Input
                 value={fileObj.region}
                 disabled
@@ -285,7 +286,7 @@ export function FileProcessingFormContent() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <span className="text-[10px] uppercase font-bold text-muted-foreground w-max">Container Type</span>
+              <span className="text-[10px] uppercase font-normal text-muted-foreground tracking-wider w-max">Container Type</span>
               <Select
                 value={fileObj.containerType}
                 onValueChange={(val) => {
@@ -305,7 +306,7 @@ export function FileProcessingFormContent() {
               </Select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <span className="text-[10px] uppercase font-bold text-muted-foreground w-max">Model</span>
+              <span className="text-[10px] uppercase font-normal text-muted-foreground tracking-wider w-max">Model</span>
               <Input
                 value={humanizeString(fileObj.model)}
                 disabled
@@ -352,8 +353,8 @@ export function FileProcessingFormContent() {
             type="button"
           >
             <UploadIcon className="w-6 h-6 md:w-8 md:h-8 mb-0 md:mb-1" />
-            <span className="text-xs md:text-sm font-semibold uppercase tracking-tight">Import from Device</span>
-            <span className="text-[10px] md:text-xs hidden md:block opacity-50">or drag and drop video here</span>
+            <span className="text-sm font-normal md:font-semibold uppercase tracking-tight">Import from Device</span>
+            <span className="text-xs hidden md:block opacity-50">or drag and drop video here</span>
           </Button>
           <Button
             variant="outline"
@@ -363,7 +364,7 @@ export function FileProcessingFormContent() {
             type="button"
           >
             <CameraIcon className="w-6 h-6 mb-0" />
-            <span className="text-xs font-semibold uppercase tracking-tight">Record Video</span>
+            <span className="text-sm font-normal uppercase tracking-tight">Record Video</span>
           </Button>
         </div>
       )}
@@ -389,11 +390,11 @@ export function FileProcessingFormContent() {
                     <div className="mt-3 p-2 bg-muted/30 rounded-md border border-border/50 text-foreground flex flex-col gap-1">
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground">Current total:</span>
-                        <span className="font-bold font-mono">{humanizeFileSize(totalSize)}</span>
+                        <span className="font-normal md:font-bold font-mono text-xs md:text-sm">{humanizeFileSize(totalSize)}</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground">Remaining limit:</span>
-                        <span className="font-bold font-mono text-blue-600 dark:text-blue-400">{humanizeFileSize(remainingSize)}</span>
+                        <span className="font-normal md:font-bold font-mono text-xs md:text-sm text-blue-600 dark:text-blue-400">{humanizeFileSize(remainingSize)}</span>
                       </div>
                     </div>
                   )}

@@ -45,5 +45,7 @@ export interface ResultDetail {
   createdByEmail?: string | null;
   createdAt: string;
   regionName?: string | null;
+  videoName?: string | null;
+  customId?: string | null;
 }
 

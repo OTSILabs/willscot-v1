@@ -12,14 +12,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Eye, Info, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, Eye, Info, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, humanizeDateTime, extractFilenames } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import {
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ResultJson } from "@/app/traces/[id]/components/types";
@@ -35,6 +36,8 @@ interface Result {
   createdByUserId: string | null;
   createdByName: string | null;
   createdByEmail: string | null;
+  videoName: string;
+  customId: string;
   createdAt: string;
   json: ResultJson;
 }
@@ -74,15 +77,15 @@ const TraceDataCell = ({
           <div key={i} className="flex flex-col">
             {showLabels && (
               <span className={cn(
-                "uppercase text-[8px] font-bold mb-0.5",
+                "uppercase text-[10px] font-normal mb-0.5",
                 labelClassName || "text-muted-foreground"
               )}>
                 {type}
               </span>
             )}
             <span className={cn(
-              "leading-tight",
-              mono ? "font-mono text-[10px]" : "text-xs font-medium"
+              "leading-tight text-foreground",
+              mono ? "font-mono text-[10px]" : "text-sm font-normal"
             )}>
               {v || "N/A"}
             </span>
@@ -90,6 +93,46 @@ const TraceDataCell = ({
         );
       })}
     </div>
+  );
+};
+
+const StatusBadge = ({ status, error }: { status: string; error?: string }) => {
+  const config: Record<string, { variant: "default" | "secondary" | "destructive" | "outline", className: string, icon?: boolean }> = {
+    completed: { 
+      variant: "outline", 
+      className: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 font-medium" 
+    },
+    processing: { 
+      variant: "outline", 
+      className: "bg-blue-500/10 text-blue-600 border-blue-500/20 font-medium",
+      icon: true
+    },
+    failed: { 
+      variant: "destructive", 
+      className: "font-medium" 
+    }
+  };
+
+  const style = config[status] || { variant: "secondary", className: "" };
+
+  return (
+    <Badge
+      variant={style.variant}
+      className={cn("inline-flex items-center gap-1.5 capitalize py-0.5 px-2", style.className)}
+    >
+      {style.icon && <Loader2 className="h-3 w-3 animate-spin" />}
+      {status}
+      {error && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Info className="h-3.5 w-3.5 ml-1 cursor-help opacity-70 hover:opacity-100 transition-opacity" />
+          </TooltipTrigger>
+          <TooltipContent>
+            <p className="text-xs max-w-xs">{error}</p>
+          </TooltipContent>
+        </Tooltip>
+      )}
+    </Badge>
   );
 };
 
@@ -123,22 +166,22 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
 
   return (
     <div className="rounded-md md:border md:bg-white border-none bg-transparent">
-      <div className="border-b p-3">
+      <div className="border-b px-0 py-3 flex justify-start">
         <Input
           value={search}
           onChange={(event) => {
             setSearch(event.target.value);
             setPage(1);
           }}
-          placeholder="Search by Video ID..."
-          className="max-w-sm"
+          placeholder="Search by Trace ID..."
+          className="max-w-xs md:max-w-sm"
         />
       </div>
       <div className="hidden md:block">
         <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Video ID (S3 URI)</TableHead>
+            <TableHead>Trace ID / Source</TableHead>
             <TableHead>Region</TableHead>
             <TableHead>Container Type</TableHead>
             <TableHead>Model</TableHead>
@@ -165,7 +208,42 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
             data?.items?.map((result: Result) => (
               <TableRow key={result.id}>
                 <TableCell className="max-w-[300px] whitespace-normal break-all">
-                  <TraceDataCell value={result.videoId} mono />
+                  <div className="flex flex-col gap-1 min-w-0">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex flex-col gap-2">
+                            <span className="text-sm font-medium text-foreground">
+                              {result.customId || "N/A"}
+                            </span>
+                            <div className="flex flex-col gap-2">
+                              {(result.videoName || extractFilenames(result.videoId))
+                                .split(',')
+                                .map((name, i) => {
+                                  if (i > 1) return null;
+                                  const label = i === 0 ? "Interior :" : "Exterior :";
+                                  return (
+                                    <div key={i} className="flex flex-col">
+                                      <span className="uppercase text-[10px] font-normal mb-0.5 text-muted-foreground">
+                                        {label}
+                                      </span>
+                                      <span className="text-[10px] text-muted-foreground truncate max-w-[200px] leading-tight font-normal">
+                                        {name.trim() || "N/A"}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="right" className="max-w-xs">
+                          <p className="text-xs break-all">
+                            {(result.videoName || result.videoId)}
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                 </TableCell>
                 <TableCell>
                   <TraceDataCell value={result.regionName} labelClassName="text-transparent select-none" />
@@ -177,23 +255,7 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
                   <TraceDataCell value={result.model} labelClassName="text-transparent select-none" />
                 </TableCell>
                 <TableCell>
-                  <Badge
-                    variant={
-                      result.status === "completed" ? "default" : "secondary"
-                    }
-                    className="inline-flex items-center gap-1 capitalize"
-                  >
-                    {result.status === "processing" ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : null}
-                    {result.status}
-                    {
-                      result.json?.error && <Tooltip>
-                        <TooltipTrigger><Info className="h-3 w-3" /></TooltipTrigger>
-                        <TooltipContent><p>{result.json?.error}</p></TooltipContent>
-                      </Tooltip>
-                    }
-                  </Badge>
+                  <StatusBadge status={result.status} error={(result.json as any)?.error as string | undefined} />
                 </TableCell>
                 <TableCell className="text-sm">
                   <div className="flex flex-col">
@@ -206,7 +268,7 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
                   </div>
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
-                  {new Date(result.createdAt).toLocaleString()}
+                  {humanizeDateTime(result.createdAt, "dd MMM yy, h:mm a")}
                 </TableCell>
                 <TableCell className="text-right">
                   <Tooltip>
@@ -240,71 +302,11 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
             No results found. Start by processing a new video.
           </div>
         ) : (
-          data.items.map((result: Result) => {
-            return (
-              <div key={result.id} className="rounded-xl p-3 bg-card shadow-sm flex flex-col gap-2.5 text-card-foreground border md:border-none">
-                <div className="flex justify-between items-center border-b pb-1.5">
-                  <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Trace Details</span>
-                  <Badge
-                    variant={result.status === "completed" ? "default" : "secondary"}
-                    className="inline-flex items-center gap-1 capitalize shrink-0 shadow-sm text-[10px] py-0 px-2 h-4.5"
-                  >
-                    {result.status === "processing" && (
-                      <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                    )}
-                    {result.status}
-                  </Badge>
-                </div>
-
-                <div className="flex flex-col gap-3">
-                  <div className="flex flex-col gap-1.5">
-                    <span className="text-[9px] font-extrabold uppercase tracking-widest text-foreground opacity-90 underline underline-offset-4 decoration-border/40">Trace Details</span>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 gap-2 pl-1">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-[7.5px] uppercase font-bold text-muted-foreground opacity-60">Video Sources</span>
-                      <TraceDataCell value={result.videoId} mono labelClassName="text-muted-foreground" />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="flex flex-col">
-                        <span className="text-[7.5px] uppercase font-bold text-muted-foreground opacity-60">Region</span>
-                        <TraceDataCell value={result.regionName} showLabels={false} />
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-[7.5px] uppercase font-bold text-muted-foreground opacity-60">Model</span>
-                        <TraceDataCell value={result.model} showLabels={false} />
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col">
-                      <span className="text-[7.5px] uppercase font-bold text-muted-foreground opacity-60">Container Type</span>
-                      <TraceDataCell value={result.containerType} showLabels={false} />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between border-t pt-2 mt-0.5">
-                  <div className="flex flex-col">
-                    <span className="text-[11px] font-semibold leading-none">
-                      {result.createdByName || "Unknown user"}
-                    </span>
-                    <span className="text-[8.5px] text-muted-foreground uppercase tracking-tight mt-1">
-                      {new Date(result.createdAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
-                    </span>
-                  </div>
-                  <Button size="sm" asChild variant="outline" className="h-7 shadow-sm px-2.5 rounded-lg text-[11px] font-bold">
-                    <Link href={`/traces/${result.id}`}>
-                      <Eye className="h-3 w-3 mr-1" />
-                      Details
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-            );
-          })
-        )}      </div>
+          data.items.map((result: Result) => (
+            <MobileResultCard key={result.id} result={result} />
+          ))
+        )}
+      </div>
       <PaginationControls
         currentPage={currentPage}
         totalPages={totalPages}
@@ -312,6 +314,101 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
         pageSize={pageSize}
         onPageChange={setPage}
       />
+    </div>
+  );
+}
+
+function MobileResultCard({ result }: { result: Result }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const getProp = (val: string | null | undefined, index: number) => String(val || "").split(',')[index];
+  
+  const items = ["Interior", "Exterior"].map((type, i) => ({
+    type,
+    vid: getProp(result.videoName || extractFilenames(result.videoId), i),
+    reg: getProp(result.regionName, i),
+    mod: getProp(result.model, i),
+    con: getProp(result.containerType, i),
+  })).filter(item => item.vid || item.con || item.reg || item.mod);
+
+  return (
+    <div className="rounded-xl p-4 bg-card shadow-md flex flex-col gap-3.5 text-card-foreground border md:border-none">
+      <div className="flex justify-between items-center border-b pb-2">
+        <span className="text-xs text-muted-foreground font-normal uppercase tracking-wider">Trace Details</span>
+        <div className="flex items-center gap-2">
+          <StatusBadge status={result.status} />
+          <button onClick={() => setIsExpanded(!isExpanded)} className="p-1 -mr-1 rounded-full hover:bg-muted text-muted-foreground transition-colors focus:outline-none">
+            <ChevronDown className={cn("h-4 w-4 transition-transform", isExpanded && "rotate-180")} />
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 relative pt-1 pb-1">
+        {items.map((item) => (
+          <div key={item.type} className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-normal uppercase tracking-widest text-foreground opacity-90">{item.type}</span>
+              <div className="h-px flex-1 bg-border/40" />
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] uppercase font-normal text-muted-foreground">Trace ID</span>
+                <span className="font-mono text-xs text-foreground mt-0.5">
+                  {result.customId || "N/A"}
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] uppercase font-normal text-muted-foreground">Container</span>
+                <span className="text-sm font-normal text-foreground">{item.con || "N/A"}</span>
+              </div>
+
+              {isExpanded && (
+                <div className="flex flex-col gap-3 pt-3 border-t border-border/40 animate-in fade-in slide-in-from-top-1">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] uppercase font-normal text-muted-foreground">Video Source</span>
+                    <span className="text-xs font-normal text-foreground break-all leading-tight">
+                      {item.vid || "N/A"}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] uppercase font-normal text-muted-foreground">Region</span>
+                    <span className="text-xs font-normal text-foreground">{item.reg || "N/A"}</span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] uppercase font-normal text-muted-foreground">Model</span>
+                    <span className="text-xs font-normal text-foreground">{item.mod || "N/A"}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between border-t pt-3 mt-1">
+        <div className="flex flex-col">
+          <span className="text-[11px] uppercase font-normal text-muted-foreground mb-1">Created By</span>
+          <span className="text-sm font-normal leading-none text-foreground">
+            {result.createdByName || "Unknown user"}
+          </span>
+          <span className="text-xs text-muted-foreground tracking-tight mt-1.5">
+            {humanizeDateTime(result.createdAt, "dd MMM yy, h:mm a")}
+          </span>
+        </div>
+        <Button 
+          size="sm" 
+          asChild 
+          variant="outline" 
+          className="h-8 shadow-sm px-4 rounded-lg text-xs font-semibold tracking-wide border-primary/20 hover:border-primary/50 text-primary hover:bg-primary/5 transition-all duration-200"
+        >
+          <Link href={`/traces/${result.id}`} className="flex items-center">
+            <Eye className="h-3.5 w-3.5 mr-2" />
+            View
+          </Link>
+        </Button>
+      </div>
     </div>
   );
 }

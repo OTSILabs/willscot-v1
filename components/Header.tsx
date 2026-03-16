@@ -119,12 +119,11 @@ export function Header() {
   return (
     <header className="border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
       <div className="flex h-16 items-center justify-between px-4 md:px-10">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4 md:gap-10">
           <Link href="/traces" className="flex items-center space-x-2">
             <BrandLogo />
           </Link>
-        </div>
-        <div className="flex items-center gap-2 md:gap-6">
+
           <NavigationMenu viewport={false} className="hidden md:flex items-center gap-4">
             <NavigationMenuList>
               {navLinks.map((link) => {
@@ -145,6 +144,8 @@ export function Header() {
               })}
             </NavigationMenuList>
           </NavigationMenu>
+        </div>
+        <div className="flex items-center gap-2 md:gap-6">
 
           <div className="md:hidden">
             <DropdownMenu>
@@ -173,12 +174,12 @@ export function Header() {
                 className="rounded-full"
                 aria-label="Open user menu"
               >
-                <span className="text-xs font-semibold">{userInitials}</span>
+                <span className="text-xs font-normal md:font-semibold">{userInitials}</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel className="space-y-1">
-                <p className="text-sm font-medium leading-none">
+                <p className="text-sm font-normal md:font-medium leading-none">
                   {currentUser?.name || "User"}
                 </p>
                 <p className="text-muted-foreground text-xs leading-none">
@@ -249,10 +250,10 @@ export function Header() {
               />
             </div>
             {errorMessage && (
-              <p className="text-xs text-destructive font-medium">{errorMessage}</p>
+              <p className="text-xs text-destructive font-normal md:font-medium">{errorMessage}</p>
             )}
             {successMessage && (
-              <p className="text-xs text-green-600 dark:text-green-500 font-medium">{successMessage}</p>
+              <p className="text-xs text-green-600 dark:text-green-500 font-normal md:font-medium">{successMessage}</p>
             )}
             <div className="flex justify-end pt-2">
               <Button

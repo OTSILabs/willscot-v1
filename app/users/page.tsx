@@ -11,9 +11,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { BackButton } from "@/components/back-button";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { humanizeDateTime } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+import { PageTitle, PageDescription } from "@/components/typography";
 import {
   Select,
   SelectContent,
@@ -66,6 +69,44 @@ const DEFAULT_FORM: UserPayload = {
   password: "",
 };
 
+// API Fetch Helpers extracted to reduce component bloat
+async function fetchUsersApi(page: number, pageSize: number, search: string): Promise<UsersApiResponse> {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  if (search.trim()) params.set("search", search.trim());
+  const response = await fetch(`/api/users?${params.toString()}`);
+  if (!response.ok) throw new Error("Failed to fetch users");
+  return response.json();
+}
+
+async function createUserApi(payload: UserPayload) {
+  const response = await fetch("/api/users", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...payload, role: "normal_user" }),
+  });
+  const data = (await response.json()) as { error?: string };
+  if (!response.ok) throw new Error(data.error || "Failed to create user");
+  return data;
+}
+
+async function updateUserApi({ id, payload }: { id: string; payload: Partial<UserPayload> }) {
+  const response = await fetch(`/api/users/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = (await response.json()) as { error?: string };
+  if (!response.ok) throw new Error(data.error || "Failed to update user");
+  return data;
+}
+
+async function deleteUserApi(id: string) {
+  const response = await fetch(`/api/users/${id}`, { method: "DELETE" });
+  const data = (await response.json()) as { error?: string };
+  if (!response.ok) throw new Error(data.error || "Failed to delete user");
+  return data;
+}
+
 export default function UsersPage() {
   const queryClient = useQueryClient();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -79,34 +120,11 @@ export default function UsersPage() {
 
   const usersQuery = useQuery({
     queryKey: ["users", page, pageSize, search],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        page: String(page),
-        pageSize: String(pageSize),
-      });
-      if (search.trim()) {
-        params.set("search", search.trim());
-      }
-      const response = await fetch(`/api/users?${params.toString()}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch users");
-      }
-      return (await response.json()) as UsersApiResponse;
-    },
+    queryFn: () => fetchUsersApi(page, pageSize, search),
   });
 
   const createUser = useMutation({
-    mutationFn: async (payload: UserPayload) => {
-      const response = await fetch("/api/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, role: "normal_user" }),
-      });
-      const data = (await response.json()) as { error?: string };
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to create user");
-      }
-    },
+    mutationFn: createUserApi,
     onSuccess: async () => {
       setPage(1);
       setCreateForm(DEFAULT_FORM);
@@ -114,54 +132,26 @@ export default function UsersPage() {
       setErrorMessage("");
       await queryClient.invalidateQueries({ queryKey: ["users"] });
     },
-    onError: (error: unknown) => {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to create user");
-    },
+    onError: (error: unknown) => setErrorMessage(error instanceof Error ? error.message : "Failed to create user"),
   });
 
   const updateUser = useMutation({
-    mutationFn: async ({
-      id,
-      payload,
-    }: {
-      id: string;
-      payload: Partial<UserPayload>;
-    }) => {
-      const response = await fetch(`/api/users/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = (await response.json()) as { error?: string };
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to update user");
-      }
-    },
+    mutationFn: updateUserApi,
     onSuccess: async () => {
       setEditingId(null);
       setEditForm(DEFAULT_FORM);
       setErrorMessage("");
       await queryClient.invalidateQueries({ queryKey: ["users"] });
     },
-    onError: (error: unknown) => {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to update user");
-    },
+    onError: (error: unknown) => setErrorMessage(error instanceof Error ? error.message : "Failed to update user"),
   });
 
   const deleteUser = useMutation({
-    mutationFn: async (id: string) => {
-      const response = await fetch(`/api/users/${id}`, { method: "DELETE" });
-      const data = (await response.json()) as { error?: string };
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to delete user");
-      }
-    },
+    mutationFn: deleteUserApi,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["users"] });
     },
-    onError: (error: unknown) => {
-      setErrorMessage(error instanceof Error ? error.message : "Failed to delete user");
-    },
+    onError: (error: unknown) => setErrorMessage(error instanceof Error ? error.message : "Failed to delete user"),
   });
 
   const isSaving = useMemo(
@@ -182,29 +172,25 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="container mx-auto px-0 md:px-0 py-4 md:py-10 space-y-6 md:space-y-8 pb-16 md:pb-10">
+    <div className="container mx-auto px-4 md:px-0 py-4 md:py-10 space-y-4 md:space-y-6 pb-16 md:pb-10">
       <div className="flex flex-col space-y-4">
-        {/* Mobile Header per reference */}
-        <div className="md:hidden flex items-center gap-3 border-b pb-3 -mx-3 px-3">
-          <Link href="/traces">
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-          <span className="font-semibold text-lg">Users</span>
+        {/* Universal Back Button */}
+        <div className="flex items-center gap-2">
+          <BackButton label="Back to Traces" />
         </div>
 
-        {/* Global Header Layout matching Traces */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="hidden md:block">
-            <h1 className="text-xl font-bold tracking-tight">Users</h1>
-            <p className="text-muted-foreground">
-              Add, edit and delete application users.
-            </p>
+        {/* Unified Header Layout matching Traces */}
+        <div className="flex items-start justify-between gap-3 border-b pb-3 md:border-none md:pb-0">
+          <div className="max-w-[calc(100%-100px)] md:max-w-none space-y-1">
+            <PageTitle title="Users" />
+            <PageDescription description="Add, edit and delete application users." />
           </div>
           <Button
             onClick={() => {
               setErrorMessage("");
               setIsCreateOpen(true);
             }}
+            className="shrink-0"
           >
             New User
           </Button>
@@ -272,7 +258,7 @@ export default function UsersPage() {
       ) : null}
 
       <div className="rounded-md md:border border-none">
-        <div className="border-b py-3 md:p-3">
+        <div className="border-b px-0 py-3">
           <Input
             value={search}
             onChange={(event) => {
@@ -280,7 +266,7 @@ export default function UsersPage() {
               setPage(1);
             }}
             placeholder="Search by name or email..."
-            className="max-w-sm"
+            className="max-w-xs md:max-w-sm"
           />
         </div>
         <div className="hidden md:block">
@@ -357,7 +343,7 @@ export default function UsersPage() {
                     )}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
-                    {new Date(user.createdAt).toLocaleString()}
+                    {humanizeDateTime(user.createdAt, "dd MMM yy")}
                   </TableCell>
                   <TableCell className="text-right space-x-2">
                     {editingId === user.id ? (
@@ -507,18 +493,21 @@ export default function UsersPage() {
                   <>
                     <div className="flex justify-between items-start gap-2">
                       <div className="flex flex-col break-words max-w-[70%]">
-                        <span className="font-semibold">{user.name}</span>
+                        <span className="font-normal">{user.name}</span>
                         <span className="text-sm text-muted-foreground break-all">{user.email}</span>
                       </div>
-                      <span className="px-2.5 py-0.5 rounded-full bg-accent text-[10px] font-medium shrink-0 uppercase tracking-wider">
+                      <span className="px-2.5 py-0.5 rounded-full bg-accent text-[10px] font-normal shrink-0 uppercase tracking-wider">
                         {user.role === "power_user" ? "Power User" : "Normal User"}
                       </span>
                     </div>
                     
                     <div className="flex items-center justify-between border-t pt-3 mt-1">
-                      <span className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                        Joined {new Date(user.createdAt).toLocaleDateString()}
-                      </span>
+                      <div className="flex flex-col">
+                        <span className="text-xs uppercase text-muted-foreground font-normal mb-1">Created At</span>
+                        <span className="text-sm font-normal text-foreground">
+                          {humanizeDateTime(user.createdAt, "dd MMM yy")}
+                        </span>
+                      </div>
                       <div className="flex items-center gap-2">
                         <Button
                           size="sm"

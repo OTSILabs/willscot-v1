@@ -9,7 +9,7 @@ interface PageTitleProps {
 }
 
 export function PageTitle({ title }: PageTitleProps) {
-  return <h1 className="text-2xl font-semibold">{title}</h1>;
+  return <h1 className="text-xl md:text-2xl font-bold tracking-tight">{title}</h1>;
 }
 
 interface PageDescriptionProps {
@@ -18,7 +18,7 @@ interface PageDescriptionProps {
 
 export function PageDescription({ description }: PageDescriptionProps) {
   return (
-    <p className="text-sm text-muted-foreground">{description}</p>
+    <p className="text-xs md:text-sm text-muted-foreground">{description}</p>
   );
 }
 
@@ -27,7 +27,7 @@ interface PageSubtitleProps {
 }
 
 export function PageSubtitle({ subtitle }: PageSubtitleProps) {
-  return <h2 className="text-lg font-semibold">{subtitle}</h2>;
+  return <h2 className="text-lg md:text-xl font-semibold tracking-tight">{subtitle}</h2>;
 }
 
 interface PageSubdescriptionProps {
@@ -38,7 +38,7 @@ export function PageSubdescription({
   subdescription,
 }: PageSubdescriptionProps) {
   return (
-    <p className="text-sm text-muted-foreground">
+    <p className="text-xs md:text-sm text-muted-foreground">
       {subdescription}
     </p>
   );

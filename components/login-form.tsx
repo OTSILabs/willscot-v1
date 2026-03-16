@@ -49,7 +49,7 @@ export function LoginForm({
       <form onSubmit={handleSubmit}>
         <FieldGroup>
           <div className="flex flex-col items-center gap-2 text-center">
-            <div className="flex flex-col items-center gap-2 font-medium">
+            <div className="flex flex-col items-center gap-2 font-normal md:font-medium">
               <div className="flex items-center justify-center rounded-md">
                 <BrandLogo className="h-7" />
               </div>
