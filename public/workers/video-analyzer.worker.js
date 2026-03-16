@@ -77,10 +77,13 @@ self.onmessage = function (e) {
   // 3. Warning Triggers
   const warnings = [];
   
-  // Lighting (Calibrated for AI Quality)
-  if (avgLuminance < 55) {
+  // Lighting (Calibrated for Professional AI Quality: 500-1000 Lux)
+  // LOW_LIGHT: Below ~500 Lux (Luminance ~120)
+  if (avgLuminance < 120) {
     warnings.push("LOW_LIGHT");
-  } else if (avgLuminance > 240) {
+  } 
+  // TOO_BRIGHT: Above ~1000 Lux / Harsh Glare (Luminance ~210)
+  else if (avgLuminance > 210) {
     warnings.push("TOO_BRIGHT");
   }
   
@@ -96,7 +99,7 @@ self.onmessage = function (e) {
   }
 
   // Blur: Only check if there is enough light and not much motion, to avoid false positives
-  if (variance < 40 && avgLuminance >= 55 && sustainedMotion < 25) {
+  if (variance < 40 && avgLuminance >= 120 && sustainedMotion < 25) {
     warnings.push("BLURRY");
   }
 
