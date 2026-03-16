@@ -77,7 +77,7 @@ const TraceDataCell = ({
           <div key={i} className="flex flex-col">
             {showLabels && (
               <span className={cn(
-                "uppercase text-[10px] font-normal mb-0.5",
+                "uppercase text-[11px] font-normal mb-0.5",
                 labelClassName || "text-muted-foreground"
               )}>
                 {type}
@@ -166,7 +166,7 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
 
   return (
     <div className="rounded-md md:border md:bg-white border-none bg-transparent">
-      <div className="border-b px-0 py-3 flex justify-start">
+      <div className="border-b px-2 md:px-0 py-3 flex justify-start">
         <Input
           value={search}
           onChange={(event) => {
@@ -224,10 +224,10 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
                                   const label = i === 0 ? "Interior :" : "Exterior :";
                                   return (
                                     <div key={i} className="flex flex-col">
-                                      <span className="uppercase text-[10px] font-normal mb-0.5 text-muted-foreground">
+                                      <span className="uppercase text-[11px] font-normal mb-0.5 text-muted-foreground">
                                         {label}
                                       </span>
-                                      <span className="text-[10px] text-muted-foreground truncate max-w-[200px] leading-tight font-normal">
+                                      <span className="text-xs text-muted-foreground truncate max-w-[200px] leading-tight font-normal">
                                         {name.trim() || "N/A"}
                                       </span>
                                     </div>
@@ -347,38 +347,38 @@ function MobileResultCard({ result }: { result: Result }) {
         {items.map((item) => (
           <div key={item.type} className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-normal uppercase tracking-widest text-foreground opacity-90">{item.type}</span>
+              <span className="text-[11px] font-normal uppercase tracking-widest text-foreground opacity-90">{item.type}</span>
               <div className="h-px flex-1 bg-border/40" />
             </div>
 
             <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-1">
-                <span className="text-[10px] uppercase font-normal text-muted-foreground">Trace ID</span>
-                <span className="font-mono text-xs text-foreground mt-0.5">
+                <span className="text-[11px] uppercase font-normal text-muted-foreground">Trace ID</span>
+                <span className="font-mono text-sm text-foreground mt-0.5">
                   {result.customId || "N/A"}
                 </span>
               </div>
 
               <div className="flex flex-col gap-1">
-                <span className="text-[10px] uppercase font-normal text-muted-foreground">Container</span>
+                <span className="text-[11px] uppercase font-normal text-muted-foreground">Container</span>
                 <span className="text-sm font-normal text-foreground">{item.con || "N/A"}</span>
               </div>
 
               {isExpanded && (
                 <div className="flex flex-col gap-3 pt-3 border-t border-border/40 animate-in fade-in slide-in-from-top-1">
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] uppercase font-normal text-muted-foreground">Video Source</span>
-                    <span className="text-xs font-normal text-foreground break-all leading-tight">
+                    <span className="text-[11px] uppercase font-normal text-muted-foreground">Video Source</span>
+                    <span className="text-sm font-normal text-foreground break-all leading-tight">
                       {item.vid || "N/A"}
                     </span>
                   </div>
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] uppercase font-normal text-muted-foreground">Region</span>
-                    <span className="text-xs font-normal text-foreground">{item.reg || "N/A"}</span>
+                    <span className="text-[11px] uppercase font-normal text-muted-foreground">Region</span>
+                    <span className="text-sm font-normal text-foreground">{item.reg || "N/A"}</span>
                   </div>
                   <div className="flex flex-col gap-1">
-                    <span className="text-[10px] uppercase font-normal text-muted-foreground">Model</span>
-                    <span className="text-xs font-normal text-foreground">{item.mod || "N/A"}</span>
+                    <span className="text-[11px] uppercase font-normal text-muted-foreground">Model</span>
+                    <span className="text-sm font-normal text-foreground">{item.mod || "N/A"}</span>
                   </div>
                 </div>
               )}
@@ -389,7 +389,7 @@ function MobileResultCard({ result }: { result: Result }) {
 
       <div className="flex items-center justify-between border-t pt-3 mt-1">
         <div className="flex flex-col">
-          <span className="text-[11px] uppercase font-normal text-muted-foreground mb-1">Created By</span>
+          <span className="text-xs uppercase font-normal text-muted-foreground mb-1">Created By</span>
           <span className="text-sm font-normal leading-none text-foreground">
             {result.createdByName || "Unknown user"}
           </span>
@@ -401,7 +401,7 @@ function MobileResultCard({ result }: { result: Result }) {
           size="sm" 
           asChild 
           variant="outline" 
-          className="h-8 shadow-sm px-4 rounded-lg text-xs font-semibold tracking-wide border-primary/20 hover:border-primary/50 text-primary hover:bg-primary/5 transition-all duration-200"
+          className="h-8 shadow-sm px-4 rounded-lg text-sm font-semibold tracking-wide border-primary/20 hover:border-primary/50 text-primary hover:bg-primary/5 transition-all duration-200"
         >
           <Link href={`/traces/${result.id}`} className="flex items-center">
             <Eye className="h-3.5 w-3.5 mr-2" />

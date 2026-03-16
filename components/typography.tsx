@@ -18,7 +18,7 @@ interface PageDescriptionProps {
 
 export function PageDescription({ description }: PageDescriptionProps) {
   return (
-    <p className="text-xs md:text-sm text-muted-foreground">{description}</p>
+    <p className="text-sm md:text-sm text-muted-foreground">{description}</p>
   );
 }
 
@@ -38,7 +38,7 @@ export function PageSubdescription({
   subdescription,
 }: PageSubdescriptionProps) {
   return (
-    <p className="text-xs md:text-sm text-muted-foreground">
+    <p className="text-sm md:text-sm text-muted-foreground">
       {subdescription}
     </p>
   );

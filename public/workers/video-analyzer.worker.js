@@ -1,4 +1,6 @@
 let previousFrameData = null;
+let motionHistory = []; // Rolling buffer of avgMotion values
+const HISTORY_LIMIT = 10;
 
 self.onmessage = function (e) {
   const { imageData, width, height } = e.data;
@@ -28,9 +30,22 @@ self.onmessage = function (e) {
   }
 
   const avgLuminance = totalLuminance / (length / 4);
-  const avgMotion = previousFrameData ? motionDifference / (length / 4) : 0;
+  const currentMotion = previousFrameData ? motionDifference / (length / 4) : 0;
+
+  // Update Motion History
+  motionHistory.push(currentMotion);
+  if (motionHistory.length > HISTORY_LIMIT) motionHistory.shift();
 
   previousFrameData = new Uint8ClampedArray(data);
+
+  // Analyze History for Velocity and Jitter
+  let sustainedMotion = 0;
+  let motionVariance = 0;
+  if (motionHistory.length >= 5) {
+    sustainedMotion = motionHistory.reduce((a, b) => a + b, 0) / motionHistory.length;
+    const mean = sustainedMotion;
+    motionVariance = motionHistory.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / motionHistory.length;
+  }
 
   // 2. Fast Blur Check (Laplacian Variance approximation)
   let laplacianSum = 0;
@@ -61,10 +76,29 @@ self.onmessage = function (e) {
 
   // 3. Warning Triggers
   const warnings = [];
-  if (avgLuminance < 40) warnings.push("LOW_LIGHT");
-  if (avgMotion > 20) warnings.push("FAST_MOTION");
-  // Only check blur if there is enough light and not much motion, to avoid false positives
-  if (variance < 40 && avgLuminance >= 40 && avgMotion < 15) warnings.push("BLURRY");
+  
+  // Lighting (Calibrated for AI Quality)
+  if (avgLuminance < 55) {
+    warnings.push("LOW_LIGHT");
+  } else if (avgLuminance > 240) {
+    warnings.push("TOO_BRIGHT");
+  }
+  
+  // Motion Logic (Refined)
+  // TOO_FAST: Sustained high motion (rapid panning)
+  if (sustainedMotion > 45) {
+    warnings.push("TOO_FAST");
+  } 
+  // TOO_SHAKY: High variance in motion (extreme jerky movements/jitter)
+  // Threshold increased to 250 to allow for normal walking bouncing
+  else if (motionVariance > 250 && sustainedMotion > 10) {
+    warnings.push("TOO_SHAKY");
+  }
 
-  self.postMessage({ warnings, metrics: { avgLuminance, avgMotion, variance } });
+  // Blur: Only check if there is enough light and not much motion, to avoid false positives
+  if (variance < 40 && avgLuminance >= 55 && sustainedMotion < 25) {
+    warnings.push("BLURRY");
+  }
+
+  self.postMessage({ warnings, metrics: { avgLuminance, avgMotion: sustainedMotion, motionVariance, variance } });
 };
