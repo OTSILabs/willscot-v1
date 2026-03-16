@@ -35,7 +35,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const RECORDING_LIMIT_SECONDS = 600; // 10 minutes
+  const RECORDING_LIMIT_SECONDS = 300; // 5 minutes
 
   // --- LIFECYCLE: Dialog Open/Close ---
   useEffect(() => {
@@ -55,7 +55,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
         setRecordingTime((prev) => {
           if (prev >= RECORDING_LIMIT_SECONDS - 1) {
             stopRecording();
-            toast.info("Recording limit reached (10m)");
+            toast.info("Recording limit reached (5m)");
             return RECORDING_LIMIT_SECONDS;
           }
           return prev + 1;
@@ -235,11 +235,11 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
                     {formatTime(recordingTime)}
                   </div>
                 ) : (
-                  <div className="bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-full text-white/70 text-[10px] font-bold ring-1 ring-white/10 uppercase tracking-wider">
+                  <div className="bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-full text-white/70 text-[10px] font-normal md:font-bold ring-1 ring-white/10 uppercase tracking-wider">
                     Ready to capture
                   </div>
                 )}
-                <div className="bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-full text-white/70 text-[10px] font-bold ring-1 ring-white/10">
+                <div className="bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-full text-white/70 text-[10px] font-normal md:font-bold ring-1 ring-white/10">
                   720p 30fps
                 </div>
               </div>
@@ -301,14 +301,14 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
             <div className="flex gap-4 w-full max-w-xs transition-all duration-500 translate-y-0 opacity-100 animate-in fade-in slide-in-from-bottom-4">
               <Button 
                 variant="outline" 
-                className="flex-1 bg-zinc-800/50 border-zinc-700 text-zinc-300 hover:bg-zinc-700 hover:text-white h-14 rounded-2xl font-bold transition-all" 
+                className="flex-1 bg-zinc-800/50 border-zinc-700 text-zinc-300 hover:bg-zinc-700 hover:text-white h-14 rounded-2xl font-normal md:font-bold transition-all" 
                 onClick={handleRetake}
               >
                 <RefreshCcw className="w-5 h-5 mr-2" />
                 Retake
               </Button>
               <Button 
-                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white h-14 rounded-2xl font-bold shadow-lg shadow-blue-900/40 transition-all active:scale-95" 
+                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white h-14 rounded-2xl font-normal md:font-bold shadow-lg shadow-blue-900/40 transition-all active:scale-95" 
                 onClick={handleSave}
               >
                 <Check className="w-5 h-5 mr-2" />

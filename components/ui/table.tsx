@@ -136,9 +136,9 @@ export function PaginationControls({
   const endItem = Math.min(currentPage * pageSize, totalItems);
 
   return (
-    <div className="sticky bottom-0 z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t">
-      <div className="flex items-center justify-between px-4 py-3">
-        <p className="text-[10px] md:text-sm text-muted-foreground mr-2">
+    <div className="fixed bottom-0 left-0 right-0 z-50 md:sticky md:z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
+      <div className="flex items-center justify-between px-4 py-3 max-w-7xl mx-auto">
+        <p className="text-[10px] md:text-sm text-muted-foreground mr-2 font-normal">
           Showing {startItem}-{endItem} of {totalItems}
         </p>
         <div className="flex items-center gap-1 md:gap-2">

@@ -55,10 +55,10 @@ export function VideoInfoPanel({ result, type }: VideoInfoPanelProps) {
         const valueElement = (
           <p
             className={cn(
-              "md:max-w-60 md:truncate w-full break-words whitespace-normal",
+              "md:max-w-60 md:truncate w-full break-words whitespace-normal text-foreground",
               item.mono
                 ? "font-mono text-xs leading-5"
-                : "text-xs leading-5"
+                : "text-sm leading-5 font-normal"
             )}
           >
             {item.value}
@@ -67,7 +67,7 @@ export function VideoInfoPanel({ result, type }: VideoInfoPanelProps) {
 
         return (
           <div key={item.label} className="space-y-1">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <p className="text-[10px] font-normal uppercase tracking-wider text-muted-foreground">
               {item.label}
             </p>
             {item.tooltip ? (
@@ -88,7 +88,7 @@ export function VideoInfoPanel({ result, type }: VideoInfoPanelProps) {
         );
       })}
       <div className="space-y-1">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <p className="text-[10px] font-normal uppercase tracking-wider text-muted-foreground">
           Status
         </p>
         <Badge

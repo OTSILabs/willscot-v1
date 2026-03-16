@@ -3,9 +3,11 @@
 import { useCurrentUser } from "@/components/current-user-provider";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
+import { BackButton } from "@/components/back-button";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { PageTitle, PageDescription } from "@/components/typography";
 
 export default function ProfilePage() {
   const { currentUser, setCurrentUser } = useCurrentUser();
@@ -27,12 +29,14 @@ export default function ProfilePage() {
   if (!currentUser) return null;
 
   return (
-    <div className="container mx-auto px-0 md:px-0 py-4 md:py-10 space-y-6 md:space-y-8 max-w-2xl">
-      <div className="text-center md:text-left">
-        <h1 className="text-xl md:text-2xl font-bold tracking-tight">Your Profile</h1>
-        <p className="text-xs md:text-base text-muted-foreground mt-1">
-          View your account information and preferences.
-        </p>
+    <div className="container mx-auto px-4 md:px-0 py-4 md:py-10 space-y-4 md:space-y-6 max-w-2xl">
+      <div className="flex items-center">
+        <BackButton label="Back to Traces" />
+      </div>
+
+      <div className="text-center md:text-left space-y-1">
+        <PageTitle title="Your Profile" />
+        <PageDescription description="View your account information and preferences." />
       </div>
 
       <div className="border-none shadow-none bg-transparent md:border md:rounded-xl p-0 md:p-8 md:bg-card text-card-foreground md:shadow-sm flex flex-col gap-4 md:gap-6 mx-auto w-full max-w-sm md:max-w-full">

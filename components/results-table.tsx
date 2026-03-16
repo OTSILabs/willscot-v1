@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Eye, Info, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, Eye, Info, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -74,15 +74,15 @@ const TraceDataCell = ({
           <div key={i} className="flex flex-col">
             {showLabels && (
               <span className={cn(
-                "uppercase text-[8px] font-bold mb-0.5",
+                "uppercase text-[10px] font-normal mb-0.5",
                 labelClassName || "text-muted-foreground"
               )}>
                 {type}
               </span>
             )}
             <span className={cn(
-              "leading-tight",
-              mono ? "font-mono text-[10px]" : "text-xs font-medium"
+              "leading-tight text-foreground",
+              mono ? "font-mono text-[10px]" : "text-sm font-normal"
             )}>
               {v || "N/A"}
             </span>
@@ -123,7 +123,7 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
 
   return (
     <div className="rounded-md md:border md:bg-white border-none bg-transparent">
-      <div className="border-b p-3">
+      <div className="border-b px-0 py-3 flex justify-start">
         <Input
           value={search}
           onChange={(event) => {
@@ -131,14 +131,14 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
             setPage(1);
           }}
           placeholder="Search by Video ID..."
-          className="max-w-sm"
+          className="max-w-xs md:max-w-sm"
         />
       </div>
       <div className="hidden md:block">
         <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Video ID (S3 URI)</TableHead>
+            <TableHead>Video Source</TableHead>
             <TableHead>Region</TableHead>
             <TableHead>Container Type</TableHead>
             <TableHead>Model</TableHead>
@@ -240,71 +240,11 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
             No results found. Start by processing a new video.
           </div>
         ) : (
-          data.items.map((result: Result) => {
-            return (
-              <div key={result.id} className="rounded-xl p-3 bg-card shadow-sm flex flex-col gap-2.5 text-card-foreground border md:border-none">
-                <div className="flex justify-between items-center border-b pb-1.5">
-                  <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Trace Details</span>
-                  <Badge
-                    variant={result.status === "completed" ? "default" : "secondary"}
-                    className="inline-flex items-center gap-1 capitalize shrink-0 shadow-sm text-[10px] py-0 px-2 h-4.5"
-                  >
-                    {result.status === "processing" && (
-                      <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                    )}
-                    {result.status}
-                  </Badge>
-                </div>
-
-                <div className="flex flex-col gap-3">
-                  <div className="flex flex-col gap-1.5">
-                    <span className="text-[9px] font-extrabold uppercase tracking-widest text-foreground opacity-90 underline underline-offset-4 decoration-border/40">Trace Details</span>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 gap-2 pl-1">
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-[7.5px] uppercase font-bold text-muted-foreground opacity-60">Video Sources</span>
-                      <TraceDataCell value={result.videoId} mono labelClassName="text-muted-foreground" />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="flex flex-col">
-                        <span className="text-[7.5px] uppercase font-bold text-muted-foreground opacity-60">Region</span>
-                        <TraceDataCell value={result.regionName} showLabels={false} />
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-[7.5px] uppercase font-bold text-muted-foreground opacity-60">Model</span>
-                        <TraceDataCell value={result.model} showLabels={false} />
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col">
-                      <span className="text-[7.5px] uppercase font-bold text-muted-foreground opacity-60">Container Type</span>
-                      <TraceDataCell value={result.containerType} showLabels={false} />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between border-t pt-2 mt-0.5">
-                  <div className="flex flex-col">
-                    <span className="text-[11px] font-semibold leading-none">
-                      {result.createdByName || "Unknown user"}
-                    </span>
-                    <span className="text-[8.5px] text-muted-foreground uppercase tracking-tight mt-1">
-                      {new Date(result.createdAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
-                    </span>
-                  </div>
-                  <Button size="sm" asChild variant="outline" className="h-7 shadow-sm px-2.5 rounded-lg text-[11px] font-bold">
-                    <Link href={`/traces/${result.id}`}>
-                      <Eye className="h-3 w-3 mr-1" />
-                      Details
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-            );
-          })
-        )}      </div>
+          data.items.map((result: Result) => (
+            <MobileResultCard key={result.id} result={result} />
+          ))
+        )}
+      </div>
       <PaginationControls
         currentPage={currentPage}
         totalPages={totalPages}
@@ -312,6 +252,99 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
         pageSize={pageSize}
         onPageChange={setPage}
       />
+    </div>
+  );
+}
+
+function MobileResultCard({ result }: { result: Result }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const videoIds = String(result.videoId || "").split(',');
+  const regions = String(result.regionName || "").split(',');
+  const models = String(result.model || "").split(',');
+  const containers = String(result.containerType || "").split(',');
+
+  const items = [];
+  if (videoIds[0] || containers[0] || regions[0] || models[0]) {
+    items.push({ type: "Interior", vid: videoIds[0], reg: regions[0], mod: models[0], con: containers[0] });
+  }
+  if (videoIds[1] || containers[1] || regions[1] || models[1]) {
+    items.push({ type: "Exterior", vid: videoIds[1], reg: regions[1], mod: models[1], con: containers[1] });
+  }
+
+  return (
+    <div className="rounded-xl p-4 bg-card shadow-md flex flex-col gap-3.5 text-card-foreground border md:border-none">
+      <div className="flex justify-between items-center border-b pb-2">
+        <span className="text-xs text-muted-foreground font-normal uppercase tracking-wider">Trace Details</span>
+        <div className="flex items-center gap-2">
+          <Badge
+            variant={result.status === "completed" ? "default" : "secondary"}
+            className="inline-flex items-center gap-1.5 capitalize shrink-0 shadow-sm text-xs py-1 px-2.5 h-6 font-normal"
+          >
+            {result.status === "processing" && (
+              <Loader2 className="h-2.5 w-2.5 animate-spin" />
+            )}
+            {result.status}
+          </Badge>
+          <button onClick={() => setIsExpanded(!isExpanded)} className="p-1 -mr-1 rounded-full hover:bg-muted text-muted-foreground transition-colors focus:outline-none">
+            <ChevronDown className={cn("h-4 w-4 transition-transform", isExpanded && "rotate-180")} />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-4 relative pt-1 pb-1">
+        {items.map((item) => (
+          <div key={item.type} className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-normal uppercase tracking-widest text-foreground opacity-90">{item.type}</span>
+              <div className="h-px flex-1 bg-border/40" />
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 pl-1">
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] uppercase font-normal text-muted-foreground">Video Source</span>
+                <span className="font-mono text-xs text-foreground break-all leading-tight">{item.vid || "N/A"}</span>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <span className="text-[11px] uppercase font-normal text-muted-foreground">Container Type</span>
+                <span className="text-base font-normal text-foreground">{item.con || "N/A"}</span>
+              </div>
+
+              {isExpanded && (
+                <div className="grid grid-cols-2 gap-3 mt-1 pt-3 border-t border-border/40 animate-in fade-in slide-in-from-top-1">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] uppercase font-normal text-muted-foreground">Region</span>
+                    <span className="text-sm font-normal text-foreground">{item.reg || "N/A"}</span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[11px] uppercase font-normal text-muted-foreground">Model</span>
+                    <span className="text-sm font-normal text-foreground">{item.mod || "N/A"}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between border-t pt-3 mt-1">
+        <div className="flex flex-col">
+          <span className="text-[11px] uppercase font-normal text-muted-foreground mb-1">Created By</span>
+          <span className="text-sm font-normal leading-none text-foreground">
+            {result.createdByName || "Unknown user"}
+          </span>
+          <span className="text-xs text-muted-foreground tracking-tight mt-1.5">
+            {new Date(result.createdAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+          </span>
+        </div>
+        <Button size="sm" asChild variant="outline" className="h-8 shadow-sm px-3.5 rounded-lg text-xs font-normal">
+          <Link href={`/traces/${result.id}`}>
+            <Eye className="h-3.5 w-3.5 mr-1.5" />
+            View
+          </Link>
+        </Button>
+      </div>
     </div>
   );
 }

@@ -5,7 +5,9 @@ import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, MessageSquare } from "lucide-react";
+import { BackButton } from "@/components/back-button";
 import Link from "next/link";
+import { PageTitle } from "@/components/typography";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import {
@@ -112,14 +114,16 @@ export default function ResultDetailPage() {
   );
 
   return (
-    <div className="space-y-6 py-4">
+    <div className="space-y-4 md:space-y-6 py-4">
+      {/* Desktop/Mobile Common Back Button */}
+      <div className="flex items-center gap-4">
+        <BackButton label="Back to Traces" />
+      </div>
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        {/* Mobile Header per reference */}
+        {/* Mobile Header per reference - Title only now */}
         <div className="md:hidden flex items-center gap-3 border-b pb-3 -mx-4 px-4">
-          <Link href="/traces">
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-          <span className="font-semibold text-lg">Trace Details</span>
+          <PageTitle title="Trace Details" />
         </div>
 
         {/* Desktop elements and info container */}
@@ -141,7 +145,7 @@ export default function ResultDetailPage() {
               <div className="md:h-[calc(100vh-100px)] md:min-h-[calc(100vh-100px)] rounded-md border p-8 md:p-0">
                 <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  <p className="text-sm font-medium">Video is processing...</p>
+                  <p className="text-sm font-normal md:font-medium">Video is processing...</p>
                   <p className="text-xs text-muted-foreground">
                     This page refreshes automatically and will show results once processing is
                     complete.
