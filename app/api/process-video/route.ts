@@ -32,6 +32,8 @@ async function runProcessingJob({
     params.append("container_type", containerType);
     params.append("model", model);
     params.append("region_name", regionName);
+    // Optional: Pass frames_bucket and frames_prefix to skip video download/chopping 
+    // and process pre-extracted frames directly from S3.
     params.append("frames_bucket", "");
     params.append("frames_prefix", "");
     params.append("presigned_expiry_seconds", "");
