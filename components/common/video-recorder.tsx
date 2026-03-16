@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { StopCircle, RefreshCcw, Check, AlertTriangle, X, ChevronLeft } from "lucide-react";
+import { StopCircle, RefreshCcw, Check, AlertTriangle, X, ChevronLeft, Pause, Play } from "lucide-react";
 import { Button } from "../ui/button";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -21,7 +22,7 @@ interface VideoRecorderProps {
 
 export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Video" }: VideoRecorderProps) {
   // 1. Core State
-  const [status, setStatus] = useState<"idle" | "recording" | "preview">("idle");
+  const [status, setStatus] = useState<"idle" | "recording" | "paused" | "preview">("idle");
   const [recordingTime, setRecordingTime] = useState(0);
   
   // 2. Media References
@@ -40,6 +41,12 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
   const workerRef = useRef<Worker | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const analysisIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const statusRef = useRef(status);
+
+  // Sync ref with state
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
 
   const RECORDING_LIMIT_SECONDS = 300; // 5 minutes
 
@@ -57,7 +64,6 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
   // --- LIFECYCLE: Timer Management ---
   useEffect(() => {
     if (status === "recording") {
-      setRecordingTime(0);
       timerRef.current = setInterval(() => {
         setRecordingTime((prev) => {
           if (prev >= RECORDING_LIMIT_SECONDS - 1) {
@@ -110,7 +116,8 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
     if (analysisIntervalRef.current) clearInterval(analysisIntervalRef.current);
     
     analysisIntervalRef.current = setInterval(() => {
-      if (!videoRef.current || !canvasRef.current || !workerRef.current) return;
+      // Use ref to avoid stale closure on status
+      if (!videoRef.current || !canvasRef.current || !workerRef.current || statusRef.current !== "recording") return;
       if (videoRef.current.readyState !== videoRef.current.HAVE_ENOUGH_DATA) return;
 
       const ctx = canvasRef.current.getContext("2d", { willReadFrequently: true });
@@ -168,6 +175,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
 
   const startRecording = () => {
     if (!stream) return;
+    setRecordingTime(0);
     chunksRef.current = [];
     
     // Find supported mime type
@@ -180,6 +188,12 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
         videoBitsPerSecond: 2500000 // 2.5 Mbps
       });
       mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.onerror = (e) => {
+        console.error("MediaRecorder error detected:", e);
+        toast.error("Recording error occurred.");
+        stopRecording();
+      };
       
       // Collect chunks
       mediaRecorder.ondataavailable = (e) => {
@@ -204,6 +218,22 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
       console.error("MediaRecorder error:", err);
       toast.error("Failed to start recording.");
       setStatus("idle");
+    }
+  };
+
+  const pauseRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      mediaRecorderRef.current.pause();
+      setStatus("paused");
+      stopAnalysis();
+    }
+  };
+
+  const resumeRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "paused") {
+      mediaRecorderRef.current.resume();
+      setStatus("recording");
+      startAnalysis();
     }
   };
 
@@ -259,8 +289,9 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
-      if (!open && status !== "recording") onClose();
-      else if (!open && status === "recording") toast.warning("Please stop recording first");
+      const isActive = status === "recording" || status === "paused";
+      if (!open && !isActive) onClose();
+      else if (!open && isActive) toast.warning("Please stop recording first");
     }}>
       {/* 
         Changes for "Native Feel":
@@ -336,10 +367,17 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
                   This is the standard iOS/Android place for the recording dot
                 */}
                 <div className="flex flex-col items-center gap-2 relative">
-                  {status === "recording" && (
-                    <div className="flex items-center gap-2 bg-red-600/90 backdrop-blur-md px-3 py-1 rounded-md text-white text-[13px] font-mono font-bold shadow-lg ring-1 ring-white/20">
-                      <div className="w-2 h-2 rounded-full bg-white shadow-[0_0_8px_white] animate-pulse" />
+                  {(status === "recording" || status === "paused") && (
+                    <div className={cn(
+                      "flex items-center gap-2 backdrop-blur-md px-3 py-1 rounded-md text-white text-[13px] font-mono font-bold shadow-lg ring-1 ring-white/20 transition-colors duration-300",
+                      status === "recording" ? "bg-red-600/90" : "bg-zinc-700/90"
+                    )}>
+                      <div className={cn(
+                        "w-2 h-2 rounded-full bg-white shadow-[0_0_8px_white]",
+                        status === "recording" && "animate-pulse"
+                      )} />
                       {formatTime(recordingTime)}
+                      {status === "paused" && <span className="ml-1 text-[10px] uppercase tracking-wider opacity-80">Paused</span>}
                     </div>
                   )}
 
@@ -396,8 +434,25 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
             </div>
           )}
 
-          {status === "recording" && (
-            <div className="flex flex-col items-center justify-center w-full">
+          {(status === "recording" || status === "paused") && (
+            <div className="flex items-center justify-center w-full gap-8">
+              {/* Pause/Resume Secondary Button */}
+              <button
+                onClick={status === "recording" ? pauseRecording : resumeRecording}
+                className="flex flex-col items-center gap-1.5 group"
+              >
+                <div className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 flex items-center justify-center transition-all active:scale-90">
+                  {status === "recording" ? (
+                    <Pause className="w-5 h-5 text-white" fill="currentColor" />
+                  ) : (
+                    <Play className="w-5 h-5 text-white ml-0.5" fill="currentColor" />
+                  )}
+                </div>
+                <span className="text-[10px] text-white/60 font-medium uppercase tracking-wider">
+                  {status === "recording" ? "Pause" : "Resume"}
+                </span>
+              </button>
+
               {/* Native Style Stop Button (White Outer Ring, Red Inner Square) */}
               <button 
                 onClick={stopRecording} 
@@ -421,6 +476,9 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
                 <div className="absolute w-[32px] h-[32px] rounded border border-red-500/50 bg-red-600 scale-100 group-active:scale-90 transition-all duration-300" />
                 <span className="sr-only">Stop Recording</span>
               </button>
+
+              {/* Spacer button for layout balance (like a gallery button) */}
+              <div className="w-12 opacity-0 pointer-events-none" />
             </div>
           )}
 
