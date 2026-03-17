@@ -41,7 +41,7 @@ export function VideoPreviewPanel({
   const videoUrl = isS3Source ? (signedVideoUrl ?? null) : (source || null);
 
   return (
-    <div className="min-h-0 flex-1">
+    <div className="min-h-0 flex-1 h-full w-full">
       <div className="h-full overflow-hidden  bg-black flex items-center justify-center">
         {isSigningVideo ? (
           <div className="flex h-full items-center justify-center text-sm text-zinc-400">
