@@ -258,10 +258,30 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
 
   const resumeRecording = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "paused") {
-      mediaRecorderRef.current.resume();
-      setStatus("recording");
-      setAutoPaused(false);
-      startAnalysis();
+      // --- FIX: Re-validate tracks and re-attach stream ---
+      if (stream) {
+        stream.getTracks().forEach(track => {
+          if (track.readyState === "live") {
+            track.enabled = true; // Force-enable track
+          }
+        });
+        
+        // Ensure the video element is showing the live feed again
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(e => console.error("Error playing video on resume:", e));
+        }
+      }
+
+      // Small delay (300ms) to let hardware warm up before recorder starts
+      setTimeout(() => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === "paused") {
+          mediaRecorderRef.current.resume();
+          setStatus("recording");
+          setAutoPaused(false);
+          startAnalysis();
+        }
+      }, 300);
     }
   };
 
