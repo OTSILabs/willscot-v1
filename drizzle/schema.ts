@@ -25,6 +25,8 @@ export const results = pgTable("results", {
 	containerType: text("container_type"),
 	model: text(),
 	regionName: text("region_name"),
+	videoName: text("video_name"),
+	customId: text("custom_id").unique(),
 }, (table) => [
 	foreignKey({
 			columns: [table.createdByUserId],

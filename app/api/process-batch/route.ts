@@ -10,7 +10,7 @@ export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
 const BATCH_LAMBDA_ENDPOINT =
-  `${process.env.LAMBDA_ENDPOINT}/process-video-with-targeted-frame-batch`;
+  `${process.env.LAMBDA_ENDPOINT}/process-video-with-targeted-frame-batch-pegasus`;
 
 async function runBatchProcessingJob({
   resultId,
@@ -26,31 +26,18 @@ async function runBatchProcessingJob({
   }[];
 }) {
   try {
-    const interiorJobs = jobs.filter((j) => j.jobType === "interior");
-    const exteriorJobs = jobs.filter((j) => j.jobType === "exterior");
+    const mapJobs = (type: string) => jobs
+      .filter((j) => j.jobType === type)
+      .map((j) => ({
+        s3_uri: j.s3Uri,
+        region: j.regionName,
+        container_type: j.containerType,
+      }));
+
     const payload = {
-      interior_jobs: interiorJobs.length > 0 ? interiorJobs.map((j) => ({
-        s3_uri: j.s3Uri,
-        model: j.model,
-        region: j.regionName,
-        container_type: j.containerType,
-      })) : {
-        s3_uri: "string",
-        model: "string",
-        region: "string",
-        container_type: "string",
-      },
-      exterior_jobs: exteriorJobs.length > 0 ? exteriorJobs.map((j) => ({
-        s3_uri: j.s3Uri,
-        model: j.model,
-        region: j.regionName,
-        container_type: j.containerType,
-      })) : {
-        s3_uri: "string",
-        model: "string",
-        region: "string",
-        container_type: "string",
-      },
+      interior_jobs: mapJobs("interior"),
+      exterior_jobs: mapJobs("exterior"),
+      temperature: 0.2,
     };
 
     console.log("payload :", payload);
@@ -97,6 +84,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const jobs = body.jobs as {
       s3Uri: string;
+      fileName: string;
       containerType: string;
       model: string;
       region: string;
@@ -110,30 +98,29 @@ export async function POST(req: Request) {
       );
     }
 
-    // Validate all required fields are present
-    for (const job of jobs) {
+    // Transform and validate jobs
+    const formattedJobs = jobs.map((job) => {
       if (!job.s3Uri || !job.containerType || !job.model || !job.region || !job.jobType) {
-        return NextResponse.json(
-          { error: "Each job must have s3Uri, containerType, model, region, and jobType" },
-          { status: 400 },
-        );
+        throw new Error("Missing required fields in job data");
       }
-    }
-
-    // Transform jobs to match the expected format
-    const formattedJobs = jobs.map((job) => ({
-      s3Uri: job.s3Uri,
-      containerType: job.containerType,
-      model: job.model,
-      regionName: job.region,
-      jobType: job.jobType,
-    }));
+      return {
+        s3Uri: job.s3Uri,
+        fileName: job.fileName,
+        containerType: job.containerType,
+        model: job.model,
+        regionName: job.region,
+        jobType: job.jobType,
+      };
+    });
 
     // Insert initial record for the batch
+    const customId = `TRC-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
     const [inserted] = await db
       .insert(results)
       .values({
         videoId: formattedJobs.map((j) => j.s3Uri).join(","),
+        videoName: formattedJobs.map((j) => j.fileName).join(","),
+        customId: customId,
         status: "processing",
         containerType: formattedJobs.map((j) => j.containerType).join(","),
         model: formattedJobs.map((j) => j.model).join(","),
@@ -151,7 +138,7 @@ export async function POST(req: Request) {
       })
     );
 
-    return NextResponse.json({ id: inserted.id, jobs: formattedJobs }, { status: 202 });
+    return NextResponse.json({ id: inserted.id, customId, jobs: formattedJobs }, { status: 202 });
   } catch (error: any) {
     return NextResponse.json(
       { error: "Failed to process batch", details: error.message },

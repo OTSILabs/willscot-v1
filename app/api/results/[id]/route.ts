@@ -74,6 +74,8 @@ export async function GET(
         createdByName: users.name,
         createdByEmail: users.email,
         createdAt: results.createdAt,
+        videoName: results.videoName,
+        customId: results.customId,
       })
       .from(results)
       .leftJoin(users, eq(results.createdByUserId, users.id))
