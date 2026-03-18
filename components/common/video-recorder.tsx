@@ -159,12 +159,17 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
     setWarnings([]); // Clear warnings immediately on stop
   }, []);
 
-  const startCamera = async () => {
+  const startCamera = async (isRefresh = false) => {
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        toast.error("Camera access is only available over a secure (HTTPS) connection. If you are developing locally, please use localhost or set up HTTPS.");
+        toast.error("Camera access is only available over a secure (HTTPS) connection.");
         onClose();
         return;
+      }
+
+      // If we are refreshing, stop old tracks first
+      if (isRefresh && stream) {
+        stream.getTracks().forEach(t => t.stop());
       }
 
       const newStream = await navigator.mediaDevices.getUserMedia({
@@ -172,17 +177,19 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
           width: { ideal: 1280 },
           height: { ideal: 720 },
           frameRate: { ideal: 30 },
-          facingMode: "environment" // Try rear camera if available
+          facingMode: "environment"
         },
         audio: true
       });
+      
       setStream(newStream);
       if (videoRef.current) {
         videoRef.current.srcObject = newStream;
+        // Start playing immediately
+        videoRef.current.play().catch(e => console.error("Video play error:", e));
       }
 
       // --- TIER 2: Track Monitoring (Incoming Call Detection) ---
-      // Mobile browsers often "mute" the track hardware-side when a call starts.
       newStream.getVideoTracks().forEach(track => {
         track.onmute = () => {
           if (statusRef.current === "recording") {
@@ -192,25 +199,32 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
         };
       });
 
-      setStatus("idle");
+      if (!isRefresh) setStatus("idle");
+      return newStream;
     } catch (err) {
       console.error("Camera access error:", err);
       toast.error("Could not access camera. Please check permissions.");
-      onClose();
+      if (!isRefresh) onClose();
+      return null;
     }
   };
 
   const startRecording = () => {
-    if (!stream) return;
+    if (!stream || !videoRef.current) return;
     setRecordingTime(0);
     chunksRef.current = [];
     
+    // --- PROXY STRATEGY: Record from the Video Element ---
+    // This allows us to swap the underlying camera stream without stopping the recorder.
+    const videoElement = videoRef.current as any;
+    const captureStream = videoElement.captureStream ? videoElement.captureStream() : videoElement.mozCaptureStream ? videoElement.mozCaptureStream() : stream;
+
     // Find supported mime type
     const types = ["video/mp4", "video/webm;codecs=vp9", "video/webm;codecs=vp8"];
     const supportedType = types.find(type => MediaRecorder.isTypeSupported(type)) || "";
 
     try {
-      const mediaRecorder = new MediaRecorder(stream, { 
+      const mediaRecorder = new MediaRecorder(captureStream, { 
         mimeType: supportedType,
         videoBitsPerSecond: 2500000 // 2.5 Mbps
       });
@@ -256,24 +270,18 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
     }
   };
 
-  const resumeRecording = () => {
+  const resumeRecording = async () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "paused") {
-      // --- FIX: Re-validate tracks and re-attach stream ---
-      if (stream) {
-        stream.getTracks().forEach(track => {
-          if (track.readyState === "live") {
-            track.enabled = true; // Force-enable track
-          }
-        });
-        
-        // Ensure the video element is showing the live feed again
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play().catch(e => console.error("Error playing video on resume:", e));
-        }
+      // --- FIX: Re-acquire fresh camera stream after interruption ---
+      // This is necessary because mobile OS often kills the camera hardware logic during a call.
+      const freshStream = await startCamera(true);
+      
+      if (!freshStream) {
+        toast.error("Failed to re-acquire camera. Please try again.");
+        return;
       }
 
-      // Small delay (300ms) to let hardware warm up before recorder starts
+      // Wait a tiny bit for the video element to settle with the new stream
       setTimeout(() => {
         if (mediaRecorderRef.current && mediaRecorderRef.current.state === "paused") {
           mediaRecorderRef.current.resume();
@@ -281,7 +289,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
           setAutoPaused(false);
           startAnalysis();
         }
-      }, 300);
+      }, 500);
     }
   };
 
