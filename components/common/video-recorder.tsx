@@ -24,6 +24,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
   // 1. Core State
   const [status, setStatus] = useState<"idle" | "recording" | "paused" | "preview">("idle");
   const [recordingTime, setRecordingTime] = useState(0);
+  const [autoPaused, setAutoPaused] = useState(false);
   
   // 2. Media References
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -42,6 +43,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const analysisIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const statusRef = useRef(status);
+  const freezeCountRef = useRef(0);
 
   // Sync ref with state
   useEffect(() => {
@@ -101,6 +103,19 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
       workerRef.current.onmessage = (e) => {
         if (e.data.warnings) {
           setWarnings(e.data.warnings);
+        }
+        
+        // --- TIER 3: Frozen Frame Detection (Iframe-Safe) ---
+        // If avgMotion is EXACTLY 0, the device has likely frozen the video feed for a call.
+        if (statusRef.current === "recording" && e.data.metrics && e.data.metrics.avgMotion === 0) {
+          freezeCountRef.current += 1;
+          // If frozen for ~1 second (5 checks at 5fps)
+          if (freezeCountRef.current >= 5) {
+            console.log("Auto-pause triggered by Frozen Frame detection");
+            handleAutoPause();
+          }
+        } else {
+          freezeCountRef.current = 0;
         }
       };
       
@@ -165,6 +180,18 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
       if (videoRef.current) {
         videoRef.current.srcObject = newStream;
       }
+
+      // --- TIER 2: Track Monitoring (Incoming Call Detection) ---
+      // Mobile browsers often "mute" the track hardware-side when a call starts.
+      newStream.getVideoTracks().forEach(track => {
+        track.onmute = () => {
+          if (statusRef.current === "recording") {
+            console.log("Auto-pause triggered by Video Track Mute");
+            handleAutoPause();
+          }
+        };
+      });
+
       setStatus("idle");
     } catch (err) {
       console.error("Camera access error:", err);
@@ -233,9 +260,34 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "paused") {
       mediaRecorderRef.current.resume();
       setStatus("recording");
+      setAutoPaused(false);
       startAnalysis();
     }
   };
+
+  const handleAutoPause = useCallback(() => {
+    if (statusRef.current === "recording") {
+      pauseRecording();
+      setAutoPaused(true);
+      toast.info("Recording Auto-Paused due to interruption", {
+        description: "Please check your feed and resume when ready.",
+        duration: 5000,
+      });
+    }
+  }, []);
+
+  // --- TIER 1: Visibility Change Detection ---
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden && statusRef.current === "recording") {
+        console.log("Auto-pause triggered by Visibility Change");
+        handleAutoPause();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [handleAutoPause]);
 
   const stopRecording = () => {
     // Calling stop() triggers the onstop handler above which handles the blob and changes state to "preview"
@@ -253,6 +305,8 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
     setRecordedBlob(null);
     setPreviewUrl(null);
     setRecordingTime(0);
+    setAutoPaused(false);
+    freezeCountRef.current = 0;
     chunksRef.current = [];
   };
 
@@ -372,12 +426,16 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
                       "flex items-center gap-2 backdrop-blur-md px-3 py-1 rounded-md text-white text-[13px] font-mono font-bold shadow-lg ring-1 ring-white/20 transition-colors duration-300",
                       status === "recording" ? "bg-red-600/90" : "bg-zinc-700/90"
                     )}>
-                      <div className={cn(
+                       <div className={cn(
                         "w-2 h-2 rounded-full bg-white shadow-[0_0_8px_white]",
                         status === "recording" && "animate-pulse"
                       )} />
                       {formatTime(recordingTime)}
-                      {status === "paused" && <span className="ml-1 text-[10px] uppercase tracking-wider opacity-80">Paused</span>}
+                      {status === "paused" && (
+                        <span className="ml-1 text-[10px] uppercase tracking-wider opacity-80">
+                          {autoPaused ? "Auto-Paused" : "Paused"}
+                        </span>
+                      )}
                     </div>
                   )}
 
