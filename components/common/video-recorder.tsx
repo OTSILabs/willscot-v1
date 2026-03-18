@@ -167,10 +167,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
         return;
       }
 
-      // If we are refreshing, stop old tracks first
-      if (isRefresh && stream) {
-        stream.getTracks().forEach(t => t.stop());
-      }
+      const currentStream = stream;
 
       const newStream = await navigator.mediaDevices.getUserMedia({
         video: { 
@@ -182,11 +179,22 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
         audio: true
       });
       
-      setStream(newStream);
       if (videoRef.current) {
         videoRef.current.srcObject = newStream;
         // Start playing immediately
-        videoRef.current.play().catch(e => console.error("Video play error:", e));
+        try {
+          await videoRef.current.play();
+        } catch (e) {
+          console.error("Video play error during fresh stream attach:", e);
+        }
+      }
+
+      setStream(newStream);
+
+      // --- FIX: Stop old tracks AFTER the new stream is re-attached ---
+      // This prevents the captureStream from becoming inactive during the handoff.
+      if (isRefresh && currentStream) {
+        currentStream.getTracks().forEach(t => t.stop());
       }
 
       // --- TIER 2: Track Monitoring (Incoming Call Detection) ---
@@ -274,22 +282,30 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "paused") {
       // --- FIX: Re-acquire fresh camera stream after interruption ---
       // This is necessary because mobile OS often kills the camera hardware logic during a call.
-      const freshStream = await startCamera(true);
+      const reAcquired = await startCamera(true);
       
-      if (!freshStream) {
-        toast.error("Failed to re-acquire camera. Please try again.");
+      if (!reAcquired) {
+        // Error toast is already shown inside startCamera
         return;
       }
-
-      // Wait a tiny bit for the video element to settle with the new stream
+      
+      // Give the hardware a moment to stabilize
       setTimeout(() => {
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state === "paused") {
-          mediaRecorderRef.current.resume();
-          setStatus("recording");
-          setAutoPaused(false);
-          startAnalysis();
+        if (mediaRecorderRef.current) {
+          if (mediaRecorderRef.current.state === "paused") {
+            mediaRecorderRef.current.resume();
+            setStatus("recording");
+            setAutoPaused(false);
+            startAnalysis();
+            console.log("MediaRecorder successfully resumed");
+          } else if (mediaRecorderRef.current.state === "inactive") {
+            // If it stopped anyway, we need to let the user know
+            console.error("MediaRecorder became inactive during resume");
+            toast.error("Recording was interrupted and could not be resumed.");
+            setStatus("preview"); 
+          }
         }
-      }, 500);
+      }, 300);
     }
   };
 
