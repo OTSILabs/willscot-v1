@@ -37,8 +37,8 @@ export async function POST(req: Request) {
     const response = NextResponse.json({ user });
     response.cookies.set("auth_user", user.email, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: true,
+      sameSite: "none",
       path: "/",
       maxAge: 60 * 60 * 24 * 7,
     });
