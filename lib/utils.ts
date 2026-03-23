@@ -58,7 +58,8 @@ export function extractFilenames(videoId: string | null | undefined) {
 }
 
 export function getPaginationRange(currentPage: number, totalPages: number) {
-  const delta = window.innerWidth < 768 ? 1 : 2; // Fewer neighbors on mobile
+  const isBrowser = typeof window !== "undefined";
+  const delta = (isBrowser && window.innerWidth < 768) ? 1 : 2; // Fewer neighbors on mobile
   const range = [];
   const rangeWithDots = [];
   let l;
