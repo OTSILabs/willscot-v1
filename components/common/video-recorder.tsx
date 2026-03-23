@@ -24,6 +24,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
   // 1. Core State
   const [status, setStatus] = useState<"idle" | "recording" | "paused" | "preview">("idle");
   const [recordingTime, setRecordingTime] = useState(0);
+  const [autoPaused, setAutoPaused] = useState(false);
   
   // 2. Media References
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -42,6 +43,15 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const analysisIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const statusRef = useRef(status);
+  const freezeCountRef = useRef(0);
+
+  // --- 5. Proxy Stream Refs (for Interruption Robustness) ---
+  const proxyStreamRef = useRef<MediaStream | null>(null);
+  const recordingCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
+  const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const animationRef = useRef<number | null>(null);
 
   // Sync ref with state
   useEffect(() => {
@@ -102,6 +112,19 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
         if (e.data.warnings) {
           setWarnings(e.data.warnings);
         }
+        
+        // --- TIER 3: Frozen Frame Detection (Iframe-Safe) ---
+        // If avgMotion is EXACTLY 0, the device has likely frozen the video feed for a call.
+        if (statusRef.current === "recording" && e.data.metrics && e.data.metrics.avgMotion === 0) {
+          freezeCountRef.current += 1;
+          // If frozen for ~1 second (5 checks at 5fps)
+          if (freezeCountRef.current >= 5) {
+            console.log("Auto-pause triggered by Frozen Frame detection");
+            handleAutoPause();
+          }
+        } else {
+          freezeCountRef.current = 0;
+        }
       };
       
       // Initialize an offscreen canvas for downsampling frames
@@ -144,46 +167,164 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
     setWarnings([]); // Clear warnings immediately on stop
   }, []);
 
-  const startCamera = async () => {
+  // --- PROXY STRATEGY: Render Loop & Audio Routing ---
+  const initProxyStream = useCallback(() => {
+    if (typeof window === "undefined" || proxyStreamRef.current) return;
+
+    // A. Video Proxy via Canvas
+    const canvas = document.createElement("canvas");
+    canvas.width = 1280;
+    canvas.height = 720;
+    recordingCanvasRef.current = canvas;
+    
+    // captureStream(30) ensures a stable 30fps track even if video source is slow
+    const canvasStream = (canvas as any).captureStream ? (canvas as any).captureStream(30) : (canvas as any).mozCaptureStream ? (canvas as any).mozCaptureStream(30) : null;
+    if (!canvasStream) return;
+
+    // B. Audio Proxy via AudioContext
+    const AudioCtx = (window.AudioContext || (window as any).webkitAudioContext);
+    if (!AudioCtx) {
+      console.warn("AudioContext not supported, recording may lack audio.");
+      // Video only proxy
+      proxyStreamRef.current = new MediaStream([...canvasStream.getVideoTracks()]);
+      return;
+    }
+
+    const audioCtx = new AudioCtx();
+    const destination = audioCtx.createMediaStreamDestination();
+    
+    audioContextRef.current = audioCtx;
+    audioDestinationRef.current = destination;
+
+    // C. Combine into Proxy Stream
+    const combined = new MediaStream([
+      ...canvasStream.getVideoTracks(),
+      ...destination.stream.getAudioTracks()
+    ]);
+    proxyStreamRef.current = combined;
+
+    console.log("Proxy Stream Initialized (Stable Source for MediaRecorder)");
+  }, []);
+
+  const updateProxySource = useCallback((newStream: MediaStream) => {
+    if (!audioContextRef.current || !audioDestinationRef.current) return;
+
+    // 1. Update Audio Routing
+    if (audioSourceRef.current) {
+      audioSourceRef.current.disconnect();
+    }
+    
+    try {
+      const source = audioContextRef.current.createMediaStreamSource(newStream);
+      source.connect(audioDestinationRef.current);
+      audioSourceRef.current = source;
+      
+      // Ensure context is running (crucial after user interaction)
+      if (audioContextRef.current.state === "suspended") {
+        audioContextRef.current.resume();
+      }
+    } catch (e) {
+      console.error("Failed to route audio to proxy:", e);
+    }
+
+    // 2. Start/Restart Render Loop
+    if (animationRef.current) cancelAnimationFrame(animationRef.current);
+
+    const render = () => {
+      if (videoRef.current && recordingCanvasRef.current && statusRef.current !== "preview") {
+        const ctx = recordingCanvasRef.current.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(videoRef.current, 0, 0, 1280, 720);
+        }
+      }
+      animationRef.current = requestAnimationFrame(render);
+    };
+    render();
+  }, []);
+
+  const startCamera = async (isRefresh = false) => {
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        toast.error("Camera access is only available over a secure (HTTPS) connection. If you are developing locally, please use localhost or set up HTTPS.");
+        toast.error("Camera access is only available over a secure (HTTPS) connection.");
         onClose();
         return;
       }
+
+      const currentStream = stream;
 
       const newStream = await navigator.mediaDevices.getUserMedia({
         video: { 
           width: { ideal: 1280 },
           height: { ideal: 720 },
           frameRate: { ideal: 30 },
-          facingMode: "environment" // Try rear camera if available
+          facingMode: "environment"
         },
         audio: true
       });
-      setStream(newStream);
+      
       if (videoRef.current) {
         videoRef.current.srcObject = newStream;
+        // Start playing immediately
+        try {
+          await videoRef.current.play();
+        } catch (e) {
+          console.error("Video play error during fresh stream attach:", e);
+        }
       }
-      setStatus("idle");
+
+      setStream(newStream);
+
+      // --- FIX: Stop old tracks AFTER the new stream is re-attached ---
+      // This prevents the captureStream from becoming inactive during the handoff.
+      if (isRefresh && currentStream) {
+        currentStream.getTracks().forEach(t => t.stop());
+      }
+
+      // --- TIER 2: Track Monitoring (Incoming Call Detection) ---
+      newStream.getVideoTracks().forEach(track => {
+        track.onmute = () => {
+          if (statusRef.current === "recording") {
+            console.log("Auto-pause triggered by Video Track Mute");
+            handleAutoPause();
+          }
+        };
+      });
+
+      if (!isRefresh) {
+        initProxyStream();
+        setStatus("idle");
+      }
+      
+      // Update proxy with the new hardware source
+      updateProxySource(newStream);
+      
+      return newStream;
     } catch (err) {
       console.error("Camera access error:", err);
       toast.error("Could not access camera. Please check permissions.");
-      onClose();
+      if (!isRefresh) onClose();
+      return null;
     }
   };
 
   const startRecording = () => {
-    if (!stream) return;
+    if (!stream || !videoRef.current) return;
     setRecordingTime(0);
     chunksRef.current = [];
     
+    // --- PROXY STRATEGY: Record from the STABLE Proxy Stream ---
+    // This allows us to swap the underlying camera/mic hardware without the recorder seeing a track end.
+    if (!proxyStreamRef.current) {
+      initProxyStream();
+    }
+    const captureStream = proxyStreamRef.current!;
+
     // Find supported mime type
     const types = ["video/mp4", "video/webm;codecs=vp9", "video/webm;codecs=vp8"];
-    const supportedType = types.find(type => MediaRecorder.isTypeSupported(type)) || "";
+    const supportedType = types.find(type => MediaRecorder.isTypeSupported(type)) || "video/webm";
 
     try {
-      const mediaRecorder = new MediaRecorder(stream, { 
+      const mediaRecorder = new MediaRecorder(captureStream, { 
         mimeType: supportedType,
         videoBitsPerSecond: 2500000 // 2.5 Mbps
       });
@@ -229,13 +370,60 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
     }
   };
 
-  const resumeRecording = () => {
+  const resumeRecording = async () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "paused") {
-      mediaRecorderRef.current.resume();
-      setStatus("recording");
-      startAnalysis();
+      // --- FIX: Re-acquire fresh camera stream after interruption ---
+      // This is necessary because mobile OS often kills the camera hardware logic during a call.
+      const reAcquired = await startCamera(true);
+      
+      if (!reAcquired) {
+        // Error toast is already shown inside startCamera
+        return;
+      }
+      
+      // Give the hardware a moment to stabilize
+      setTimeout(() => {
+        if (mediaRecorderRef.current) {
+          if (mediaRecorderRef.current.state === "paused") {
+            mediaRecorderRef.current.resume();
+            setStatus("recording");
+            setAutoPaused(false);
+            startAnalysis();
+            console.log("MediaRecorder successfully resumed");
+          } else if (mediaRecorderRef.current.state === "inactive") {
+            // If it stopped anyway, we need to let the user know
+            console.error("MediaRecorder became inactive during resume");
+            toast.error("Recording was interrupted and could not be resumed.");
+            setStatus("preview"); 
+          }
+        }
+      }, 100);
     }
   };
+
+  const handleAutoPause = useCallback(() => {
+    if (statusRef.current === "recording") {
+      pauseRecording();
+      setAutoPaused(true);
+      toast.info("Recording Auto-Paused due to interruption", {
+        description: "Please check your feed and resume when ready.",
+        duration: 5000,
+      });
+    }
+  }, []);
+
+  // --- TIER 1: Visibility Change Detection ---
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden && statusRef.current === "recording") {
+        console.log("Auto-pause triggered by Visibility Change");
+        handleAutoPause();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [handleAutoPause]);
 
   const stopRecording = () => {
     // Calling stop() triggers the onstop handler above which handles the blob and changes state to "preview"
@@ -253,6 +441,8 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
     setRecordedBlob(null);
     setPreviewUrl(null);
     setRecordingTime(0);
+    setAutoPaused(false);
+    freezeCountRef.current = 0;
     chunksRef.current = [];
   };
 
@@ -272,6 +462,18 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
     if (workerRef.current) {
       workerRef.current.terminate();
       workerRef.current = null;
+    }
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch(() => {});
+      audioContextRef.current = null;
+    }
+    if (proxyStreamRef.current) {
+      proxyStreamRef.current.getTracks().forEach(track => track.stop());
+      proxyStreamRef.current = null;
     }
   };
 
@@ -354,7 +556,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
               controls
               autoPlay    // INSTAGRAM FLOW: Automatically plays the preview
               playsInline
-              className="w-full h-full object-contain bg-black"
+              className="w-full h-full object-cover bg-black"
             />
           )}
 
@@ -372,12 +574,16 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
                       "flex items-center gap-2 backdrop-blur-md px-3 py-1 rounded-md text-white text-[13px] font-mono font-bold shadow-lg ring-1 ring-white/20 transition-colors duration-300",
                       status === "recording" ? "bg-red-600/90" : "bg-zinc-700/90"
                     )}>
-                      <div className={cn(
+                       <div className={cn(
                         "w-2 h-2 rounded-full bg-white shadow-[0_0_8px_white]",
                         status === "recording" && "animate-pulse"
                       )} />
                       {formatTime(recordingTime)}
-                      {status === "paused" && <span className="ml-1 text-[10px] uppercase tracking-wider opacity-80">Paused</span>}
+                      {status === "paused" && (
+                        <span className="ml-1 text-[10px] uppercase tracking-wider opacity-80">
+                          {autoPaused ? "Auto-Paused" : "Paused"}
+                        </span>
+                      )}
                     </div>
                   )}
 
