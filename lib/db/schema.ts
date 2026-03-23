@@ -5,6 +5,8 @@ import {
   timestamp,
   uuid,
   jsonb,
+  boolean,
+  doublePrecision,
 } from "drizzle-orm/pg-core";
 
 export const userRoleEnum = pgEnum("user_role", ["power_user", "normal_user"]);
@@ -31,5 +33,19 @@ export const results = pgTable("results", {
   createdByUserId: uuid("created_by_user_id").references(() => users.id, {
     onDelete: "set null",
   }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const resultAttributes = pgTable("result_attributes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  resultId: uuid("result_id").references(() => results.id, {
+    onDelete: "cascade",
+  }),
+  name: text("name").notNull(), // e.g., "Container Number"
+  source: text("source").notNull(), // "interior" or "exterior"
+  value: text("value"),
+  isCorrect: boolean("is_correct"), // User response
+  confidence: doublePrecision("confidence"),
+  timestamp: doublePrecision("timestamp"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
