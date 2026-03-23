@@ -10,7 +10,9 @@ export async function GET() {
     const overallStats = await db
       .select({
         total: count(resultAttributes.id),
-        correct: sql`count(case when ${resultAttributes.isCorrect} = true then 1 end)`,
+        correct: sql`count(case when ${resultAttributes.status} = 'correct' then 1 end)`,
+        incorrect: sql`count(case when ${resultAttributes.status} = 'incorrect' then 1 end)`,
+        unmarked: sql`count(case when ${resultAttributes.status} = 'unmarked' then 1 end)`,
       })
       .from(resultAttributes);
 
@@ -18,7 +20,9 @@ export async function GET() {
       .select({
         source: resultAttributes.source,
         total: count(resultAttributes.id),
-        correct: sql`count(case when ${resultAttributes.isCorrect} = true then 1 end)`,
+        correct: sql`count(case when ${resultAttributes.status} = 'correct' then 1 end)`,
+        incorrect: sql`count(case when ${resultAttributes.status} = 'incorrect' then 1 end)`,
+        unmarked: sql`count(case when ${resultAttributes.status} = 'unmarked' then 1 end)`,
       })
       .from(resultAttributes)
       .groupBy(resultAttributes.source);
@@ -28,7 +32,9 @@ export async function GET() {
       .select({
         name: resultAttributes.name,
         total: count(resultAttributes.id),
-        correct: sql`count(case when ${resultAttributes.isCorrect} = true then 1 end)`,
+        correct: sql`count(case when ${resultAttributes.status} = 'correct' then 1 end)`,
+        incorrect: sql`count(case when ${resultAttributes.status} = 'incorrect' then 1 end)`,
+        unmarked: sql`count(case when ${resultAttributes.status} = 'unmarked' then 1 end)`,
       })
       .from(resultAttributes)
       .groupBy(resultAttributes.name);
@@ -42,15 +48,37 @@ export async function GET() {
 
     return NextResponse.json({
       overview: {
-        overall: formatPercent(overallStats[0].correct, overallStats[0].total),
-        interior: formatPercent(interior?.correct, interior?.total),
-        exterior: formatPercent(exterior?.correct, exterior?.total),
+        overall: {
+          accuracy: formatPercent(overallStats[0].correct, Number(overallStats[0].total) - Number(overallStats[0].unmarked)),
+          correct: overallStats[0].correct,
+          incorrect: overallStats[0].incorrect,
+          unmarked: overallStats[0].unmarked,
+          total: overallStats[0].total
+        },
+        interior: {
+          accuracy: formatPercent(interior?.correct, Number(interior?.total || 0) - Number(interior?.unmarked || 0)),
+          correct: interior?.correct || 0,
+          incorrect: interior?.incorrect || 0,
+          unmarked: interior?.unmarked || 0,
+        },
+        exterior: {
+          accuracy: formatPercent(exterior?.correct, Number(exterior?.total || 0) - Number(exterior?.unmarked || 0)),
+          correct: exterior?.correct || 0,
+          incorrect: exterior?.incorrect || 0,
+          unmarked: exterior?.unmarked || 0,
+        },
       },
-      attributes: attributeStats.map(attr => ({
-        name: attr.name,
-        accuracy: formatPercent(attr.correct, attr.total),
-        totalTraces: attr.total
-      })).sort((a, b) => b.accuracy - a.accuracy)
+      attributes: attributeStats.map(attr => {
+        const reviewed = Number(attr.total) - Number(attr.unmarked);
+        return {
+          name: attr.name,
+          accuracy: formatPercent(attr.correct, reviewed),
+          correct: attr.correct,
+          incorrect: attr.incorrect,
+          unmarked: attr.unmarked,
+          totalTraces: attr.total
+        };
+      }).sort((a, b) => (b.accuracy as number) - (a.accuracy as number))
     });
 
   } catch (error) {

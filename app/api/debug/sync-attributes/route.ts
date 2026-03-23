@@ -18,10 +18,11 @@ export async function GET() {
           await db.insert(resultAttributes).values(
             json.attributes.map((attr: any) => ({
               resultId: res.id,
-              name: attr.label || attr.name || "Unknown",
+              name: attr.attribute || attr.label || attr.name || "Unknown",
               source: attr.source || "interior",
               value: String(attr.value || ""),
-              isCorrect: attr.isCorrect === true || attr.feedback === "Correct",
+              status: attr.feedback === "Correct" || attr.isCorrect === true ? "correct" : 
+                      attr.feedback === "Incorrect" || attr.isCorrect === false ? "incorrect" : "unmarked",
               confidence: attr.confidence || null,
               timestamp: attr.timestamp || null,
             }))
