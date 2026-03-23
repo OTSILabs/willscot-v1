@@ -35,14 +35,14 @@ export async function POST(req: Request) {
     }
 
     const response = NextResponse.json({ user });
-    response.cookies.set("auth_user", user.email, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7,
-    });
-
+    
+    // Use manual header to include 'Partitioned' for CHIPS support in iframes
+    const maxAge = 60 * 60 * 24 * 7;
+    response.headers.append(
+      "Set-Cookie", 
+      `auth_user=${user.email}; Path=/; HttpOnly; Secure; SameSite=None; Partitioned; Max-Age=${maxAge}`
+    );
+    
     return response;
   } catch (error: unknown) {
     const errorMessage =
