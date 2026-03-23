@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { PageTitle, PageDescription } from "@/components/typography";
 
+import { Suspense } from "react";
+import { Loader2 } from "lucide-react";
+
 const RESULTS_POLLING_MS = 10000;
 
 export default function TracesPage() {
@@ -22,7 +25,13 @@ export default function TracesPage() {
           New Video
         </Button>
       </div>
-      <ResultsTable pollingMs={RESULTS_POLLING_MS} />
+      <Suspense fallback={
+        <div className="flex justify-center py-20">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      }>
+        <ResultsTable pollingMs={RESULTS_POLLING_MS} />
+      </Suspense>
     </div>
   );
 }

@@ -45,8 +45,10 @@ export function Header() {
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
-  const navLinks = [{ href: "/traces", label: "Traces" },
-  ...(currentUser?.role === "power_user" ? [{ href: "/users", label: "Users" }] : []),
+  const navLinks = [
+    { href: "/traces", label: "Traces" },
+    { href: "/dashboard", label: "Dashboard" },
+    ...(currentUser?.role === "power_user" ? [{ href: "/users", label: "Users" }] : []),
   ];
 
   const userInitials = useMemo(() => {
