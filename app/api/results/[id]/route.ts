@@ -112,12 +112,12 @@ export async function GET(
       error instanceof Error ? error.message : "Unknown error";
     console.error("Error fetching result detail:", errorMessage);
     return NextResponse.json(
-      { error: "Failed to fetch result detail" },
+      { error: "Failed to fetch result detail", details: errorMessage },
       { status: 500 },
     );
   }
 }
-
+//
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -166,10 +166,11 @@ export async function PATCH(
         await tx.insert(resultAttributes).values(
           attributes.map((attr: any) => ({
             resultId: id,
-            name: attr.label || attr.name || "Unknown",
+            name: attr.attribute || attr.label || attr.name || "Unknown",
             source: attr.source || "interior",
             value: String(attr.value || ""),
-            isCorrect: attr.isCorrect === true || attr.feedback === "Correct",
+            status: attr.feedback === "Correct" || attr.isCorrect === true ? "correct" : 
+                    attr.feedback === "Incorrect" || attr.isCorrect === false ? "incorrect" : "unmarked",
             confidence: attr.confidence || null,
             timestamp: attr.timestamp || null,
           }))
@@ -179,9 +180,10 @@ export async function PATCH(
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
-    console.error("Error updating result:", error);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("Error updating result:", errorMessage);
     return NextResponse.json(
-      { error: "Failed to update result" },
+      { error: "Failed to update result", details: errorMessage },
       { status: 500 },
     );
   }
