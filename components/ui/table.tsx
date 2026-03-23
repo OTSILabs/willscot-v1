@@ -2,9 +2,18 @@
 
 import * as React from "react"
 
-import { cn } from "@/lib/utils"
+import { cn, getPaginationRange } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight } from "lucide-react"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
@@ -134,34 +143,69 @@ export function PaginationControls({
 }: PaginationControlsProps) {
   const startItem = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const endItem = Math.min(currentPage * pageSize, totalItems);
+  const paginationRange = getPaginationRange(currentPage, totalPages);
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 md:sticky md:z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
-      <div className="flex items-center justify-between px-4 py-3 max-w-7xl mx-auto">
-        <p className="text-[10px] md:text-sm text-muted-foreground mr-2 font-normal">
+      <div className="flex flex-col md:flex-row items-center justify-between px-4 py-2 md:py-3 max-w-7xl mx-auto gap-2 md:gap-4">
+        <p className="text-[10px] md:text-sm text-muted-foreground font-normal">
           Showing {startItem}-{endItem} of {totalItems}
+          <span className="md:hidden ml-2">• Page {currentPage} of {Math.max(1, totalPages)}</span>
         </p>
-        <div className="flex items-center gap-1 md:gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-            disabled={currentPage <= 1}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <p className="text-xs md:text-sm text-muted-foreground font-medium">
-            Page {currentPage} of {Math.max(1, totalPages)}
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-            disabled={currentPage >= totalPages}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
+
+        <Pagination className="w-auto mx-0">
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious 
+                tabIndex={0}
+                className="cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (currentPage > 1) onPageChange(currentPage - 1);
+                }}
+                aria-disabled={currentPage <= 1}
+              />
+            </PaginationItem>
+
+            {paginationRange.map((pageNumber, idx) => {
+              if (pageNumber === "...") {
+                return (
+                  <PaginationItem key={`ellipsis-${idx}`}>
+                    <PaginationEllipsis />
+                  </PaginationItem>
+                );
+              }
+
+              return (
+                <PaginationItem key={pageNumber}>
+                  <PaginationLink
+                    tabIndex={0}
+                    className="cursor-pointer"
+                    isActive={pageNumber === currentPage}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      onPageChange(pageNumber as number);
+                    }}
+                  >
+                    {pageNumber}
+                  </PaginationLink>
+                </PaginationItem>
+              );
+            })}
+
+            <PaginationItem>
+              <PaginationNext
+                tabIndex={0}
+                className="cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (currentPage < totalPages) onPageChange(currentPage + 1);
+                }}
+                aria-disabled={currentPage >= totalPages}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
       </div>
     </div>
   );
