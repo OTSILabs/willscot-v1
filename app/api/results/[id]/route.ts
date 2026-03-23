@@ -169,8 +169,8 @@ export async function PATCH(
             name: attr.attribute || attr.label || attr.name || "Unknown",
             source: attr.source || "interior",
             value: String(attr.value || ""),
-            status: attr.feedback === "Correct" || attr.isCorrect === true ? "correct" : 
-                    attr.feedback === "Incorrect" || attr.isCorrect === false ? "incorrect" : "unmarked",
+            status: (attr.status === "correct" || attr.feedback === "Correct" || attr.isCorrect === true) ? "correct" : 
+                    (attr.status === "wrong" || attr.status === "incorrect" || attr.feedback === "Incorrect" || attr.isCorrect === false) ? "incorrect" : "unmarked",
             confidence: attr.confidence || null,
             timestamp: attr.timestamp || null,
           }))
