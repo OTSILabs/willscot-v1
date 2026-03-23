@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { useParams, useRouter } from "next/navigation";
@@ -51,6 +51,18 @@ export default function ResultDetailPage() {
 
   const [type, setType] = useState<"interior" | "exterior">("interior");
   const [activeSeek, setActiveSeek] = useState<{ timestamp: number; source: "interior" | "exterior"; id: number } | null>(null);
+  const [isMobileView, setIsMobileView] = useState(false);
+
+  useEffect(() => {
+    // Check initial and on resize
+    const checkViewport = () => {
+      setIsMobileView(window.innerWidth < 768);
+    };
+    
+    checkViewport();
+    window.addEventListener("resize", checkViewport);
+    return () => window.removeEventListener("resize", checkViewport);
+  }, []);
 
   if (isLoading) {
     return (
@@ -169,60 +181,62 @@ export default function ResultDetailPage() {
               </div>
             ) : (
               <div className="md:h-[calc(100vh-100px)] md:min-h-[calc(100vh-100px)] md:rounded-md md:border flex flex-col md:block">
-                {/* Desktop Resizable View */}
-                <div className="hidden md:block h-full">
-                  <ResizablePanelGroup orientation="horizontal">
-                    <ResizablePanel defaultSize={70} minSize={0}>
-                      <div className="flex h-full min-h-0 flex-col">
-                        <div className="border-b">
-                          <TabsList variant="line" className="grid w-[260px] grid-cols-2">
-                            <TabsTrigger value="results">Results</TabsTrigger>
-                            <TabsTrigger value="raw-json">Raw Json</TabsTrigger>
-                          </TabsList>
+                {/* Conditionally render desktop OR mobile layout to prevent duplicate video refs */}
+                {!isMobileView ? (
+                  /* Desktop Resizable View */
+                  <div className="hidden md:block h-full">
+                    <ResizablePanelGroup orientation="horizontal">
+                      <ResizablePanel defaultSize={70} minSize={0}>
+                        <div className="flex h-full min-h-0 flex-col">
+                          <div className="border-b">
+                            <TabsList variant="line" className="grid w-[260px] grid-cols-2">
+                              <TabsTrigger value="results">Results</TabsTrigger>
+                              <TabsTrigger value="raw-json">Raw Json</TabsTrigger>
+                            </TabsList>
+                          </div>
+  
+                          <TabsContent value="results" className="m-0 min-h-0 flex-1 overflow-auto">
+                            <AttributesTable
+                              attributes={attributes}
+                              onAttributeUpdate={handleFeedbackChange}
+                              onTimestampClick={handleTimestampClick}
+                            />
+                          </TabsContent>
+  
+                          <TabsContent value="raw-json" className="m-0 min-h-0 flex-1 overflow-auto p-0">
+                            <RawJsonTab resultId={result.id} payload={result} />
+                          </TabsContent>
                         </div>
-
-                        <TabsContent value="results" className="m-0 min-h-0 flex-1 overflow-auto">
-                          <AttributesTable
-                            attributes={attributes}
-                            onAttributeUpdate={handleFeedbackChange}
-                            onTimestampClick={handleTimestampClick}
-                          />
-                        </TabsContent>
-
-                        <TabsContent value="raw-json" className="m-0 min-h-0 flex-1 overflow-auto p-0">
-                          <RawJsonTab resultId={result.id} payload={result} />
-                        </TabsContent>
-                      </div>
-                    </ResizablePanel>
-
-                    <ResizableHandle withHandle />
-
-                    <ResizablePanel defaultSize={30} minSize={0}>
-                      <VideoPreviewTabs />
-                    </ResizablePanel>
-                  </ResizablePanelGroup>
-                </div>
-
-                {/* Mobile Stacked View */}
-                <div className="md:hidden flex flex-col gap-6">
-                  {/* Video Preview with Tab switch */}
-                  <div ref={videoSectionRef} className="scroll-mt-4">
-                    <VideoPreviewTabs isMobile />
+                      </ResizablePanel>
+  
+                      <ResizableHandle withHandle />
+  
+                      <ResizablePanel defaultSize={30} minSize={0}>
+                        <VideoPreviewTabs />
+                      </ResizablePanel>
+                    </ResizablePanelGroup>
                   </div>
-
-                  {/* Results Section */}
-                  <div>
-                    <h2 className="font-semibold mb-3 border-b pb-2">Extracted Attributes</h2>
-                    <AttributesTable
-                      attributes={attributes}
-                      onAttributeUpdate={handleFeedbackChange}
-                      onTimestampClick={handleTimestampClick}
-                    />
+                ) : (
+                  /* Mobile Stacked View */
+                  <div className="md:hidden flex flex-col gap-6">
+                    {/* Video Preview with Tab switch */}
+                    <div ref={videoSectionRef} className="scroll-mt-4">
+                      <VideoPreviewTabs isMobile />
+                    </div>
+  
+                    {/* Results Section */}
+                    <div>
+                      <h2 className="font-semibold mb-3 border-b pb-2">Extracted Attributes</h2>
+                      <AttributesTable
+                        attributes={attributes}
+                        onAttributeUpdate={handleFeedbackChange}
+                        onTimestampClick={handleTimestampClick}
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
-
           </Tabs>
         )
       }
