@@ -48,23 +48,26 @@ export function VideoPreviewPanel({
     if (seekTo && videoRef.current) {
       const video = videoRef.current;
       const seek = () => {
+        console.log(`[VideoPreview] Seeking to ${seekTo.timestamp}s (id: ${seekTo.id})`);
         video.currentTime = seekTo.timestamp;
-        // Force play after seek
+        
+        // Force play after seek to ensure the user sees the frame
         const playPromise = video.play();
         if (playPromise !== undefined) {
           playPromise.catch((error) => {
-            console.error("Autoplay prevented:", error);
+            console.warn("Autoplay after seek prevented/failed:", error);
           });
         }
       };
 
+      // In production, we need to be very sure the video is ready to receive a seek
       if (video.readyState >= 1) {
         seek();
       } else {
         video.addEventListener("loadedmetadata", seek, { once: true });
       }
     }
-  }, [seekTo, videoRef]);
+  }, [seekTo, videoRef, videoUrl]);
 
   return (
     <div className="relative min-h-0 flex-1 h-full w-full">
@@ -76,17 +79,15 @@ export function VideoPreviewPanel({
               {isSigningVideo ? "Generating video link..." : "Buffering video..."}
             </div>
           </div>
-        ) : isSigningVideo ? (
-          <div className="flex h-full items-center justify-center text-sm text-zinc-400">
-             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-             Generating video link...
-          </div>
         ) : null}
         
         {videoUrl ? (
           <video 
             ref={videoRef} 
+            src={videoUrl}
             controls 
+            playsInline
+            preload="metadata"
             className="w-full h-full object-cover" 
             muted 
             loop
@@ -94,7 +95,6 @@ export function VideoPreviewPanel({
             onPlaying={() => setIsBuffering(false)}
             onSeeked={() => setIsBuffering(false)}
           >
-            <source src={videoUrl} type="video/mp4" />
             Your browser does not support the video tag.
           </video>
         ) : !isSigningVideo ? (
