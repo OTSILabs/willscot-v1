@@ -116,28 +116,12 @@ export default function ResultDetailPage() {
       <div className={isMobile ? "aspect-video w-full rounded-lg overflow-hidden bg-black shadow-sm" : "flex-1 min-h-0"}>
         {(["interior", "exterior"] as const).map((t) => (
           <TabsContent key={t} value={t} className="m-0 h-full w-full overflow-auto">
-            {(() => {
-              const videoObj = result.json.video;
-              // 1. Try interior_s3_uri_url (pre-signed by API)
-              // 2. Fallback to raw interior_s3_uri (needs client-side presign)
-              // 3. Last fallback to top-level videoId
-              const source = 
-                (videoObj?.[`${t}_s3_uri_url` as keyof typeof videoObj] as string) ||
-                (videoObj?.[`${t}_s3_uri` as keyof typeof videoObj] as string) ||
-                (result.json[`${t}_jobs` as keyof typeof result.json] as any)?.[0]?.s3_uri_url ||
-                (result.json[`${t}_jobs` as keyof typeof result.json] as any)?.[0]?.s3_uri ||
-                result.videoUrl || 
-                result.videoId;
-
-              return (
-                <VideoPreviewPanel
-                  videoRef={t === "interior" ? interiorVideoRef : exteriorVideoRef}
-                  videoSource={source}
-                  regionName={videoObj?.[`${t}_region` as keyof typeof videoObj] as string || result.regionName}
-                  seekTo={activeSeek?.source === t ? { timestamp: activeSeek.timestamp, id: activeSeek.id } : null}
-                />
-              );
-            })()}
+            <VideoPreviewPanel
+              videoRef={t === "interior" ? interiorVideoRef : exteriorVideoRef}
+              videoSource={result.json.video?.[`${t}_s3_uri` as keyof typeof result.json.video] as string}
+              regionName={result.json.video?.[`${t}_region` as keyof typeof result.json.video] as string}
+              seekTo={activeSeek?.source === t ? { timestamp: activeSeek.timestamp, id: activeSeek.id } : null}
+            />
           </TabsContent>
         ))}
       </div>
