@@ -45,6 +45,14 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
   const statusRef = useRef(status);
   const freezeCountRef = useRef(0);
 
+  // --- 5. Proxy Stream Refs (for Interruption Robustness) ---
+  const proxyStreamRef = useRef<MediaStream | null>(null);
+  const recordingCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const audioDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
+  const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const animationRef = useRef<number | null>(null);
+
   // Sync ref with state
   useEffect(() => {
     statusRef.current = status;
@@ -159,6 +167,81 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
     setWarnings([]); // Clear warnings immediately on stop
   }, []);
 
+  // --- PROXY STRATEGY: Render Loop & Audio Routing ---
+  const initProxyStream = useCallback(() => {
+    if (typeof window === "undefined" || proxyStreamRef.current) return;
+
+    // A. Video Proxy via Canvas
+    const canvas = document.createElement("canvas");
+    canvas.width = 1280;
+    canvas.height = 720;
+    recordingCanvasRef.current = canvas;
+    
+    // captureStream(30) ensures a stable 30fps track even if video source is slow
+    const canvasStream = (canvas as any).captureStream ? (canvas as any).captureStream(30) : (canvas as any).mozCaptureStream ? (canvas as any).mozCaptureStream(30) : null;
+    if (!canvasStream) return;
+
+    // B. Audio Proxy via AudioContext
+    const AudioCtx = (window.AudioContext || (window as any).webkitAudioContext);
+    if (!AudioCtx) {
+      console.warn("AudioContext not supported, recording may lack audio.");
+      // Video only proxy
+      proxyStreamRef.current = new MediaStream([...canvasStream.getVideoTracks()]);
+      return;
+    }
+
+    const audioCtx = new AudioCtx();
+    const destination = audioCtx.createMediaStreamDestination();
+    
+    audioContextRef.current = audioCtx;
+    audioDestinationRef.current = destination;
+
+    // C. Combine into Proxy Stream
+    const combined = new MediaStream([
+      ...canvasStream.getVideoTracks(),
+      ...destination.stream.getAudioTracks()
+    ]);
+    proxyStreamRef.current = combined;
+
+    console.log("Proxy Stream Initialized (Stable Source for MediaRecorder)");
+  }, []);
+
+  const updateProxySource = useCallback((newStream: MediaStream) => {
+    if (!audioContextRef.current || !audioDestinationRef.current) return;
+
+    // 1. Update Audio Routing
+    if (audioSourceRef.current) {
+      audioSourceRef.current.disconnect();
+    }
+    
+    try {
+      const source = audioContextRef.current.createMediaStreamSource(newStream);
+      source.connect(audioDestinationRef.current);
+      audioSourceRef.current = source;
+      
+      // Ensure context is running (crucial after user interaction)
+      if (audioContextRef.current.state === "suspended") {
+        audioContextRef.current.resume();
+      }
+    } catch (e) {
+      console.error("Failed to route audio to proxy:", e);
+    }
+
+    // 2. Start/Restart Render Loop
+    if (animationRef.current) cancelAnimationFrame(animationRef.current);
+
+    const render = () => {
+      if (videoRef.current && recordingCanvasRef.current && statusRef.current !== "preview") {
+        const ctx = recordingCanvasRef.current.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(videoRef.current, 0, 0, 1280, 720);
+        }
+      }
+      animationRef.current = requestAnimationFrame(render);
+    };
+    render();
+  }, []);
+
   const startCamera = async (isRefresh = false) => {
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -207,7 +290,14 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
         };
       });
 
-      if (!isRefresh) setStatus("idle");
+      if (!isRefresh) {
+        initProxyStream();
+        setStatus("idle");
+      }
+      
+      // Update proxy with the new hardware source
+      updateProxySource(newStream);
+      
       return newStream;
     } catch (err) {
       console.error("Camera access error:", err);
@@ -222,14 +312,16 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
     setRecordingTime(0);
     chunksRef.current = [];
     
-    // --- PROXY STRATEGY: Record from the Video Element ---
-    // This allows us to swap the underlying camera stream without stopping the recorder.
-    const videoElement = videoRef.current as any;
-    const captureStream = videoElement.captureStream ? videoElement.captureStream() : videoElement.mozCaptureStream ? videoElement.mozCaptureStream() : stream;
+    // --- PROXY STRATEGY: Record from the STABLE Proxy Stream ---
+    // This allows us to swap the underlying camera/mic hardware without the recorder seeing a track end.
+    if (!proxyStreamRef.current) {
+      initProxyStream();
+    }
+    const captureStream = proxyStreamRef.current!;
 
     // Find supported mime type
     const types = ["video/mp4", "video/webm;codecs=vp9", "video/webm;codecs=vp8"];
-    const supportedType = types.find(type => MediaRecorder.isTypeSupported(type)) || "";
+    const supportedType = types.find(type => MediaRecorder.isTypeSupported(type)) || "video/webm";
 
     try {
       const mediaRecorder = new MediaRecorder(captureStream, { 
@@ -305,7 +397,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
             setStatus("preview"); 
           }
         }
-      }, 300);
+      }, 100);
     }
   };
 
@@ -370,6 +462,18 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
     if (workerRef.current) {
       workerRef.current.terminate();
       workerRef.current = null;
+    }
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch(() => {});
+      audioContextRef.current = null;
+    }
+    if (proxyStreamRef.current) {
+      proxyStreamRef.current.getTracks().forEach(track => track.stop());
+      proxyStreamRef.current = null;
     }
   };
 
