@@ -48,16 +48,19 @@ export function VideoPreviewPanel({
     if (seekTo && videoRef.current) {
       const video = videoRef.current;
       const seek = () => {
+        console.log(`[VideoPreview] Seeking to ${seekTo.timestamp}s (id: ${seekTo.id})`);
         video.currentTime = seekTo.timestamp;
-        // Force play after seek
+        
+        // Force play after seek to ensure the user sees the frame
         const playPromise = video.play();
         if (playPromise !== undefined) {
           playPromise.catch((error) => {
-            console.error("Autoplay prevented:", error);
+            console.warn("Autoplay after seek prevented/failed:", error);
           });
         }
       };
 
+      // In production, we need to be very sure the video is ready to receive a seek
       if (video.readyState >= 1) {
         seek();
       } else {
@@ -83,6 +86,8 @@ export function VideoPreviewPanel({
             ref={videoRef} 
             src={videoUrl}
             controls 
+            playsInline
+            preload="metadata"
             className="w-full h-full object-cover" 
             muted 
             loop
