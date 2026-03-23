@@ -168,45 +168,60 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
   }, []);
 
   // --- PROXY STRATEGY: Render Loop & Audio Routing ---
-  const initProxyStream = useCallback(() => {
-    if (typeof window === "undefined" || proxyStreamRef.current) return;
+  const initProxyStream = useCallback((width: number = 1280, height: number = 720) => {
+    if (typeof window === "undefined" || (proxyStreamRef.current && recordingCanvasRef.current?.width === width && recordingCanvasRef.current?.height === height)) return;
 
     // A. Video Proxy via Canvas
-    const canvas = document.createElement("canvas");
-    canvas.width = 1280;
-    canvas.height = 720;
-    recordingCanvasRef.current = canvas;
-    
-    // captureStream(30) ensures a stable 30fps track even if video source is slow
-    const canvasStream = (canvas as any).captureStream ? (canvas as any).captureStream(30) : (canvas as any).mozCaptureStream ? (canvas as any).mozCaptureStream(30) : null;
-    if (!canvasStream) return;
-
-    // B. Audio Proxy via AudioContext
-    const AudioCtx = (window.AudioContext || (window as any).webkitAudioContext);
-    if (!AudioCtx) {
-      console.warn("AudioContext not supported, recording may lack audio.");
-      // Video only proxy
-      proxyStreamRef.current = new MediaStream([...canvasStream.getVideoTracks()]);
-      return;
+    let canvas = recordingCanvasRef.current;
+    if (!canvas) {
+      canvas = document.createElement("canvas");
+      recordingCanvasRef.current = canvas;
     }
-
-    const audioCtx = new AudioCtx();
-    const destination = audioCtx.createMediaStreamDestination();
     
-    audioContextRef.current = audioCtx;
-    audioDestinationRef.current = destination;
+    canvas.width = width;
+    canvas.height = height;
+    
+    // Only create stream once
+    if (!proxyStreamRef.current) {
+      const canvasStream = (canvas as any).captureStream ? (canvas as any).captureStream(30) : (canvas as any).mozCaptureStream ? (canvas as any).mozCaptureStream(30) : null;
+      if (!canvasStream) return;
 
-    // C. Combine into Proxy Stream
-    const combined = new MediaStream([
-      ...canvasStream.getVideoTracks(),
-      ...destination.stream.getAudioTracks()
-    ]);
-    proxyStreamRef.current = combined;
+      // B. Audio Proxy via AudioContext
+      const AudioCtx = (window.AudioContext || (window as any).webkitAudioContext);
+      if (!AudioCtx) {
+        console.warn("AudioContext not supported, recording may lack audio.");
+        proxyStreamRef.current = new MediaStream([...canvasStream.getVideoTracks()]);
+        return;
+      }
 
-    console.log("Proxy Stream Initialized (Stable Source for MediaRecorder)");
+      const audioCtx = new AudioCtx();
+      const destination = audioCtx.createMediaStreamDestination();
+      
+      audioContextRef.current = audioCtx;
+      audioDestinationRef.current = destination;
+
+      // C. Combine into Proxy Stream
+      const combined = new MediaStream([
+        ...canvasStream.getVideoTracks(),
+        ...destination.stream.getAudioTracks()
+      ]);
+      proxyStreamRef.current = combined;
+      console.log(`Proxy Stream Initialized at ${width}x${height}`);
+    } else {
+      console.log(`Proxy Canvas Resized to ${width}x${height}`);
+    }
   }, []);
 
   const updateProxySource = useCallback((newStream: MediaStream) => {
+    // 0. Update resolution if available
+    const videoTrack = newStream.getVideoTracks()[0];
+    if (videoTrack) {
+      const settings = videoTrack.getSettings();
+      if (settings.width && settings.height) {
+        initProxyStream(settings.width, settings.height);
+      }
+    }
+
     if (!audioContextRef.current || !audioDestinationRef.current) return;
 
     // 1. Update Audio Routing
@@ -232,9 +247,18 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
 
     const render = () => {
       if (videoRef.current && recordingCanvasRef.current && statusRef.current !== "preview") {
-        const ctx = recordingCanvasRef.current.getContext("2d");
-        if (ctx) {
-          ctx.drawImage(videoRef.current, 0, 0, 1280, 720);
+        const video = videoRef.current;
+        const canvas = recordingCanvasRef.current;
+        const ctx = canvas.getContext("2d");
+        
+        if (ctx && video.videoWidth > 0) {
+          // Since we now dynamicially resize the canvas to match the video settings,
+          // we can draw directly without complex 'cover' math, which avoids stretching.
+          if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+          }
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         }
       }
       animationRef.current = requestAnimationFrame(render);
