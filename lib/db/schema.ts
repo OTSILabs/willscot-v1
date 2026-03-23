@@ -10,6 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 export const userRoleEnum = pgEnum("user_role", ["power_user", "normal_user"]);
+export const feedbackStatusEnum = pgEnum("feedback_status", ["unmarked", "correct", "incorrect"]);
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -44,7 +45,7 @@ export const resultAttributes = pgTable("result_attributes", {
   name: text("name").notNull(), // e.g., "Container Number"
   source: text("source").notNull(), // "interior" or "exterior"
   value: text("value"),
-  isCorrect: boolean("is_correct"), // User response
+  status: feedbackStatusEnum("status").default("unmarked").notNull(),
   confidence: doublePrecision("confidence"),
   timestamp: doublePrecision("timestamp"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
