@@ -29,7 +29,9 @@ export default function ResultDetailPage() {
   const params = useParams();
   const id = typeof params.id === "string" ? params.id : undefined;
   const router = useRouter();
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const interiorVideoRef = useRef<HTMLVideoElement | null>(null);
+  const exteriorVideoRef = useRef<HTMLVideoElement | null>(null);
+  const videoSectionRef = useRef<HTMLDivElement | null>(null);
 
   const {
     data: result,
@@ -48,6 +50,7 @@ export default function ResultDetailPage() {
   });
 
   const [type, setType] = useState<"interior" | "exterior">("interior");
+  const [activeSeek, setActiveSeek] = useState<{ timestamp: number; source: "interior" | "exterior"; id: number } | null>(null);
 
   if (isLoading) {
     return (
@@ -85,6 +88,17 @@ export default function ResultDetailPage() {
     }
   }
 
+  const handleTimestampClick = (timestamp: number, source: string) => {
+    const s = (source.toLowerCase() === "exterior" ? "exterior" : "interior") as "interior" | "exterior";
+    setType(s);
+    setActiveSeek({ timestamp, source: s, id: Date.now() });
+
+    // Auto-scroll to video section on mobile
+    if (window.innerWidth < 768 && videoSectionRef.current) {
+      videoSectionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
   const VideoPreviewTabs = ({ isMobile = false }: { isMobile?: boolean }) => (
     <Tabs 
       defaultValue="interior" 
@@ -103,9 +117,10 @@ export default function ResultDetailPage() {
         {(["interior", "exterior"] as const).map((t) => (
           <TabsContent key={t} value={t} className="m-0 h-full w-full overflow-auto">
             <VideoPreviewPanel
-              videoRef={videoRef}
+              videoRef={t === "interior" ? interiorVideoRef : exteriorVideoRef}
               videoSource={result.json.video?.[`${t}_s3_uri` as keyof typeof result.json.video] as string}
               regionName={result.json.video?.[`${t}_region` as keyof typeof result.json.video] as string}
+              seekTo={activeSeek?.source === t ? { timestamp: activeSeek.timestamp, id: activeSeek.id } : null}
             />
           </TabsContent>
         ))}
@@ -170,6 +185,7 @@ export default function ResultDetailPage() {
                           <AttributesTable
                             attributes={attributes}
                             onAttributeUpdate={handleFeedbackChange}
+                            onTimestampClick={handleTimestampClick}
                           />
                         </TabsContent>
 
@@ -190,7 +206,9 @@ export default function ResultDetailPage() {
                 {/* Mobile Stacked View */}
                 <div className="md:hidden flex flex-col gap-6">
                   {/* Video Preview with Tab switch */}
-                  <VideoPreviewTabs isMobile />
+                  <div ref={videoSectionRef} className="scroll-mt-4">
+                    <VideoPreviewTabs isMobile />
+                  </div>
 
                   {/* Results Section */}
                   <div>
@@ -198,6 +216,7 @@ export default function ResultDetailPage() {
                     <AttributesTable
                       attributes={attributes}
                       onAttributeUpdate={handleFeedbackChange}
+                      onTimestampClick={handleTimestampClick}
                     />
                   </div>
                 </div>
