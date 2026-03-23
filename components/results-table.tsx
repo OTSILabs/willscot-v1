@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import {
@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Eye, Info, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
+import { Loader2, Eye, Info, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn, humanizeDateTime, extractFilenames } from "@/lib/utils";
@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/tooltip";
 import { ResultJson } from "@/app/traces/[id]/components/types";
 import { PaginationControls } from "@/components/ui/table";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
 interface Result {
   id: string;
@@ -137,9 +138,33 @@ const StatusBadge = ({ status, error }: { status: string; error?: string }) => {
 };
 
 export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Read initial state from URL
+  const initialPage = Number(searchParams.get("page")) || 1;
+  const initialSearch = searchParams.get("search") || "";
+
+  const [page, setPage] = useState(initialPage);
+  const [search, setSearch] = useState(initialSearch);
   const pageSize = 10;
+
+  // Sync state to URL when it changes
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (page > 1) params.set("page", page.toString());
+    else params.delete("page");
+
+    if (search) params.set("search", search);
+    else params.delete("search");
+
+    const query = params.toString() ? `?${params.toString()}` : "";
+    
+    // Use replace to avoid polluting history on every keystroke/page change
+    // but ensure it's synced.
+    router.replace(`${pathname}${query}`, { scroll: false });
+  }, [page, search, pathname, router, searchParams]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["results", page, pageSize, search],
@@ -271,19 +296,21 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
                   {humanizeDateTime(result.createdAt, "dd MMM yy, h:mm a")}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Link href={`/traces/${result.id}`}>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <Eye className="h-4 w-4" />
-                          <span className="sr-only">View Details</span>
-                        </Button>
-                      </Link>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>View Details</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Link href={`/traces/${result.id}`}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Eye className="h-4 w-4" />
+                            <span className="sr-only">View Details</span>
+                          </Button>
+                        </Link>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>View Details</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </TableCell>
               </TableRow>
             ))}
