@@ -64,7 +64,7 @@ export function VideoPreviewPanel({
         video.addEventListener("loadedmetadata", seek, { once: true });
       }
     }
-  }, [seekTo, videoRef]);
+  }, [seekTo, videoRef, videoUrl]);
 
   return (
     <div className="relative min-h-0 flex-1 h-full w-full">
@@ -76,16 +76,12 @@ export function VideoPreviewPanel({
               {isSigningVideo ? "Generating video link..." : "Buffering video..."}
             </div>
           </div>
-        ) : isSigningVideo ? (
-          <div className="flex h-full items-center justify-center text-sm text-zinc-400">
-             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-             Generating video link...
-          </div>
         ) : null}
         
         {videoUrl ? (
           <video 
             ref={videoRef} 
+            src={videoUrl}
             controls 
             className="w-full h-full object-cover" 
             muted 
@@ -94,7 +90,6 @@ export function VideoPreviewPanel({
             onPlaying={() => setIsBuffering(false)}
             onSeeked={() => setIsBuffering(false)}
           >
-            <source src={videoUrl} type="video/mp4" />
             Your browser does not support the video tag.
           </video>
         ) : !isSigningVideo ? (
