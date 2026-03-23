@@ -256,7 +256,7 @@ export default function DashboardPage() {
                       <LabelList 
                         dataKey="accuracy" 
                         position="right" 
-                        formatter={(val: number) => `${val}%`}
+                        formatter={(val: any) => `${val}%`}
                         style={{ fontSize: '12px', fontWeight: '800', fill: 'var(--foreground)' }}
                         offset={15}
                       />
