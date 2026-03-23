@@ -32,7 +32,7 @@ self.onmessage = function (e) {
   const avgLuminance = totalLuminance / (length / 4);
   const currentMotion = previousFrameData ? motionDifference / (length / 4) : 0;
 
-  // Update Motion History
+  // Update Motion History -----
   motionHistory.push(currentMotion);
   if (motionHistory.length > HISTORY_LIMIT) motionHistory.shift();
 
