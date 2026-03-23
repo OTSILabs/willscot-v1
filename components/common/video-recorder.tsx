@@ -556,7 +556,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
               controls
               autoPlay    // INSTAGRAM FLOW: Automatically plays the preview
               playsInline
-              className="w-full h-full object-contain bg-black"
+              className="w-full h-full object-cover bg-black"
             />
           )}
 
