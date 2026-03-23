@@ -56,3 +56,35 @@ export function extractFilenames(videoId: string | null | undefined) {
     })
     .join(",");
 }
+
+export function getPaginationRange(currentPage: number, totalPages: number) {
+  const isBrowser = typeof window !== "undefined";
+  const delta = (isBrowser && window.innerWidth < 768) ? 1 : 2; // Fewer neighbors on mobile
+  const range = [];
+  const rangeWithDots = [];
+  let l;
+
+  range.push(1);
+  for (let i = currentPage - delta; i <= currentPage + delta; i++) {
+    if (i < totalPages && i > 1) {
+      range.push(i);
+    }
+  }
+  if (totalPages > 1) {
+    range.push(totalPages);
+  }
+
+  for (const i of range) {
+    if (l) {
+      if (i - l === 2) {
+        rangeWithDots.push(l + 1);
+      } else if (i - l !== 1) {
+        rangeWithDots.push("...");
+      }
+    }
+    rangeWithDots.push(i);
+    l = i;
+  }
+
+  return rangeWithDots;
+}

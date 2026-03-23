@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
-import { results, users } from "@/lib/db/schema";
-import { and, eq } from "drizzle-orm";
+import { results, users, resultAttributes } from "@/lib/db/schema";
+import { and, eq, inArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getPresignedUrl } from "@/lib/s3";
 import { getCurrentUserServerAction } from "@/app/actions/current-user";
@@ -150,10 +150,32 @@ export async function PATCH(
       attributes: attributes,
     };
 
-    await db
-      .update(results)
-      .set({ json: newJson })
-      .where(eq(results.id, id));
+    await (db as any).transaction(async (tx: any) => {
+      // 1. Update the main JSON
+      await tx
+        .update(results)
+        .set({ json: newJson })
+        .where(eq(results.id, id));
+
+      // 2. Sync specialized attributes table (Delete then Re-insert for simplicity/consistency)
+      await tx
+        .delete(resultAttributes)
+        .where(eq(resultAttributes.resultId, id));
+
+      if (attributes.length > 0) {
+        await tx.insert(resultAttributes).values(
+          attributes.map((attr: any) => ({
+            resultId: id,
+            name: attr.label || attr.name || "Unknown",
+            source: attr.source || "interior",
+            value: String(attr.value || ""),
+            isCorrect: attr.isCorrect === true || attr.feedback === "Correct",
+            confidence: attr.confidence || null,
+            timestamp: attr.timestamp || null,
+          }))
+        );
+      }
+    });
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
