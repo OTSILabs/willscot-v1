@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import axios from "axios";
 import {
   Table,
@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Eye, Info, ChevronDown } from "lucide-react";
+import { Loader2, Eye, Info, ChevronDown, FileVideo, CheckCircle2, XCircle, Clock } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn, humanizeDateTime, extractFilenames } from "@/lib/utils";
@@ -169,7 +169,7 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
     }
   }, [page, search, pathname, router, searchParams]);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ["results", page, pageSize, search],
     queryFn: async () => {
       const response = await axios.get<ResultsApiResponse>("/api/results", {
@@ -183,6 +183,7 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
       );
       return hasProcessing ? pollingMs : false;
     },
+    placeholderData: keepPreviousData,
   });
 
 
@@ -202,6 +203,12 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
           placeholder="Search by Trace ID..."
           className="max-w-xs md:max-w-sm"
         />
+        {isFetching && (
+          <div className="flex items-center gap-2 ml-4 text-[10px] font-medium text-muted-foreground animate-pulse">
+            <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+            Refreshing data...
+          </div>
+        )}
       </div>
       <div className="hidden md:block">
         <Table>
@@ -218,10 +225,13 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {isLoading ? (
+          {isLoading && !data ? (
             <TableRow>
               <TableCell colSpan={8} className="text-center py-8">
-                Loading results...
+                <div className="flex flex-col items-center justify-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  <span className="text-sm font-medium text-muted-foreground">Loading initial results...</span>
+                </div>
               </TableCell>
             </TableRow>
           ) : !data?.items?.length ? (

@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { Loader2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -129,10 +130,11 @@ export default function UsersPage() {
   const [editForm, setEditForm] = useState<UserPayload>(DEFAULT_FORM);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const usersQuery = useQuery({
+  const { data: usersData, isLoading: isUsersLoading, isFetching: isUsersFetching } = useQuery({
     queryKey: ["users", page, pageSize, search],
     queryFn: () => fetchUsersApi(page, pageSize, search),
     enabled: !!currentUser && currentUser.role === "power_user",
+    placeholderData: keepPreviousData,
   });
 
   const createUser = useMutation({
@@ -307,7 +309,7 @@ export default function UsersPage() {
       ) : null}
 
       <div className="rounded-md md:border border-none">
-        <div className="border-b px-0 py-3">
+        <div className="border-b px-0 py-3 flex items-center">
           <Input
             value={search}
             onChange={(event) => {
@@ -317,6 +319,12 @@ export default function UsersPage() {
             placeholder="Search by name or email..."
             className="max-w-xs md:max-w-sm"
           />
+          {isUsersFetching && (
+            <div className="flex items-center gap-2 ml-4 text-[10px] font-medium text-muted-foreground animate-pulse">
+              <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+              Refreshing...
+            </div>
+          )}
         </div>
         <div className="hidden md:block">
         <Table className="table-fixed">
@@ -330,14 +338,17 @@ export default function UsersPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {usersQuery.isLoading ? (
+            {isUsersLoading && !usersData ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center py-8">
-                  Loading users...
+                  <div className="flex flex-col items-center justify-center gap-2">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    <span className="text-sm font-medium text-muted-foreground">Loading users...</span>
+                  </div>
                 </TableCell>
               </TableRow>
-            ) : usersQuery.data?.items?.length ? (
-              usersQuery.data.items.map((user) => (
+            ) : usersData?.items?.length ? (
+              usersData.items.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell>
                     {editingId === user.id ? (
@@ -463,12 +474,13 @@ export default function UsersPage() {
 
         {/* Mobile Card Layout */}
         <div className="md:hidden flex flex-col gap-4 pt-2">
-          {usersQuery.isLoading ? (
-            <div className="text-center py-8 text-sm text-muted-foreground">
-              Loading users...
+          {isUsersLoading && !usersData ? (
+            <div className="text-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+              <p className="text-sm text-muted-foreground mt-2">Loading users...</p>
             </div>
-          ) : usersQuery.data?.items?.length ? (
-            usersQuery.data.items.map((user) => (
+          ) : usersData?.items?.length ? (
+            usersData.items.map((user) => (
               <div key={user.id} className="rounded-xl p-3 bg-card shadow-sm flex flex-col gap-3 border md:border-none text-card-foreground">
                 {editingId === user.id ? (
                   <div className="flex flex-col gap-3">
@@ -590,9 +602,9 @@ export default function UsersPage() {
           )}
         </div>
         <PaginationControls
-          currentPage={usersQuery.data?.pagination.page ?? 1}
-          totalPages={usersQuery.data?.pagination.totalPages ?? 1}
-          totalItems={usersQuery.data?.pagination.total ?? 0}
+          currentPage={usersData?.pagination.page ?? 1}
+          totalPages={usersData?.pagination.totalPages ?? 1}
+          totalItems={usersData?.pagination.total ?? 0}
           pageSize={pageSize}
           onPageChange={setPage}
         />
