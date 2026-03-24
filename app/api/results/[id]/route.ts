@@ -124,6 +124,11 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
+    const currentUser = await getCurrentUserServerAction();
+    if (!currentUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
     const { attributes } = body;
 
@@ -135,13 +140,23 @@ export async function PATCH(
     }
 
     const [existing] = await db
-      .select({ json: results.json })
+      .select({ 
+        json: results.json,
+        createdByUserId: results.createdByUserId 
+      })
       .from(results)
       .where(eq(results.id, id))
       .limit(1);
 
     if (!existing) {
       return NextResponse.json({ error: "Result not found" }, { status: 404 });
+    }
+
+    if (currentUser.role !== "power_user" && existing.createdByUserId !== currentUser.id) {
+      return NextResponse.json(
+        { error: "Forbidden: You can only update your own traces" },
+        { status: 403 }
+      );
     }
 
     const currentJson = (existing.json as Record<string, any>) || {};

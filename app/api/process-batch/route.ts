@@ -1,6 +1,6 @@
 import { getCurrentUserServerAction } from "@/app/actions/current-user";
 import { db } from "@/lib/db";
-import { results } from "@/lib/db/schema";
+import { resultAttributes, results } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import axios from "axios";
@@ -49,13 +49,34 @@ async function runBatchProcessingJob({
       },
     });
 
-    await db
-      .update(results)
-      .set({
-        status: "completed",
-        json: response.data,
-      })
-      .where(eq(results.id, resultId));
+    const resultData = response.data;
+    const attributes = resultData?.attributes || [];
+
+    await db.transaction(async (tx) => {
+      // 1. Update the main record
+      await tx
+        .update(results)
+        .set({
+          status: "completed",
+          json: resultData,
+        })
+        .where(eq(results.id, resultId));
+
+      // 2. Sync specialized attributes table if any
+      if (Array.isArray(attributes) && attributes.length > 0) {
+        await tx.insert(resultAttributes).values(
+          attributes.map((attr: any) => ({
+            resultId: resultId,
+            name: attr.attribute || attr.label || attr.name || "Unknown",
+            source: attr.source || "interior",
+            value: String(attr.value || ""),
+            status: "unmarked" as const, // Initial state is unmarked
+            confidence: attr.confidence || null,
+            timestamp: attr.timestamp || null,
+          }))
+        );
+      }
+    });
   } catch (error: any) {
     console.error(
       "Batch processing error:",

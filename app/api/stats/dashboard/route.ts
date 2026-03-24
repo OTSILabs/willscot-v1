@@ -1,10 +1,70 @@
+import { getCurrentUserServerAction } from "@/app/actions/current-user";
 import { db } from "@/lib/db";
 import { resultAttributes, results } from "@/lib/db/schema";
-import { eq, sql, avg, count, desc } from "drizzle-orm";
+import { and, eq, sql, count, desc, gte, lte } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const currentUser = await getCurrentUserServerAction();
+    if (!currentUser || currentUser.role !== "power_user") {
+      return NextResponse.json({ error: "Forbidden: Power User access required" }, { status: 403 });
+    }
+    const { searchParams } = new URL(req.url);
+    const userId = searchParams.get("userId");
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
+    const timezone = searchParams.get("timezone") || "UTC";
+
+    const filters = [];
+    if (userId && userId !== "all") {
+      filters.push(eq(results.createdByUserId, userId));
+    }
+    
+    // Timezone-aware date filtering by converting UTC timestamp to user's local time before DATE extraction
+    if (startDate) {
+      filters.push(gte(sql<string>`DATE(${results.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone})`, startDate));
+    }
+    if (endDate) {
+      filters.push(lte(sql<string>`DATE(${results.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone})`, endDate));
+    }
+
+    const whereClause = filters.length > 0 ? and(...filters) : undefined;
+
+    // --- Self-Healing Sync: Ensure any completed traces have their attributes synced ---
+    // This handles traces created before the auto-sync fix or during edge cases.
+    const completedWithoutAttrs = await db
+      .select({ id: results.id, json: results.json })
+      .from(results)
+      .leftJoin(resultAttributes, eq(results.id, resultAttributes.resultId))
+      .where(and(
+        eq(results.status, 'completed'),
+        sql`${resultAttributes.id} IS NULL`,
+        whereClause ? whereClause : sql`TRUE`
+      ))
+      .limit(20);
+
+    if (completedWithoutAttrs.length > 0) {
+      await db.transaction(async (tx) => {
+        for (const res of completedWithoutAttrs) {
+          const attributes = (res.json as any)?.attributes;
+          if (Array.isArray(attributes) && attributes.length > 0) {
+            await tx.insert(resultAttributes).values(
+              attributes.map((attr: any) => ({
+                resultId: res.id,
+                name: attr.attribute || attr.label || attr.name || "Unknown",
+                source: attr.source || "interior",
+                value: String(attr.value || ""),
+                status: "unmarked" as const,
+                confidence: attr.confidence || null,
+                timestamp: attr.timestamp || null,
+              }))
+            ).onConflictDoNothing();
+          }
+        }
+      });
+    }
+
     // 1. Calculate overall, interior, and exterior averages
     const overallStats = await db
       .select({
@@ -13,7 +73,9 @@ export async function GET() {
         incorrect: sql`count(case when ${resultAttributes.status} = 'incorrect' then 1 end)`,
         unmarked: sql`count(case when ${resultAttributes.status} = 'unmarked' then 1 end)`,
       })
-      .from(resultAttributes);
+      .from(resultAttributes)
+      .innerJoin(results, eq(resultAttributes.resultId, results.id))
+      .where(whereClause);
 
     const sourceStats = await db
       .select({
@@ -24,6 +86,8 @@ export async function GET() {
         unmarked: sql`count(case when ${resultAttributes.status} = 'unmarked' then 1 end)`,
       })
       .from(resultAttributes)
+      .innerJoin(results, eq(resultAttributes.resultId, results.id))
+      .where(whereClause)
       .groupBy(resultAttributes.source);
 
     // 2. Calculate per-attribute accuracy
@@ -36,18 +100,18 @@ export async function GET() {
         unmarked: sql`count(case when ${resultAttributes.status} = 'unmarked' then 1 end)`,
       })
       .from(resultAttributes)
+      .innerJoin(results, eq(resultAttributes.resultId, results.id))
+      .where(whereClause)
       .groupBy(resultAttributes.name);
 
     // 3. Determine dynamic display order from the most recent result tracking
-    // We look at the top 50 recent traces to ensure we account for any rare missing attributes
     const latestResult = await db
       .select({ json: results.json })
       .from(results)
-      .where(sql`${results.json} IS NOT NULL`)
+      .where(and(sql`${results.json} IS NOT NULL`, whereClause))
       .orderBy(desc(results.createdAt))
       .limit(50);
 
-    // Find the single trace with the highest number of attributes to act as the primary template
     let bestTrace: any[] = [];
     for (const res of latestResult) {
       const json = res.json as any;
@@ -59,8 +123,6 @@ export async function GET() {
     }
 
     let dynamicOrder = new Map<string, number>();
-    
-    // Step A: Populate order from the most complete trace we found
     bestTrace.forEach((attr: any, index: number) => {
       const name = attr.attribute || attr.label || attr.name || "Unknown";
       if (!dynamicOrder.has(name)) {
@@ -68,7 +130,6 @@ export async function GET() {
       }
     });
 
-    // Step B: Fill in any absolutely missing ones from other recent traces at the end
     let nextIndex = dynamicOrder.size;
     for (const res of latestResult) {
       const json = res.json as any;
@@ -82,11 +143,9 @@ export async function GET() {
       }
     }
 
-    // Format the response for easy consumption by the dashboard
     const formatPercent = (correct: any, total: any) => 
       total > 0 ? Math.round((Number(correct) / Number(total)) * 100) : 0;
 
-    // Helper to format "RestroomWaterCloset" to "Restroom Water Closet"
     const formatAttributeName = (name: string) => {
       return name.replace(/([a-z])([A-Z])/g, '$1 $2').trim();
     };
@@ -119,7 +178,7 @@ export async function GET() {
       attributes: attributeStats.map(attr => {
         const reviewed = Number(attr.total) - Number(attr.unmarked);
         return {
-          originalName: attr.name, // Keep original for sorting reference
+          originalName: attr.name,
           name: formatAttributeName(attr.name),
           accuracy: formatPercent(attr.correct, reviewed),
           correct: attr.correct,
@@ -131,7 +190,7 @@ export async function GET() {
         const orderA = dynamicOrder.has(a.originalName) ? dynamicOrder.get(a.originalName)! : 999;
         const orderB = dynamicOrder.has(b.originalName) ? dynamicOrder.get(b.originalName)! : 999;
         return orderA - orderB;
-      }).map(({ originalName, ...rest }) => rest) // Clean up originalName from final payload
+      }).map(({ originalName, ...rest }) => rest)
     });
 
   } catch (error) {

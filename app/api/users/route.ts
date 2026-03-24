@@ -1,6 +1,7 @@
+import { getCurrentUserServerAction } from "@/app/actions/current-user";
 import { db } from "@/lib/db";
 import { users } from "@/lib/db/schema";
-import { desc, ilike, or, sql } from "drizzle-orm";
+import { desc, ilike, or, sql, eq } from "drizzle-orm";
 import { createHash } from "crypto";
 import { NextResponse } from "next/server";
 
@@ -8,6 +9,10 @@ const ALLOWED_ROLES = ["power_user", "normal_user"] as const;
 
 export async function GET(req: Request) {
   try {
+    const currentUser = await getCurrentUserServerAction();
+    if (!currentUser || currentUser.role !== "power_user") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
     const { searchParams } = new URL(req.url);
     const pageParam = Number(searchParams.get("page") || 1);
     const pageSizeParam = Number(searchParams.get("pageSize") || 10);
@@ -75,6 +80,10 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const currentUser = await getCurrentUserServerAction();
+    if (!currentUser || currentUser.role !== "power_user") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
     const body = await req.json();
     const name = String(body?.name || "").trim();
     const email = String(body?.email || "").trim().toLowerCase();
@@ -90,6 +99,27 @@ export async function POST(req: Request) {
 
     if (!ALLOWED_ROLES.includes(role as (typeof ALLOWED_ROLES)[number])) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+    }
+
+    // Check for existing user by name or email
+    const [existingByName] = await db
+      .select({ name: users.name })
+      .from(users)
+      .where(eq(users.name, name))
+      .limit(1);
+    
+    if (existingByName) {
+      return NextResponse.json({ error: `A user with the name "${name}" already exists.` }, { status: 409 });
+    }
+
+    const [existingByEmail] = await db
+      .select({ email: users.email })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+
+    if (existingByEmail) {
+      return NextResponse.json({ error: `A user with the email "${email}" already exists.` }, { status: 409 });
     }
 
     const passwordHash = createHash("md5").update(password).digest("hex");
@@ -115,7 +145,7 @@ export async function POST(req: Request) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
     console.error("Failed to create user:", errorMessage);
-    return NextResponse.json({ error: "Failed to create user" }, { status: 500 });
+    return NextResponse.json({ error: `Failed to create user: ${errorMessage}` }, { status: 500 });
   }
 }
 

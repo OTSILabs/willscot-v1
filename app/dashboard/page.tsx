@@ -49,6 +49,19 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { PageTitle, PageDescription } from "@/components/typography";
 import { BackButton } from "@/components/back-button";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useState, useEffect } from "react";
+import { Filter, X } from "lucide-react";
+import { useCurrentUser } from "@/components/current-user-provider";
+import { useRouter } from "next/navigation";
 
 interface DashboardStats {
   overview: {
@@ -83,14 +96,47 @@ interface DashboardStats {
 }
 
 export default function DashboardPage() {
-  const { data, isLoading, isError, refetch } = useQuery<DashboardStats>({
-    queryKey: ["dashboard-stats"],
+  const { currentUser } = useCurrentUser();
+  const router = useRouter();
+  const [userId, setUserId] = useState<string>("all");
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+
+  useEffect(() => {
+    if (currentUser && currentUser.role !== "power_user") {
+      router.push("/traces");
+    }
+  }, [currentUser, router]);
+
+  const { data: usersData } = useQuery({
+    queryKey: ["users-list"],
     queryFn: async () => {
-      const resp = await axios.get("/api/stats/dashboard");
+      const resp = await axios.get("/api/users?pageSize=100");
+      return resp.data.items as Array<{ id: string, name: string }>;
+    },
+    enabled: !!currentUser && currentUser.role === "power_user",
+  });
+
+  const timezone = typeof window !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC";
+
+  const { data, isLoading, isError, refetch } = useQuery<DashboardStats>({
+    queryKey: ["dashboard-stats", userId, startDate, endDate, timezone],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (userId && userId !== "all") params.append("userId", userId);
+      if (startDate) params.append("startDate", startDate);
+      if (endDate) params.append("endDate", endDate);
+      params.append("timezone", timezone);
+      
+      const resp = await axios.get(`/api/stats/dashboard?${params.toString()}`);
       return resp.data;
     },
     refetchInterval: 10000, // Live updates every 10 seconds
+    enabled: !!currentUser && currentUser.role === "power_user",
   });
+
+  if (!currentUser) return <DashboardLoading />;
+  if (currentUser.role !== "power_user") return <DashboardLoading />;
 
   if (isLoading) return <DashboardLoading />;
   if (isError || !data) return <DashboardError onRetry={() => refetch()} />;
@@ -131,6 +177,86 @@ export default function DashboardPage() {
       </div>
 
       <Separator className="opacity-50" />
+
+      {/* Filter Bar */}
+      <Card className="bg-white/50 border-dashed">
+        <CardContent className="p-4 md:p-6">
+          <div className="flex flex-col md:flex-row md:items-end gap-6">
+            <div className="flex-1 space-y-2">
+              <Label htmlFor="user-filter" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center">
+                <ShieldCheck className="w-3 h-3 mr-1" />
+                Filter by User
+              </Label>
+              <Select value={userId} onValueChange={setUserId}>
+                <SelectTrigger id="user-filter" className="bg-white">
+                  <SelectValue placeholder="All Users" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Users</SelectItem>
+                  {usersData?.map((user) => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex-1 space-y-2">
+              <Label htmlFor="start-date" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Start Date
+              </Label>
+              <Input 
+                id="start-date"
+                type="date" 
+                value={startDate} 
+                onChange={(e) => setStartDate(e.target.value)}
+                className="bg-white h-10"
+              />
+            </div>
+
+            <div className="flex-1 space-y-2">
+              <Label htmlFor="end-date" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                End Date
+              </Label>
+              <Input 
+                id="end-date"
+                type="date" 
+                value={endDate} 
+                onChange={(e) => setEndDate(e.target.value)}
+                className="bg-white h-10"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              {(userId !== "all" || startDate || endDate) && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => {
+                    setUserId("all");
+                    setStartDate("");
+                    setEndDate("");
+                  }}
+                  className="text-muted-foreground hover:text-foreground h-10 px-4"
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Clear
+                </Button>
+              )}
+              <Button 
+                variant="secondary"
+                size="sm"
+                onClick={() => refetch()}
+                className="h-10 px-6 shadow-sm border border-secondary"
+              >
+                <Filter className="w-4 h-4 mr-2" />
+                Apply
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Metric Cards - Summary Tier */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
