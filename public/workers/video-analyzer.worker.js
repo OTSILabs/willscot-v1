@@ -93,8 +93,8 @@ self.onmessage = function (e) {
     warnings.push("TOO_FAST");
   } 
   // TOO_SHAKY: High variance in motion (extreme jerky movements/jitter)
-  // Threshold increased to 250 to allow for normal walking bouncing
-  else if (motionVariance > 250 && sustainedMotion > 10) {
+  // Threshold significantly increased (600) to allow for professional field use (containers/farms)
+  else if (motionVariance > 600 && sustainedMotion > 15) {
     warnings.push("TOO_SHAKY");
   }
 

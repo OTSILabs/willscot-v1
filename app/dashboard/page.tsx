@@ -141,13 +141,13 @@ export default function DashboardPage() {
           icon={<Zap className="w-5 h-5 text-yellow-500" />}
         />
         <MetricCard 
-          title="Interior Camera" 
+          title="Interior " 
           value={overview.interior.accuracy} 
           subtitle="Internal Attributes"
           icon={<ShieldCheck className="w-5 h-5 text-blue-500" />}
         />
         <MetricCard 
-          title="Exterior Camera" 
+          title="Exterior " 
           value={overview.exterior.accuracy} 
           subtitle="External Attributes"
           icon={<ShieldCheck className="w-5 h-5 text-emerald-500" />}
@@ -229,14 +229,14 @@ export default function DashboardPage() {
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-7 border-b mb-6 bg-muted/5">
               <div>
                 <CardTitle className="text-lg">Attribute Performance</CardTitle>
-                <CardDescription>Visual accuracy percentage by category (Top 15)</CardDescription>
+                <CardDescription>Visual accuracy percentage by category</CardDescription>
               </div>
               <TrendingUp className="w-5 h-5 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="h-[600px] w-full pt-4">
+              <div className="w-full pt-4" style={{ height: Math.max(400, attributes.length * 45) }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={attributes.slice(0, 15)} layout="vertical" margin={{ left: 60, right: 80, top: 0, bottom: 0 }}>
+                  <BarChart data={attributes} layout="vertical" margin={{ left: 60, right: 80, top: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} opacity={0.1} />
                     <XAxis type="number" domain={[0, 100]} hide />
                     <YAxis 
@@ -260,7 +260,7 @@ export default function DashboardPage() {
                         style={{ fontSize: '12px', fontWeight: '800', fill: 'var(--foreground)' }}
                         offset={15}
                       />
-                      {attributes.slice(0, 15).map((entry, index) => (
+                      {attributes.map((entry, index) => (
                         <Cell 
                           key={`cell-${index}`} 
                           fill={entry.accuracy > 80 ? '#10b981' : entry.accuracy > 50 ? '#f59e0b' : '#ef4444'} 
