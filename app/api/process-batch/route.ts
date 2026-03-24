@@ -64,8 +64,9 @@ async function runBatchProcessingJob({
 
       // 2. Sync specialized attributes table if any
       if (Array.isArray(attributes) && attributes.length > 0) {
+        type AttributeInput = { attribute?: string; label?: string; name?: string; source?: string; value?: string | number; confidence?: number; timestamp?: number };
         await tx.insert(resultAttributes).values(
-          attributes.map((attr: any) => ({
+          attributes.map((attr: AttributeInput) => ({
             resultId: resultId,
             name: attr.attribute || attr.label || attr.name || "Unknown",
             source: attr.source || "interior",
@@ -77,18 +78,19 @@ async function runBatchProcessingJob({
         );
       }
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as { response?: { data?: unknown }, message?: string };
     console.error(
       "Batch processing error:",
-      error.response?.data || error.message,
+      err.response?.data || err.message,
     );
     await db
       .update(results)
       .set({
         status: "failed",
         json: {
-          error: error.message,
-          details: error.response?.data,
+          error: err.message || "Unknown error",
+          details: err.response?.data,
         },
       })
       .where(eq(results.id, resultId));
@@ -160,9 +162,10 @@ export async function POST(req: Request) {
     );
 
     return NextResponse.json({ id: inserted.id, customId, jobs: formattedJobs }, { status: 202 });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const err = error as Error;
     return NextResponse.json(
-      { error: "Failed to process batch", details: error.message },
+      { error: "Failed to process batch", details: err.message || "Unknown error" },
       { status: 500 },
     );
   }

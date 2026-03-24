@@ -4,9 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, MessageSquare } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { BackButton } from "@/components/back-button";
-import Link from "next/link";
 import { PageTitle } from "@/components/typography";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -24,6 +23,45 @@ import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const DETAIL_POLLING_MS = 10000;
+
+type VideoPreviewTabsProps = {
+  isMobile?: boolean;
+  type: "interior" | "exterior";
+  setType: (type: "interior" | "exterior") => void;
+  interiorVideoRef: React.MutableRefObject<HTMLVideoElement | null>;
+  exteriorVideoRef: React.MutableRefObject<HTMLVideoElement | null>;
+  result: ResultDetail;
+  activeSeek: { timestamp: number; source: "interior" | "exterior"; id: number } | null;
+};
+
+const VideoPreviewTabs = ({ isMobile = false, type, setType, interiorVideoRef, exteriorVideoRef, result, activeSeek }: VideoPreviewTabsProps) => (
+  <Tabs 
+    defaultValue="interior" 
+    value={type} 
+    onValueChange={(v) => setType(v as "interior" | "exterior")} 
+    className={isMobile ? "w-full mt-4" : "flex h-full min-h-0 flex-col"}
+  >
+    <div className={!isMobile ? "border-b" : ""}>
+      <TabsList variant={!isMobile ? "line" : undefined} className={!isMobile ? "grid w-[220px] grid-cols-2" : "grid w-full grid-cols-2 mb-2"}>
+        <TabsTrigger value="interior">{isMobile ? "Interior Video" : "Interior"}</TabsTrigger>
+        <TabsTrigger value="exterior">{isMobile ? "Exterior Video" : "Exterior"}</TabsTrigger>
+      </TabsList>
+    </div>
+
+    <div className={isMobile ? "aspect-video w-full rounded-lg overflow-hidden bg-black shadow-sm" : "flex-1 min-h-0"}>
+      {(["interior", "exterior"] as const).map((t) => (
+        <TabsContent key={t} value={t} className="m-0 h-full w-full overflow-auto">
+          <VideoPreviewPanel
+            videoRef={t === "interior" ? interiorVideoRef : exteriorVideoRef}
+            videoSource={result.json.video?.[`${t}_s3_uri` as keyof typeof result.json.video] as string}
+            regionName={result.json.video?.[`${t}_region` as keyof typeof result.json.video] as string}
+            seekTo={activeSeek?.source === t ? { timestamp: activeSeek.timestamp, id: activeSeek.id } : null}
+          />
+        </TabsContent>
+      ))}
+    </div>
+  </Tabs>
+);
 
 export default function ResultDetailPage() {
   const params = useParams();
@@ -111,34 +149,7 @@ export default function ResultDetailPage() {
     }
   };
 
-  const VideoPreviewTabs = ({ isMobile = false }: { isMobile?: boolean }) => (
-    <Tabs 
-      defaultValue="interior" 
-      value={type} 
-      onValueChange={(v) => setType(v as "interior" | "exterior")} 
-      className={isMobile ? "w-full mt-4" : "flex h-full min-h-0 flex-col"}
-    >
-      <div className={!isMobile ? "border-b" : ""}>
-        <TabsList variant={!isMobile ? "line" : undefined} className={!isMobile ? "grid w-[220px] grid-cols-2" : "grid w-full grid-cols-2 mb-2"}>
-          <TabsTrigger value="interior">{isMobile ? "Interior Video" : "Interior"}</TabsTrigger>
-          <TabsTrigger value="exterior">{isMobile ? "Exterior Video" : "Exterior"}</TabsTrigger>
-        </TabsList>
-      </div>
 
-      <div className={isMobile ? "aspect-video w-full rounded-lg overflow-hidden bg-black shadow-sm" : "flex-1 min-h-0"}>
-        {(["interior", "exterior"] as const).map((t) => (
-          <TabsContent key={t} value={t} className="m-0 h-full w-full overflow-auto">
-            <VideoPreviewPanel
-              videoRef={t === "interior" ? interiorVideoRef : exteriorVideoRef}
-              videoSource={result.json.video?.[`${t}_s3_uri` as keyof typeof result.json.video] as string}
-              regionName={result.json.video?.[`${t}_region` as keyof typeof result.json.video] as string}
-              seekTo={activeSeek?.source === t ? { timestamp: activeSeek.timestamp, id: activeSeek.id } : null}
-            />
-          </TabsContent>
-        ))}
-      </div>
-    </Tabs>
-  );
 
   return (
     <div className="space-y-4 md:space-y-6 py-4">
@@ -212,7 +223,14 @@ export default function ResultDetailPage() {
                       <ResizableHandle withHandle />
   
                       <ResizablePanel defaultSize={30} minSize={0}>
-                        <VideoPreviewTabs />
+                        <VideoPreviewTabs 
+                          type={type} 
+                          setType={setType}
+                          interiorVideoRef={interiorVideoRef}
+                          exteriorVideoRef={exteriorVideoRef}
+                          result={result}
+                          activeSeek={activeSeek}
+                        />
                       </ResizablePanel>
                     </ResizablePanelGroup>
                   </div>
@@ -221,7 +239,15 @@ export default function ResultDetailPage() {
                   <div className="md:hidden flex flex-col gap-6">
                     {/* Video Preview with Tab switch */}
                     <div ref={videoSectionRef} className="scroll-mt-4">
-                      <VideoPreviewTabs isMobile />
+                      <VideoPreviewTabs 
+                        isMobile 
+                        type={type} 
+                        setType={setType}
+                        interiorVideoRef={interiorVideoRef}
+                        exteriorVideoRef={exteriorVideoRef}
+                        result={result}
+                        activeSeek={activeSeek}
+                      />
                     </div>
   
                     {/* Results Section */}

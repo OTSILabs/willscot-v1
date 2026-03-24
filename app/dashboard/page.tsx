@@ -38,6 +38,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Suspense } from "react";
+import { DateRange } from "react-day-picker";
+import { DatePickerWithRange } from "@/components/ui/date-range-picker";
+import { format } from "date-fns";
 import { 
   Table, 
   TableBody, 
@@ -61,7 +65,8 @@ import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
 import { Filter, X } from "lucide-react";
 import { useCurrentUser } from "@/components/current-user-provider";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback } from "react";
 
 interface DashboardStats {
   overview: {
@@ -96,11 +101,62 @@ interface DashboardStats {
 }
 
 export default function DashboardPage() {
+  return (
+    <Suspense fallback={<DashboardLoading />}>
+      <DashboardContent />
+    </Suspense>
+  );
+}
+
+function DashboardContent() {
   const { currentUser } = useCurrentUser();
   const router = useRouter();
-  const [userId, setUserId] = useState<string>("all");
-  const [startDate, setStartDate] = useState<string>("");
-  const [endDate, setEndDate] = useState<string>("");
+  const searchParams = useSearchParams();
+
+  // Initialize state from URL params
+  const [userId, setUserId] = useState<string>(searchParams.get("userId") || "all");
+  
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
+    const from = searchParams.get("startDate");
+    const to = searchParams.get("endDate");
+    if (from && to) {
+      return { from: new Date(from), to: new Date(to) };
+    } else if (from) {
+      return { from: new Date(from) };
+    }
+    return undefined;
+  });
+
+  const startDate = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : "";
+  const endDate = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : "";
+
+  // Helper to update URL search params
+  const updateQueryParams = useCallback((updates: Record<string, string | null>) => {
+    const current = new URLSearchParams(Array.from(searchParams.entries()));
+    
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === "all" || value === "") {
+        current.delete(key);
+      } else {
+        current.set(key, value);
+      }
+    });
+
+    const search = current.toString();
+    if (search !== searchParams.toString()) {
+      const query = search ? `?${search}` : "";
+      router.replace(`/dashboard${query}`, { scroll: false });
+    }
+  }, [router, searchParams]);
+
+  // Sync state changes back to URL
+  useEffect(() => {
+    updateQueryParams({
+      userId,
+      startDate,
+      endDate,
+    });
+  }, [userId, startDate, endDate, updateQueryParams]);
 
   useEffect(() => {
     if (currentUser && currentUser.role !== "power_user") {
@@ -179,84 +235,57 @@ export default function DashboardPage() {
       <Separator className="opacity-50" />
 
       {/* Filter Bar */}
-      <Card className="bg-white/50 border-dashed">
-        <CardContent className="p-4 md:p-6">
-          <div className="flex flex-col md:flex-row md:items-end gap-6">
-            <div className="flex-1 space-y-2">
-              <Label htmlFor="user-filter" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center">
-                <ShieldCheck className="w-3 h-3 mr-1" />
-                Filter by User
-              </Label>
-              <Select value={userId} onValueChange={setUserId}>
-                <SelectTrigger id="user-filter" className="bg-white">
-                  <SelectValue placeholder="All Users" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Users</SelectItem>
-                  {usersData?.map((user) => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex-1 space-y-2">
-              <Label htmlFor="start-date" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Start Date
-              </Label>
-              <Input 
-                id="start-date"
-                type="date" 
-                value={startDate} 
-                onChange={(e) => setStartDate(e.target.value)}
-                className="bg-white h-10"
-              />
-            </div>
-
-            <div className="flex-1 space-y-2">
-              <Label htmlFor="end-date" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                End Date
-              </Label>
-              <Input 
-                id="end-date"
-                type="date" 
-                value={endDate} 
-                onChange={(e) => setEndDate(e.target.value)}
-                className="bg-white h-10"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              {(userId !== "all" || startDate || endDate) && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => {
-                    setUserId("all");
-                    setStartDate("");
-                    setEndDate("");
-                  }}
-                  className="text-muted-foreground hover:text-foreground h-10 px-4"
-                >
-                  <X className="w-4 h-4 mr-2" />
-                  Clear
-                </Button>
-              )}
-              <Button 
-                variant="secondary"
-                size="sm"
-                onClick={() => refetch()}
-                className="h-10 px-6 shadow-sm border border-secondary"
-              >
-                <Filter className="w-4 h-4 mr-2" />
-                Apply
-              </Button>
+      <div className="flex flex-col md:flex-row items-center justify-end gap-3 mb-6 mt-4">
+        <div className="flex flex-col md:flex-row items-center gap-2 bg-white/50 border border-dashed rounded-lg p-1.5 shadow-sm">
+          <div className="flex items-center gap-2 px-2 md:border-r border-border/50 w-full md:w-auto">
+            <ShieldCheck className="w-3.5 h-3.5 text-muted-foreground" />
+            <Select value={userId} onValueChange={setUserId}>
+              <SelectTrigger id="user-filter" className="bg-transparent border-0 h-8 text-xs w-full md:w-[130px] shadow-none focus:ring-0">
+                <SelectValue placeholder="All Users" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Users</SelectItem>
+                {usersData?.map((user) => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2 px-2 w-full md:w-auto md:border-l border-border/50">
+            <span className="text-xs text-muted-foreground font-medium uppercase tracking-widest hidden md:inline ml-1">Date</span>
+            <div className="flex items-center gap-1 flex-1">
+              <DatePickerWithRange date={dateRange} setDate={setDateRange} />
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
+          {(userId !== "all" || startDate || endDate) && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => {
+                setUserId("all");
+                setDateRange(undefined);
+              }}
+              className="h-8 px-3 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-3 h-3 mr-1" />
+              Clear
+            </Button>
+          )}
+          <Button 
+            variant="secondary"
+            size="sm"
+            onClick={() => refetch()}
+            className="h-8 px-4 text-xs shadow-sm border border-secondary"
+          >
+            <Filter className="w-3 h-3 mr-1.5" />
+            Apply
+          </Button>
+        </div>
+      </div>
 
       {/* Metric Cards - Summary Tier */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -324,7 +353,7 @@ export default function DashboardPage() {
                       </TableCell>
                       <TableCell className="text-center">
                         <Badge 
-                          variant={(attr.accuracy > 80 ? "success" : attr.accuracy > 50 ? "warning" : "destructive") as any}
+                          variant={(attr.accuracy > 80 ? "success" : attr.accuracy > 50 ? "warning" : "destructive") as "default" | "secondary" | "destructive" | "outline" | "success" | "warning"}
                           className="font-bold min-w-[50px] justify-center shadow-sm"
                         >
                           {attr.accuracy}%
@@ -382,7 +411,7 @@ export default function DashboardPage() {
                       <LabelList 
                         dataKey="accuracy" 
                         position="right" 
-                        formatter={(val: any) => `${val}%`}
+                        formatter={(val: unknown) => `${val}%`}
                         style={{ fontSize: '12px', fontWeight: '800', fill: 'var(--foreground)' }}
                         offset={15}
                       />

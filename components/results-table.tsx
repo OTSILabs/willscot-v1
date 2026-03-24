@@ -189,8 +189,6 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
   const currentPage = data?.pagination.page ?? 1;
   const totalPages = data?.pagination.totalPages ?? 1;
   const totalItems = data?.pagination.total ?? 0;
-  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const endItem = Math.min(currentPage * pageSize, totalItems);
 
   return (
     <div className="rounded-md md:border md:bg-white border-none bg-transparent">
@@ -283,7 +281,7 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
                   <TraceDataCell value={result.model} labelClassName="text-transparent select-none" />
                 </TableCell>
                 <TableCell>
-                  <StatusBadge status={result.status} error={(result.json as any)?.error as string | undefined} />
+                  <StatusBadge status={result.status} error={(result.json as { error?: string })?.error} />
                 </TableCell>
                 <TableCell className="text-sm">
                   <div className="flex flex-col">

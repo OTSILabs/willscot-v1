@@ -1,7 +1,7 @@
 import { getCurrentUserServerAction } from "@/app/actions/current-user";
 import { db } from "@/lib/db";
 import { results, users } from "@/lib/db/schema";
-import { and, desc, eq, ilike, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 
 export async function GET(req: Request) {

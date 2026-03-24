@@ -46,11 +46,12 @@ export async function GET(req: Request) {
 
     if (completedWithoutAttrs.length > 0) {
       await db.transaction(async (tx) => {
+        type AttributeData = { attribute?: string; label?: string; name?: string; source?: string; value?: string | number; confidence?: number; timestamp?: number };
         for (const res of completedWithoutAttrs) {
-          const attributes = (res.json as any)?.attributes;
+          const attributes = (res.json as { attributes?: AttributeData[] })?.attributes;
           if (Array.isArray(attributes) && attributes.length > 0) {
             await tx.insert(resultAttributes).values(
-              attributes.map((attr: any) => ({
+              attributes.map((attr) => ({
                 resultId: res.id,
                 name: attr.attribute || attr.label || attr.name || "Unknown",
                 source: attr.source || "interior",
@@ -112,9 +113,10 @@ export async function GET(req: Request) {
       .orderBy(desc(results.createdAt))
       .limit(50);
 
-    let bestTrace: any[] = [];
+    type AttributeData = { attribute?: string; label?: string; name?: string; source?: string; value?: string | number; confidence?: number; timestamp?: number };
+    let bestTrace: AttributeData[] = [];
     for (const res of latestResult) {
-      const json = res.json as any;
+      const json = res.json as { attributes?: AttributeData[] };
       if (json && Array.isArray(json.attributes)) {
         if (json.attributes.length > bestTrace.length) {
           bestTrace = json.attributes;
@@ -122,8 +124,8 @@ export async function GET(req: Request) {
       }
     }
 
-    let dynamicOrder = new Map<string, number>();
-    bestTrace.forEach((attr: any, index: number) => {
+    const dynamicOrder = new Map<string, number>();
+    bestTrace.forEach((attr: AttributeData, index: number) => {
       const name = attr.attribute || attr.label || attr.name || "Unknown";
       if (!dynamicOrder.has(name)) {
         dynamicOrder.set(name, index);
@@ -132,9 +134,9 @@ export async function GET(req: Request) {
 
     let nextIndex = dynamicOrder.size;
     for (const res of latestResult) {
-      const json = res.json as any;
+      const json = res.json as { attributes?: AttributeData[] };
       if (json && Array.isArray(json.attributes)) {
-        json.attributes.forEach((attr: any) => {
+        json.attributes.forEach((attr: AttributeData) => {
           const name = attr.attribute || attr.label || attr.name || "Unknown";
           if (!dynamicOrder.has(name)) {
             dynamicOrder.set(name, nextIndex++);
@@ -143,8 +145,8 @@ export async function GET(req: Request) {
       }
     }
 
-    const formatPercent = (correct: any, total: any) => 
-      total > 0 ? Math.round((Number(correct) / Number(total)) * 100) : 0;
+    const formatPercent = (correct: unknown, total: unknown) => 
+      Number(total) > 0 ? Math.round((Number(correct) / Number(total)) * 100) : 0;
 
     const formatAttributeName = (name: string) => {
       return name.replace(/([a-z])([A-Z])/g, '$1 $2').trim();
@@ -190,7 +192,7 @@ export async function GET(req: Request) {
         const orderA = dynamicOrder.has(a.originalName) ? dynamicOrder.get(a.originalName)! : 999;
         const orderB = dynamicOrder.has(b.originalName) ? dynamicOrder.get(b.originalName)! : 999;
         return orderA - orderB;
-      }).map(({ originalName, ...rest }) => rest)
+      }).map(({ name, accuracy, correct, incorrect, unmarked, totalTraces }) => ({ name, accuracy, correct, incorrect, unmarked, totalTraces }))
     });
 
   } catch (error) {

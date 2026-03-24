@@ -5,7 +5,6 @@ import {
   timestamp,
   uuid,
   jsonb,
-  boolean,
   doublePrecision,
 } from "drizzle-orm/pg-core";
 

@@ -3,8 +3,6 @@
 import * as React from "react"
 
 import { cn, getPaginationRange } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight } from "lucide-react"
 import {
   Pagination,
   PaginationContent,

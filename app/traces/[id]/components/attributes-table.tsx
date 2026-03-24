@@ -18,7 +18,6 @@ import { TraceAttribute } from "./types";
 import { CheckIcon, XIcon, PlayCircle } from "lucide-react";
 import { FeedbackDialog, FeedbackFormValues } from "./feedback-dialog";
 import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group";
-import { Badge } from "@/components/ui/badge";
 
 interface AttributesTableProps {
   attributes: TraceAttribute[];
@@ -219,7 +218,7 @@ export function AttributesTable({
                           <XIcon className="w-4 h-4" /> Marked Wrong
                         </p>
                         <p className="mt-1 text-sm text-muted-foreground font-normal italic">
-                          "{attribute.feedback}"
+                          &quot;{attribute.feedback}&quot;
                         </p>
                       </div>
                     )

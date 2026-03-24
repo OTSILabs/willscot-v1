@@ -10,9 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { BackButton } from "@/components/back-button";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { humanizeDateTime } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
