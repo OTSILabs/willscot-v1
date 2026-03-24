@@ -32,15 +32,16 @@ async function testMultipartUpload() {
 
     console.log("Response Status:", response.status);
     console.log("Response Data:", JSON.stringify(response.data, null, 2));
-  } catch (error: any) {
-    if (error.response) {
-      console.error("Error Status:", error.response.status);
+  } catch (error: unknown) {
+    const err = error as any;
+    if (err.response) {
+      console.error("Error Status:", err.response.status);
       console.error(
         "Error Data:",
-        JSON.stringify(error.response.data, null, 2),
+        JSON.stringify(err.response.data, null, 2),
       );
     } else {
-      console.error("Error Message:", error.message);
+      console.error("Error Message:", err.message);
     }
   }
 }

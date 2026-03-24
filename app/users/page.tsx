@@ -10,9 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { BackButton } from "@/components/back-button";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { humanizeDateTime } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -34,6 +32,10 @@ import {
 } from "@/components/ui/dialog";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { PaginationControls } from "@/components/ui/table";
+import { toast } from "sonner";
+import { useCurrentUser } from "@/components/current-user-provider";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 type UserRole = "power_user" | "normal_user";
 
@@ -82,7 +84,7 @@ async function createUserApi(payload: UserPayload) {
   const response = await fetch("/api/users", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...payload, role: "normal_user" }),
+    body: JSON.stringify(payload),
   });
   const data = (await response.json()) as { error?: string };
   if (!response.ok) throw new Error(data.error || "Failed to create user");
@@ -108,7 +110,16 @@ async function deleteUserApi(id: string) {
 }
 
 export default function UsersPage() {
+  const { currentUser } = useCurrentUser();
+  const router = useRouter();
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (currentUser && currentUser.role !== "power_user") {
+      router.push("/traces");
+    }
+  }, [currentUser, router]);
+
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [page, setPage] = useState(1);
   const pageSize = 10;
@@ -121,6 +132,7 @@ export default function UsersPage() {
   const usersQuery = useQuery({
     queryKey: ["users", page, pageSize, search],
     queryFn: () => fetchUsersApi(page, pageSize, search),
+    enabled: !!currentUser && currentUser.role === "power_user",
   });
 
   const createUser = useMutation({
@@ -130,9 +142,14 @@ export default function UsersPage() {
       setCreateForm(DEFAULT_FORM);
       setIsCreateOpen(false);
       setErrorMessage("");
+      toast.success("User created successfully");
       await queryClient.invalidateQueries({ queryKey: ["users"] });
     },
-    onError: (error: unknown) => setErrorMessage(error instanceof Error ? error.message : "Failed to create user"),
+    onError: (error: unknown) => {
+      const msg = error instanceof Error ? error.message : "Failed to create user";
+      setErrorMessage(msg);
+      toast.error(msg);
+    },
   });
 
   const updateUser = useMutation({
@@ -141,17 +158,27 @@ export default function UsersPage() {
       setEditingId(null);
       setEditForm(DEFAULT_FORM);
       setErrorMessage("");
+      toast.success("User updated successfully");
       await queryClient.invalidateQueries({ queryKey: ["users"] });
     },
-    onError: (error: unknown) => setErrorMessage(error instanceof Error ? error.message : "Failed to update user"),
+    onError: (error: unknown) => {
+      const msg = error instanceof Error ? error.message : "Failed to update user";
+      setErrorMessage(msg);
+      toast.error(msg);
+    },
   });
 
   const deleteUser = useMutation({
     mutationFn: deleteUserApi,
     onSuccess: async () => {
+      toast.success("User deleted successfully");
       await queryClient.invalidateQueries({ queryKey: ["users"] });
     },
-    onError: (error: unknown) => setErrorMessage(error instanceof Error ? error.message : "Failed to delete user"),
+    onError: (error: unknown) => {
+      const msg = error instanceof Error ? error.message : "Failed to delete user";
+      setErrorMessage(msg);
+      toast.error(msg);
+    },
   });
 
   const isSaving = useMemo(
@@ -159,6 +186,14 @@ export default function UsersPage() {
       createUser.isPending || updateUser.isPending || deleteUser.isPending,
     [createUser.isPending, deleteUser.isPending, updateUser.isPending],
   );
+
+  if (!currentUser || currentUser.role !== "power_user") {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <p className="text-muted-foreground">Redirecting...</p>
+      </div>
+    );
+  }
 
   function startEdit(user: User) {
     setErrorMessage("");
@@ -202,7 +237,7 @@ export default function UsersPage() {
           <DialogHeader>
             <DialogTitle>Create User</DialogTitle>
             <DialogDescription>
-              New users are created with role: normal user.
+              Enter details to create a new application user.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">
@@ -229,6 +264,20 @@ export default function UsersPage() {
                 setCreateForm((prev) => ({ ...prev, password: event.target.value }))
               }
             />
+            <Select
+              value={createForm.role}
+              onValueChange={(value: UserRole) =>
+                setCreateForm((prev) => ({ ...prev, role: value }))
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select Role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="power_user">Power user</SelectItem>
+                <SelectItem value="normal_user">Normal user</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <DialogFooter>
             <Button

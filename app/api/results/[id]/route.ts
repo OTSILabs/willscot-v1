@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { results, users, resultAttributes } from "@/lib/db/schema";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getPresignedUrl } from "@/lib/s3";
 import { getCurrentUserServerAction } from "@/app/actions/current-user";
@@ -87,11 +87,14 @@ export async function GET(
     }
 
     // Process the JSON to include presigned URLs for all S3 URIs
-    const processedJson = (await processS3Uris(result.json)) as any;
+    const processedJson = (await processS3Uris(result.json)) as {
+      attributes?: Record<string, unknown>[];
+      [key: string]: unknown;
+    };
 
     // Polyfill feedback from error if missing, to support frontend requirements
     if (processedJson && Array.isArray(processedJson.attributes)) {
-      processedJson.attributes = processedJson.attributes.map((attr: any) => ({
+      processedJson.attributes = processedJson.attributes.map((attr) => ({
         ...attr,
         feedback: attr.feedback ?? attr.error ?? null,
       }));
@@ -124,6 +127,11 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
+    const currentUser = await getCurrentUserServerAction();
+    if (!currentUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
     const { attributes } = body;
 
@@ -135,7 +143,10 @@ export async function PATCH(
     }
 
     const [existing] = await db
-      .select({ json: results.json })
+      .select({ 
+        json: results.json,
+        createdByUserId: results.createdByUserId 
+      })
       .from(results)
       .where(eq(results.id, id))
       .limit(1);
@@ -144,13 +155,20 @@ export async function PATCH(
       return NextResponse.json({ error: "Result not found" }, { status: 404 });
     }
 
-    const currentJson = (existing.json as Record<string, any>) || {};
+    if (currentUser.role !== "power_user" && existing.createdByUserId !== currentUser.id) {
+      return NextResponse.json(
+        { error: "Forbidden: You can only update your own traces" },
+        { status: 403 }
+      );
+    }
+
+    const currentJson = (existing.json as Record<string, unknown>) || {};
     const newJson = {
       ...currentJson,
       attributes: attributes,
     };
 
-    await (db as any).transaction(async (tx: any) => {
+    await db.transaction(async (tx) => {
       // 1. Update the main JSON
       await tx
         .update(results)
@@ -163,14 +181,15 @@ export async function PATCH(
         .where(eq(resultAttributes.resultId, id));
 
       if (attributes.length > 0) {
+        type AttributeUpdate = { attribute?: string; label?: string; name?: string; source?: string; value?: string | number; status?: string; feedback?: string; isCorrect?: boolean; confidence?: number; timestamp?: number; };
         await tx.insert(resultAttributes).values(
-          attributes.map((attr: any) => ({
+          attributes.map((attr: AttributeUpdate) => ({
             resultId: id,
             name: attr.attribute || attr.label || attr.name || "Unknown",
             source: attr.source || "interior",
             value: String(attr.value || ""),
-            status: (attr.status === "correct" || attr.feedback === "Correct" || attr.isCorrect === true) ? "correct" : 
-                    (attr.status === "wrong" || attr.status === "incorrect" || attr.feedback === "Incorrect" || attr.isCorrect === false) ? "incorrect" : "unmarked",
+            status: ((attr.status === "correct" || attr.feedback === "Correct" || attr.isCorrect === true) ? "correct" : 
+                    (attr.status === "wrong" || attr.status === "incorrect" || attr.feedback === "Incorrect" || attr.isCorrect === false) ? "incorrect" : "unmarked") as "correct" | "incorrect" | "unmarked",
             confidence: attr.confidence || null,
             timestamp: attr.timestamp || null,
           }))

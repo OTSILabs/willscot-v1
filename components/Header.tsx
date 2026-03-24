@@ -47,8 +47,12 @@ export function Header() {
 
   const navLinks = [
     { href: "/traces", label: "Traces" },
-    { href: "/dashboard", label: "Dashboard" },
-    ...(currentUser?.role === "power_user" ? [{ href: "/users", label: "Users" }] : []),
+    ...(currentUser?.role === "power_user"
+      ? [
+          { href: "/dashboard", label: "Dashboard" },
+          { href: "/users", label: "Users" },
+        ]
+      : []),
   ];
 
   const userInitials = useMemo(() => {

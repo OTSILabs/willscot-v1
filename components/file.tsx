@@ -266,8 +266,6 @@ export function FileInput({ className, showInfo = true }: { className?: string; 
     maxFileSize,
     maxTotalSize,
     formatFileSize,
-    totalSize,
-    remainingSize,
   } = useFileInput();
 
   return (

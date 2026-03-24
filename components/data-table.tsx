@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { Fragment, useRef, useState } from "react";
 import {
   flexRender,
   getFilteredRowModel,
@@ -51,6 +52,7 @@ export function DataTable<TData>({
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable<TData>({
     data,
     columns,

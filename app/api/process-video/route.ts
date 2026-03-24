@@ -1,8 +1,7 @@
 import { getCurrentUserServerAction } from "@/app/actions/current-user";
 import { db } from "@/lib/db";
-import { results, users } from "@/lib/db/schema";
+import { results } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 async function runProcessingJob({

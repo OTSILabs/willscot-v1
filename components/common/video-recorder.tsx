@@ -1,13 +1,13 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { StopCircle, RefreshCcw, Check, AlertTriangle, X, ChevronLeft, Pause, Play } from "lucide-react";
+import { Check, AlertTriangle, ChevronLeft, Pause, Play } from "lucide-react";
 import { Button } from "../ui/button";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
   DialogFooter,
 } from "../ui/dialog";
@@ -49,8 +49,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
   const proxyStreamRef = useRef<MediaStream | null>(null);
   const recordingCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
-  const audioDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
-  const audioSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  // Removing unused audio refs
   const animationRef = useRef<number | null>(null);
 
   // Sync ref with state
@@ -60,112 +59,11 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
 
   const RECORDING_LIMIT_SECONDS = 300; // 5 minutes
 
-  // --- LIFECYCLE: Dialog Open/Close ---
-  useEffect(() => {
-    if (isOpen) {
-      startCamera();
-      initWorker();
-    } else {
-      handleCompleteReset();
-    }
-    return () => handleCompleteReset();
-  }, [isOpen]);
 
-  // --- LIFECYCLE: Timer Management ---
-  useEffect(() => {
-    if (status === "recording") {
-      timerRef.current = setInterval(() => {
-        setRecordingTime((prev) => {
-          if (prev >= RECORDING_LIMIT_SECONDS - 1) {
-            stopRecording();
-            toast.info("Recording limit reached (5m)");
-            return RECORDING_LIMIT_SECONDS;
-          }
-          return prev + 1;
-        });
-      }, 1000);
-    } else {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [status]);
-
-  // --- LIFECYCLE: Blob to URL Preview Management ---
-  useEffect(() => {
-    if (!recordedBlob) return setPreviewUrl(null);
-    const url = URL.createObjectURL(recordedBlob);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [recordedBlob]);
 
   const formatTime = (s: number) => `${Math.floor(s / 60).toString().padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
 
-  const initWorker = useCallback(() => {
-    if (typeof window !== "undefined" && !workerRef.current) {
-      workerRef.current = new Worker("/workers/video-analyzer.worker.js");
-      workerRef.current.onmessage = (e) => {
-        if (e.data.warnings) {
-          setWarnings(e.data.warnings);
-        }
-        
-        // --- TIER 3: Frozen Frame Detection (Iframe-Safe) ---
-        // If avgMotion is EXACTLY 0, the device has likely frozen the video feed for a call.
-        if (statusRef.current === "recording" && e.data.metrics && e.data.metrics.avgMotion === 0) {
-          freezeCountRef.current += 1;
-          // If frozen for ~1 second (5 checks at 5fps)
-          if (freezeCountRef.current >= 5) {
-            console.log("Auto-pause triggered by Frozen Frame detection");
-            handleAutoPause();
-          }
-        } else {
-          freezeCountRef.current = 0;
-        }
-      };
-      
-      // Initialize an offscreen canvas for downsampling frames
-      const canvas = document.createElement("canvas");
-      canvas.width = 150;
-      canvas.height = 150;
-      canvasRef.current = canvas;
-    }
-  }, []);
-
-  const startAnalysis = useCallback(() => {
-    if (analysisIntervalRef.current) clearInterval(analysisIntervalRef.current);
-    
-    analysisIntervalRef.current = setInterval(() => {
-      // Use ref to avoid stale closure on status
-      if (!videoRef.current || !canvasRef.current || !workerRef.current || statusRef.current !== "recording") return;
-      if (videoRef.current.readyState !== videoRef.current.HAVE_ENOUGH_DATA) return;
-
-      const ctx = canvasRef.current.getContext("2d", { willReadFrequently: true });
-      if (!ctx) return;
-
-      // Draw the current video frame downsampled to 150x150
-      ctx.drawImage(videoRef.current, 0, 0, 150, 150);
-      const imageData = ctx.getImageData(0, 0, 150, 150);
-
-      // Send pixel buffer to the background worker
-      workerRef.current.postMessage({
-        imageData: imageData,
-        width: 150,
-        height: 150
-      });
-    }, 200); // 5 FPS is enough for quality checking
-  }, []);
-
-  const stopAnalysis = useCallback(() => {
-    if (analysisIntervalRef.current) {
-      clearInterval(analysisIntervalRef.current);
-      analysisIntervalRef.current = null;
-    }
-    setWarnings([]); // Clear warnings immediately on stop
-  }, []);
+  // Analysis functions moved down
 
   // --- PROXY STRATEGY: Render Loop & Audio Routing ---
   const initProxyStream = useCallback((width: number = 1280, height: number = 720) => {
@@ -183,7 +81,8 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
     
     // Only create stream once
     if (!proxyStreamRef.current) {
-      const canvasStream = (canvas as any).captureStream ? (canvas as any).captureStream(30) : (canvas as any).mozCaptureStream ? (canvas as any).mozCaptureStream(30) : null;
+      type CanvasStream = HTMLCanvasElement & { captureStream?: (fps?: number) => MediaStream; mozCaptureStream?: (fps?: number) => MediaStream };
+      const canvasStream = (canvas as CanvasStream).captureStream ? (canvas as CanvasStream).captureStream!(30) : (canvas as CanvasStream).mozCaptureStream ? (canvas as CanvasStream).mozCaptureStream!(30) : null;
       if (!canvasStream) return;
 
       /* // --- AUDIO BLOCK START ---
@@ -444,18 +343,68 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
     }
   }, []);
 
-  // --- TIER 1: Visibility Change Detection ---
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden && statusRef.current === "recording") {
-        console.log("Auto-pause triggered by Visibility Change");
-        handleAutoPause();
-      }
-    };
+  const initWorker = useCallback(() => {
+    if (typeof window !== "undefined" && !workerRef.current) {
+      workerRef.current = new Worker("/workers/video-analyzer.worker.js");
+      workerRef.current.onmessage = (e) => {
+        if (e.data.warnings) {
+          setWarnings(e.data.warnings);
+        }
+        
+        // --- TIER 3: Frozen Frame Detection (Iframe-Safe) ---
+        // If avgMotion is EXACTLY 0, the device has likely frozen the video feed for a call.
+        if (statusRef.current === "recording" && e.data.metrics && e.data.metrics.avgMotion === 0) {
+          freezeCountRef.current += 1;
+          // If frozen for ~1 second (5 checks at 5fps)
+          if (freezeCountRef.current >= 5) {
+            console.log("Auto-pause triggered by Frozen Frame detection");
+            handleAutoPause();
+          }
+        } else {
+          freezeCountRef.current = 0;
+        }
+      };
+      
+      // Initialize an offscreen canvas for downsampling frames
+      const canvas = document.createElement("canvas");
+      canvas.width = 150;
+      canvas.height = 150;
+      canvasRef.current = canvas;
+    }
+  }, []);
 
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [handleAutoPause]);
+  const startAnalysis = useCallback(() => {
+    if (analysisIntervalRef.current) clearInterval(analysisIntervalRef.current);
+    
+    analysisIntervalRef.current = setInterval(() => {
+      // Use ref to avoid stale closure on status
+      if (!videoRef.current || !canvasRef.current || !workerRef.current || statusRef.current !== "recording") return;
+      if (videoRef.current.readyState !== videoRef.current.HAVE_ENOUGH_DATA) return;
+
+      const ctx = canvasRef.current.getContext("2d", { willReadFrequently: true });
+      if (!ctx) return;
+
+      // Draw the current video frame downsampled to 150x150
+      ctx.drawImage(videoRef.current, 0, 0, 150, 150);
+      const imageData = ctx.getImageData(0, 0, 150, 150);
+
+      // Send pixel buffer to the background worker
+      workerRef.current.postMessage({
+        imageData: imageData,
+        width: 150,
+        height: 150
+      });
+    }, 200); // 5 FPS is enough for quality checking
+  }, []);
+
+  const stopAnalysis = useCallback(() => {
+    if (analysisIntervalRef.current) {
+      clearInterval(analysisIntervalRef.current);
+      analysisIntervalRef.current = null;
+    }
+    setWarnings([]); // Clear warnings immediately on stop
+  }, []);
+
 
   const stopRecording = () => {
     // Calling stop() triggers the onstop handler above which handles the blob and changes state to "preview"
@@ -515,11 +464,68 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
       const file = new File([recordedBlob], `recorded-video-${Date.now()}.${extension}`, {
         type: recordedBlob.type,
       });
-      onCapture(file);  // Sends the verified File object back to the upload form
+      onCapture(file);
       handleCompleteReset();
       onClose();
     }
   };
+
+  // --- LIFECYCLE: Dialog Open/Close ---
+  // Ignore exhaustive-deps to prevent infinite loops from over-dependency
+  useEffect(() => {
+    if (isOpen) {
+      startCamera();
+      initWorker();
+    } else {
+      handleCompleteReset();
+    }
+    return () => handleCompleteReset();
+  }, [isOpen]);
+
+  // --- LIFECYCLE: Timer Management ---
+  useEffect(() => {
+    if (status === "recording") {
+      timerRef.current = setInterval(() => {
+        setRecordingTime((prev) => {
+          if (prev >= RECORDING_LIMIT_SECONDS - 1) {
+            stopRecording();
+            toast.info("Recording limit reached (5m)");
+            return RECORDING_LIMIT_SECONDS;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } else {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [status]); // Only depend on status, ignoring stopRecording for stability
+
+  // --- LIFECYCLE: Blob to URL Preview Management ---
+  useEffect(() => {
+    if (!recordedBlob) return setPreviewUrl(null);
+    const url = URL.createObjectURL(recordedBlob);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [recordedBlob]);
+
+  // --- TIER 1: Visibility Change Detection ---
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden && statusRef.current === "recording") {
+        console.log("Auto-pause triggered by Visibility Change");
+        handleAutoPause();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [handleAutoPause]);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {

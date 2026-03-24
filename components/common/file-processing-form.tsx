@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Card,
   CardAction,
@@ -20,12 +20,10 @@ import { Form } from "../ui/form";
 
 import {
   FileHiddenInput,
-  FileInput,
   FileInputProvider,
   useFileInput,
 } from "../file";
-import { CameraIcon, PlayIcon, PlusIcon, XIcon, UploadIcon } from "lucide-react";
-import { Row } from "@tanstack/react-table";
+import { CameraIcon, PlayIcon, XIcon, UploadIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Select,
@@ -141,8 +139,8 @@ export function FileProcessingFormContent() {
       return;
     }
 
-    let exteriorJobs = filesToProcess.filter(f => f.jobType === "exterior").length;
-    let interiorJobs = filesToProcess.filter(f => f.jobType === "interior").length;
+    const exteriorJobs = filesToProcess.filter(f => f.jobType === "exterior").length;
+    const interiorJobs = filesToProcess.filter(f => f.jobType === "interior").length;
 
     if (!interiorJobs || !exteriorJobs) {
       toast.error("Invalid job type selection.", {
@@ -222,9 +220,10 @@ export function FileProcessingFormContent() {
       const results = await Promise.allSettled(uploadPromises);
       
       const failedJobs = results.filter(r => r.status === 'rejected');
+      type UploadJobResult = { s3Uri: string; fileName: string; containerType: string; model: string; region: string; jobType: string; };
       const successfulJobs = results
-        .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
-        .map(r => r.value);
+        .filter((r) => r.status === 'fulfilled')
+        .map(r => (r as PromiseFulfilledResult<UploadJobResult>).value);
 
       if (failedJobs.length > 0) {
         toast.error(`${failedJobs.length} video(s) failed to upload. Please try again.`, {
