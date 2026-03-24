@@ -42,6 +42,7 @@ import { Suspense } from "react";
 import { DateRange } from "react-day-picker";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import { format } from "date-fns";
+import { keepPreviousData } from "@tanstack/react-query";
 import { 
   Table, 
   TableBody, 
@@ -175,7 +176,7 @@ function DashboardContent() {
 
   const timezone = typeof window !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC";
 
-  const { data, isLoading, isError, refetch } = useQuery<DashboardStats>({
+  const { data, isLoading, isError, refetch, isFetching } = useQuery<DashboardStats>({
     queryKey: ["dashboard-stats", userId, startDate, endDate, timezone],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -187,15 +188,18 @@ function DashboardContent() {
       const resp = await axios.get(`/api/stats/dashboard?${params.toString()}`);
       return resp.data;
     },
-    refetchInterval: 10000, // Live updates every 10 seconds
+    refetchInterval: 10000, 
     enabled: !!currentUser && currentUser.role === "power_user",
+    placeholderData: keepPreviousData,
   });
 
-  if (!currentUser) return <DashboardLoading />;
-  if (currentUser.role !== "power_user") return <DashboardLoading />;
+  if (!currentUser || currentUser.role !== "power_user") return <DashboardLoading />;
 
-  if (isLoading) return <DashboardLoading />;
-  if (isError || !data) return <DashboardError onRetry={() => refetch()} />;
+  // Only show full skeleton if we have NO data at all
+  if (isLoading && !data) return <DashboardLoading />;
+  
+  if (isError) return <DashboardError onRetry={() => refetch()} />;
+  if (!data) return <DashboardLoading />;
 
   const { overview, attributes } = data;
 
@@ -207,28 +211,37 @@ function DashboardContent() {
       </div>
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-10 md:pt-8">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-0">
         <div className="space-y-1">
-          <PageTitle title="Attribute Accuracy" />
-          <PageDescription description="Monitor and review progress across all analyzed videos." />
+          <PageTitle title="Accuracy Dashboard" />
+          <PageDescription description="Performance metrics and extraction precision across all processed traces." />
         </div>
-        <div className="flex items-center gap-3">
-          <Badge variant="outline" className="bg-emerald-500/5 text-emerald-600 border-emerald-200 animate-pulse px-3 py-1">
-            <span className="relative flex h-2 w-2 mr-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            Live Updates
-          </Badge>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => refetch()} 
-            className="w-fit shadow-sm"
-          >
-            <RotateCcw className="w-4 h-4 mr-2" />
-            Refresh
-          </Button>
+        
+        <div className="flex items-center gap-3 self-end md:self-auto">
+          {isFetching && (
+            <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground animate-pulse mr-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+              Refreshing...
+            </div>
+          )}
+          <div className="flex items-center gap-3">
+            <Badge variant="outline" className="bg-emerald-500/5 text-emerald-600 border-emerald-200 animate-pulse px-3 py-1">
+              <span className="relative flex h-2 w-2 mr-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              Live Updates
+            </Badge>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => refetch()} 
+              className="w-fit shadow-sm"
+            >
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
         </div>
       </div>
 
