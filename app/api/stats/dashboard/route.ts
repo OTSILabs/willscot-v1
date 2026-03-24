@@ -21,89 +21,97 @@ export async function GET(req: Request) {
       filters.push(eq(results.createdByUserId, userId));
     }
     
-    // Timezone-aware date filtering by converting UTC timestamp to user's local time before DATE extraction
+    // Optimized: Pre-calculate UTC date ranges in JS instead of calling DATE() in SQL.
+    // This allows PostgreSQL to use the B-tree index on results.createdAt.
     if (startDate) {
-      filters.push(gte(sql<string>`DATE(${results.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone})`, startDate));
+      const startDateTime = new Date(`${startDate}T00:00:00Z`);
+      filters.push(gte(results.createdAt, startDateTime));
     }
     if (endDate) {
-      filters.push(lte(sql<string>`DATE(${results.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE ${timezone})`, endDate));
+      const endDateTime = new Date(`${endDate}T23:59:59.999Z`);
+      filters.push(lte(results.createdAt, endDateTime));
     }
 
     const whereClause = filters.length > 0 ? and(...filters) : undefined;
 
-    // --- Self-Healing Sync: Ensure any completed traces have their attributes synced ---
-    // This handles traces created before the auto-sync fix or during edge cases.
-    const completedWithoutAttrs = await db
-      .select({ id: results.id, json: results.json })
-      .from(results)
-      .leftJoin(resultAttributes, eq(results.id, resultAttributes.resultId))
-      .where(and(
-        eq(results.status, 'completed'),
-        sql`${resultAttributes.id} IS NULL`,
-        whereClause ? whereClause : sql`TRUE`
-      ))
-      .limit(20);
+    // --- Optimized: Fetch all stats in parallel ---
+    const [overallStats, sourceStats, attributeStats] = await Promise.all([
+      db
+        .select({
+          total: count(resultAttributes.id),
+          correct: sql`count(case when ${resultAttributes.status} = 'correct' then 1 end)`,
+          incorrect: sql`count(case when ${resultAttributes.status} = 'incorrect' then 1 end)`,
+          unmarked: sql`count(case when ${resultAttributes.status} = 'unmarked' then 1 end)`,
+        })
+        .from(resultAttributes)
+        .innerJoin(results, eq(resultAttributes.resultId, results.id))
+        .where(whereClause),
 
-    if (completedWithoutAttrs.length > 0) {
-      await db.transaction(async (tx) => {
-        type AttributeData = { attribute?: string; label?: string; name?: string; source?: string; value?: string | number; confidence?: number; timestamp?: number };
-        for (const res of completedWithoutAttrs) {
-          const attributes = (res.json as { attributes?: AttributeData[] })?.attributes;
-          if (Array.isArray(attributes) && attributes.length > 0) {
-            await tx.insert(resultAttributes).values(
-              attributes.map((attr) => ({
-                resultId: res.id,
-                name: attr.attribute || attr.label || attr.name || "Unknown",
-                source: attr.source || "interior",
-                value: String(attr.value || ""),
-                status: "unmarked" as const,
-                confidence: attr.confidence || null,
-                timestamp: attr.timestamp || null,
-              }))
-            ).onConflictDoNothing();
-          }
+      db
+        .select({
+          source: resultAttributes.source,
+          total: count(resultAttributes.id),
+          correct: sql`count(case when ${resultAttributes.status} = 'correct' then 1 end)`,
+          incorrect: sql`count(case when ${resultAttributes.status} = 'incorrect' then 1 end)`,
+          unmarked: sql`count(case when ${resultAttributes.status} = 'unmarked' then 1 end)`,
+        })
+        .from(resultAttributes)
+        .innerJoin(results, eq(resultAttributes.resultId, results.id))
+        .where(whereClause)
+        .groupBy(resultAttributes.source),
+
+      db
+        .select({
+          name: resultAttributes.name,
+          total: count(resultAttributes.id),
+          correct: sql`count(case when ${resultAttributes.status} = 'correct' then 1 end)`,
+          incorrect: sql`count(case when ${resultAttributes.status} = 'incorrect' then 1 end)`,
+          unmarked: sql`count(case when ${resultAttributes.status} = 'unmarked' then 1 end)`,
+        })
+        .from(resultAttributes)
+        .innerJoin(results, eq(resultAttributes.resultId, results.id))
+        .where(whereClause)
+        .groupBy(resultAttributes.name)
+    ]); 
+
+    // Async Self-Healing Sync: Move this to background
+    async function backgroundSync() {
+      try {
+        const completedWithoutAttrs = await db
+          .select({ id: results.id, json: results.json })
+          .from(results)
+          .leftJoin(resultAttributes, eq(results.id, resultAttributes.resultId))
+          .where(and(
+            eq(results.status, 'completed'),
+            sql`${resultAttributes.id} IS NULL`,
+          ))
+          .limit(10);
+
+        if (completedWithoutAttrs.length > 0) {
+          await db.transaction(async (tx) => {
+            for (const res of completedWithoutAttrs) {
+              const attributesFull = (res.json as { attributes?: any[] })?.attributes;
+              if (Array.isArray(attributesFull) && attributesFull.length > 0) {
+                await tx.insert(resultAttributes).values(
+                  attributesFull.map((attr) => ({
+                    resultId: res.id,
+                    name: attr.attribute || attr.label || attr.name || "Unknown",
+                    source: attr.source || "interior",
+                    value: String(attr.value || ""),
+                    status: "unmarked" as const,
+                    confidence: attr.confidence || null,
+                    timestamp: attr.timestamp || null,
+                  }))
+                ).onConflictDoNothing();
+              }
+            }
+          });
         }
-      });
+      } catch (e) {
+        console.error("Background sync failed:", e);
+      }
     }
-
-    // 1. Calculate overall, interior, and exterior averages
-    const overallStats = await db
-      .select({
-        total: count(resultAttributes.id),
-        correct: sql`count(case when ${resultAttributes.status} = 'correct' then 1 end)`,
-        incorrect: sql`count(case when ${resultAttributes.status} = 'incorrect' then 1 end)`,
-        unmarked: sql`count(case when ${resultAttributes.status} = 'unmarked' then 1 end)`,
-      })
-      .from(resultAttributes)
-      .innerJoin(results, eq(resultAttributes.resultId, results.id))
-      .where(whereClause);
-
-    const sourceStats = await db
-      .select({
-        source: resultAttributes.source,
-        total: count(resultAttributes.id),
-        correct: sql`count(case when ${resultAttributes.status} = 'correct' then 1 end)`,
-        incorrect: sql`count(case when ${resultAttributes.status} = 'incorrect' then 1 end)`,
-        unmarked: sql`count(case when ${resultAttributes.status} = 'unmarked' then 1 end)`,
-      })
-      .from(resultAttributes)
-      .innerJoin(results, eq(resultAttributes.resultId, results.id))
-      .where(whereClause)
-      .groupBy(resultAttributes.source);
-
-    // 2. Calculate per-attribute accuracy
-    const attributeStats = await db
-      .select({
-        name: resultAttributes.name,
-        total: count(resultAttributes.id),
-        correct: sql`count(case when ${resultAttributes.status} = 'correct' then 1 end)`,
-        incorrect: sql`count(case when ${resultAttributes.status} = 'incorrect' then 1 end)`,
-        unmarked: sql`count(case when ${resultAttributes.status} = 'unmarked' then 1 end)`,
-      })
-      .from(resultAttributes)
-      .innerJoin(results, eq(resultAttributes.resultId, results.id))
-      .where(whereClause)
-      .groupBy(resultAttributes.name);
+    backgroundSync(); // Non-blocking
 
     // 3. Determine dynamic display order from the most recent result tracking
     const latestResult = await db

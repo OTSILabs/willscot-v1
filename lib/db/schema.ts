@@ -6,6 +6,7 @@ import {
   uuid,
   jsonb,
   doublePrecision,
+  index,
 } from "drizzle-orm/pg-core";
 
 export const userRoleEnum = pgEnum("user_role", ["power_user", "normal_user"]);
@@ -34,6 +35,14 @@ export const results = pgTable("results", {
     onDelete: "set null",
   }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    resultsCreatedAtIndex: index("results_created_at_idx").on(table.createdAt),
+    resultsUserIdIndex: index("results_user_id_idx").on(table.createdByUserId),
+    resultsStatusIndex: index("results_status_idx").on(table.status),
+    resultsVideoIdIndex: index("results_video_id_idx").on(table.videoId),
+    resultsCustomIdIndex: index("results_custom_id_idx").on(table.customId),
+  }
 });
 
 export const resultAttributes = pgTable("result_attributes", {
@@ -48,4 +57,11 @@ export const resultAttributes = pgTable("result_attributes", {
   confidence: doublePrecision("confidence"),
   timestamp: doublePrecision("timestamp"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => {
+  return {
+    attrResultIdIndex: index("attr_result_id_idx").on(table.resultId),
+    attrStatusIndex: index("attr_status_idx").on(table.status),
+    attrNameIndex: index("attr_name_idx").on(table.name),
+    attrSourceIndex: index("attr_source_idx").on(table.source),
+  }
 });

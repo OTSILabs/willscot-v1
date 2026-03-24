@@ -24,72 +24,75 @@ export async function GET(req: Request) {
         : 10;
     const offset = (page - 1) * pageSize;
 
-    const [totalRow] = search
-      ? await db
-        .select({ count: sql<number>`count(*)` })
-        .from(results)
-        .where(
-          and(
-            filter,
-            sql`(${results.videoId} ILIKE ${`%${search}%`} OR ${results.videoName} ILIKE ${`%${search}%`} OR ${results.customId} ILIKE ${`%${search}%`})`
+    const [totalRow, items] = await Promise.all([
+      search
+        ? db
+          .select({ count: sql<number>`count(*)` })
+          .from(results)
+          .where(
+            and(
+              filter,
+              sql`(${results.videoId} ILIKE ${`%${search}%`} OR ${results.videoName} ILIKE ${`%${search}%`} OR ${results.customId} ILIKE ${`%${search}%`})`
+            )
           )
-        )
-      : await db
-        .select({ count: sql<number>`count(*)` })
-        .from(results)
-        .where(filter);
-    const total = Number(totalRow?.count ?? 0);
+        : db
+          .select({ count: sql<number>`count(*)` })
+          .from(results)
+          .where(filter),
 
-    const items = search
-      ? await db
-        .select({
-          id: results.id,
-          videoId: results.videoId,
-          videoName: results.videoName,
-          customId: results.customId,
-          status: results.status,
-          containerType: results.containerType,
-          model: results.model,
-          regionName: results.regionName,
-          createdByUserId: results.createdByUserId,
-          createdByName: users.name,
-          createdByEmail: users.email,
-          createdAt: results.createdAt,
-          json: results.json,
-        })
-        .from(results)
-        .leftJoin(users, eq(results.createdByUserId, users.id))
-        .where(
-          and(
-            filter,
-            sql`(${results.videoId} ILIKE ${`%${search}%`} OR ${results.videoName} ILIKE ${`%${search}%`} OR ${results.customId} ILIKE ${`%${search}%`})`
+      search
+        ? db
+          .select({
+            id: results.id,
+            videoId: results.videoId,
+            videoName: results.videoName,
+            customId: results.customId,
+            status: results.status,
+            containerType: results.containerType,
+            model: results.model,
+            regionName: results.regionName,
+            createdByUserId: results.createdByUserId,
+            createdByName: users.name,
+            createdByEmail: users.email,
+            createdAt: results.createdAt,
+            json: results.json,
+          })
+          .from(results)
+          .leftJoin(users, eq(results.createdByUserId, users.id))
+          .where(
+            and(
+              filter,
+              sql`(${results.videoId} ILIKE ${`%${search}%`} OR ${results.videoName} ILIKE ${`%${search}%`} OR ${results.customId} ILIKE ${`%${search}%`})`
+            )
           )
-        )
-        .orderBy(desc(results.createdAt))
-        .limit(pageSize)
-        .offset(offset)
-      : await db
-        .select({
-          id: results.id,
-          videoId: results.videoId,
-          videoName: results.videoName,
-          customId: results.customId,
-          status: results.status,
-          containerType: results.containerType,
-          model: results.model,
-          regionName: results.regionName,
-          createdByUserId: results.createdByUserId,
-          createdByName: users.name,
-          createdByEmail: users.email,
-          createdAt: results.createdAt,
-          json: results.json,
-        })
-        .from(results)
-        .leftJoin(users, eq(results.createdByUserId, users.id))
-        .where(filter)
-        .orderBy(desc(results.createdAt))
-        .limit(pageSize)
-        .offset(offset);
+          .orderBy(desc(results.createdAt))
+          .limit(pageSize)
+          .offset(offset)
+        : db
+          .select({
+            id: results.id,
+            videoId: results.videoId,
+            videoName: results.videoName,
+            customId: results.customId,
+            status: results.status,
+            containerType: results.containerType,
+            model: results.model,
+            regionName: results.regionName,
+            createdByUserId: results.createdByUserId,
+            createdByName: users.name,
+            createdByEmail: users.email,
+            createdAt: results.createdAt,
+            json: results.json,
+          })
+          .from(results)
+          .leftJoin(users, eq(results.createdByUserId, users.id))
+          .where(filter)
+          .orderBy(desc(results.createdAt))
+          .limit(pageSize)
+          .offset(offset)
+    ]);
+
+    const total = Number(totalRow?.[0]?.count ?? 0);
 
     return NextResponse.json({
       items,
