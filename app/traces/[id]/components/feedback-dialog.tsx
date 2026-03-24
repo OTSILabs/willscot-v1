@@ -17,7 +17,7 @@ import { z } from "zod";
 interface FeedbackDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    dialogMode: "correct" | "wrong" | null;
+    dialogMode: "correct" | "incorrect" | null;
     dialogStep: "input" | "confirm";
     onFinalSave: (data: FeedbackFormValues | undefined) => void;
     onCancel: () => void;
@@ -50,7 +50,7 @@ export function FeedbackDialog({
             form.reset();
         }}>
             <DialogContent>
-                {dialogMode === "wrong" && dialogStep === "input" && (
+                {dialogMode === "incorrect" && dialogStep === "input" && (
                     <Form {...form}>
                         <DialogHeader>
                             <DialogTitle>Enter Expected Result</DialogTitle>

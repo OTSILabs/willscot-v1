@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { resultAttributes, results } from "@/lib/db/schema";
 import { and, eq, sql, count, desc, gte, lte } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { fromZonedTime } from "date-fns-tz";
 
 export async function GET(req: Request) {
   try {
@@ -22,13 +23,15 @@ export async function GET(req: Request) {
     }
     
     // Optimized: Pre-calculate UTC date ranges in JS instead of calling DATE() in SQL.
-    // This allows PostgreSQL to use the B-tree index on results.createdAt.
+    // We use date-fns-tz to ensure the boundaries are correct for the user's timezone.
     if (startDate) {
-      const startDateTime = new Date(`${startDate}T00:00:00Z`);
+      // Start of the day in the user's timezone, converted to UTC
+      const startDateTime = fromZonedTime(`${startDate}T00:00:00`, timezone);
       filters.push(gte(results.createdAt, startDateTime));
     }
     if (endDate) {
-      const endDateTime = new Date(`${endDate}T23:59:59.999Z`);
+      // End of the day in the user's timezone, converted to UTC
+      const endDateTime = fromZonedTime(`${endDate}T23:59:59.999`, timezone);
       filters.push(lte(results.createdAt, endDateTime));
     }
 
@@ -98,7 +101,8 @@ export async function GET(req: Request) {
                     name: attr.attribute || attr.label || attr.name || "Unknown",
                     source: attr.source || "interior",
                     value: String(attr.value || ""),
-                    status: "unmarked" as const,
+                    status: ((attr.status === "correct" || attr.feedback === "Correct") ? "correct" : 
+                            (attr.status === "wrong" || attr.status === "incorrect" || attr.feedback === "Incorrect") ? "incorrect" : "unmarked") as "correct" | "incorrect" | "unmarked",
                     confidence: attr.confidence || null,
                     timestamp: attr.timestamp || null,
                   }))

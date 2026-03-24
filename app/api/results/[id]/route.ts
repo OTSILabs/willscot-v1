@@ -92,10 +92,11 @@ export async function GET(
       [key: string]: unknown;
     };
 
-    // Polyfill feedback from error if missing, to support frontend requirements
+    // Upgrade "wrong" to "incorrect" for backward compatibility and polyfill feedback from error
     if (processedJson && Array.isArray(processedJson.attributes)) {
       processedJson.attributes = processedJson.attributes.map((attr) => ({
         ...attr,
+        status: attr.status === "wrong" ? "incorrect" : attr.status,
         feedback: attr.feedback ?? attr.error ?? null,
       }));
     }

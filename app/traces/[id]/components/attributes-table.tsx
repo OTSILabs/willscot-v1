@@ -32,7 +32,7 @@ export function AttributesTable({
   onTimestampClick 
 }: AttributesTableProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogMode, setDialogMode] = useState<"correct" | "wrong" | null>(null);
+  const [dialogMode, setDialogMode] = useState<"correct" | "incorrect" | null>(null);
   const [dialogStep, setDialogStep] = useState<"input" | "confirm">("input");
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
@@ -48,7 +48,7 @@ export function AttributesTable({
   };
 
   const handleWrongClick = (index: number) => {
-    setDialogMode("wrong");
+    setDialogMode("incorrect");
     setSelectedIndex(index);
     setDialogStep("input");
     setDialogOpen(true);
@@ -69,11 +69,11 @@ export function AttributesTable({
       toast.success("Marked as correct");
     }
 
-    if (dialogMode === "wrong") {
+    if (dialogMode === "incorrect") {
       onAttributeUpdate(selectedIndex, {
         ...attribute,
         feedback: data?.feedback,
-        status: "wrong",
+        status: "incorrect",
       });
 
       toast.success("Feedback saved");
@@ -100,7 +100,7 @@ export function AttributesTable({
         <TableBody className="[&_td]:whitespace-normal">
           {attributes.map((attribute, index) => {
             const isLocked =
-              attribute.status === "correct" || attribute.status === "wrong";
+              attribute.status === "correct" || attribute.status === "incorrect";
 
             return (
               <TableRow key={index}>
@@ -131,7 +131,7 @@ export function AttributesTable({
                         </span>
                       ) : (
                         <div className="text-xs">
-                          <p className="text-red-600">Marked Wrong:</p>
+                          <p className="text-red-600">Marked Incorrect:</p>
                           <p className="line-clamp-2">{attribute.feedback}</p>
                         </div>
                       )
@@ -173,7 +173,7 @@ export function AttributesTable({
       <div className="md:hidden flex flex-col gap-4 pb-20">
         {attributes.map((attribute, index) => {
           const isLocked =
-            attribute.status === "correct" || attribute.status === "wrong";
+            attribute.status === "correct" || attribute.status === "incorrect";
 
           return (
             <div key={index} className="flex flex-col gap-2 rounded-xl bg-card p-4 shadow-sm text-card-foreground">
@@ -215,7 +215,7 @@ export function AttributesTable({
                     ) : (
                       <div className="text-sm text-right">
                         <p className="text-red-500 font-normal flex items-center justify-end gap-1.5">
-                          <XIcon className="w-4 h-4" /> Marked Wrong
+                          <XIcon className="w-4 h-4" /> Marked Incorrect
                         </p>
                         <p className="mt-1 text-sm text-muted-foreground font-normal italic">
                           &quot;{attribute.feedback}&quot;
