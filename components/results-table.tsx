@@ -159,11 +159,14 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
     if (search) params.set("search", search);
     else params.delete("search");
 
-    const query = params.toString() ? `?${params.toString()}` : "";
+    const currentQuery = searchParams.toString();
+    const newQuery = params.toString();
     
-    // Use replace to avoid polluting history on every keystroke/page change
-    // but ensure it's synced.
-    router.replace(`${pathname}${query}`, { scroll: false });
+    // Only update if the URL actually needs to change
+    if (currentQuery !== newQuery) {
+      const queryString = newQuery ? `?${newQuery}` : "";
+      router.replace(`${pathname}${queryString}`, { scroll: false });
+    }
   }, [page, search, pathname, router, searchParams]);
 
   const { data, isLoading } = useQuery({

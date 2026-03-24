@@ -186,6 +186,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
       const canvasStream = (canvas as any).captureStream ? (canvas as any).captureStream(30) : (canvas as any).mozCaptureStream ? (canvas as any).mozCaptureStream(30) : null;
       if (!canvasStream) return;
 
+      /* // --- AUDIO BLOCK START ---
       // B. Audio Proxy via AudioContext
       const AudioCtx = (window.AudioContext || (window as any).webkitAudioContext);
       if (!AudioCtx) {
@@ -206,7 +207,12 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
         ...destination.stream.getAudioTracks()
       ]);
       proxyStreamRef.current = combined;
-      console.log(`Proxy Stream Initialized at ${width}x${height}`);
+      // --- AUDIO BLOCK END --- */
+
+      // Video Only Proxy (Preserving Audio code for future use)
+      proxyStreamRef.current = new MediaStream([...canvasStream.getVideoTracks()]);
+      
+      console.log(`Proxy Stream Initialized (Video Only) at ${width}x${height}`);
     } else {
       console.log(`Proxy Canvas Resized to ${width}x${height}`);
     }
@@ -222,6 +228,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
       }
     }
 
+    /* // --- AUDIO ROUTING BLOCK START ---
     if (!audioContextRef.current || !audioDestinationRef.current) return;
 
     // 1. Update Audio Routing
@@ -241,6 +248,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
     } catch (e) {
       console.error("Failed to route audio to proxy:", e);
     }
+    // --- AUDIO ROUTING BLOCK END --- */
 
     // 2. Start/Restart Render Loop
     if (animationRef.current) cancelAnimationFrame(animationRef.current);
