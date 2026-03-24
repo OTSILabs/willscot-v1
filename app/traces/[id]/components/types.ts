@@ -8,7 +8,7 @@ export interface TraceAttribute {
   timestamp_seconds?: number | null;
   feedback?: string | null;
   error?: string | null;
-  status?: "correct" | "wrong";
+  status?: "correct" | "incorrect";
   source?: string | null;
 }
 

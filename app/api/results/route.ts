@@ -1,8 +1,9 @@
 import { getCurrentUserServerAction } from "@/app/actions/current-user";
 import { db } from "@/lib/db";
 import { results, users } from "@/lib/db/schema";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, sql, gte, lte } from "drizzle-orm";
 import { NextResponse } from "next/server";
+import { fromZonedTime } from "date-fns-tz";
 
 export async function GET(req: Request) {
   try {
@@ -14,6 +15,11 @@ export async function GET(req: Request) {
     const filter = currentUser.role === "power_user" ? undefined : eq(results.createdByUserId, currentUser.id);
 
     const { searchParams } = new URL(req.url);
+    const userIdParam = searchParams.get("userId"); // Extra filter from dashboard
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
+    const timezone = searchParams.get("timezone") || "UTC";
+
     const pageParam = Number(searchParams.get("page") || 1);
     const pageSizeParam = Number(searchParams.get("pageSize") || 10);
     const search = (searchParams.get("search") || "").trim();
@@ -24,6 +30,28 @@ export async function GET(req: Request) {
         : 10;
     const offset = (page - 1) * pageSize;
 
+    const filters = [];
+    
+    // Auth-based filter
+    if (currentUser.role !== "power_user") {
+      filters.push(eq(results.createdByUserId, currentUser.id));
+    } else if (userIdParam && userIdParam !== "all") {
+      // Allow power users to filter by selected userId from dashboard
+      filters.push(eq(results.createdByUserId, userIdParam));
+    }
+
+    // Date filtering (Timezone-aware UTC boundaries)
+    if (startDate) {
+      const startDateTime = fromZonedTime(`${startDate}T00:00:00`, timezone);
+      filters.push(gte(results.createdAt, startDateTime));
+    }
+    if (endDate) {
+      const endDateTime = fromZonedTime(`${endDate}T23:59:59.999`, timezone);
+      filters.push(lte(results.createdAt, endDateTime));
+    }
+
+    const baseFilter = filters.length > 0 ? and(...filters) : undefined;
+
     const [totalRow, items] = await Promise.all([
       search
         ? db
@@ -31,14 +59,14 @@ export async function GET(req: Request) {
           .from(results)
           .where(
             and(
-              filter,
+              baseFilter,
               sql`(${results.videoId} ILIKE ${`%${search}%`} OR ${results.videoName} ILIKE ${`%${search}%`} OR ${results.customId} ILIKE ${`%${search}%`})`
             )
           )
         : db
           .select({ count: sql<number>`count(*)` })
           .from(results)
-          .where(filter),
+          .where(baseFilter),
 
       search
         ? db
@@ -61,7 +89,7 @@ export async function GET(req: Request) {
           .leftJoin(users, eq(results.createdByUserId, users.id))
           .where(
             and(
-              filter,
+              baseFilter,
               sql`(${results.videoId} ILIKE ${`%${search}%`} OR ${results.videoName} ILIKE ${`%${search}%`} OR ${results.customId} ILIKE ${`%${search}%`})`
             )
           )
@@ -86,7 +114,7 @@ export async function GET(req: Request) {
           })
           .from(results)
           .leftJoin(users, eq(results.createdByUserId, users.id))
-          .where(filter)
+          .where(baseFilter)
           .orderBy(desc(results.createdAt))
           .limit(pageSize)
           .offset(offset)
