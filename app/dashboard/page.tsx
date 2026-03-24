@@ -102,7 +102,11 @@ interface DashboardStats {
 }
 
 export default function DashboardPage() {
-  return <DashboardContent />;
+  return (
+    <Suspense fallback={<DashboardLoading />}>
+      <DashboardContent />
+    </Suspense>
+  );
 }
 
 function DashboardContent() {
