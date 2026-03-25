@@ -47,7 +47,7 @@ export async function GET(req: Request) {
       return baseQuery;
     };
 
-    const [overallStats, sourceStats, attributeStats, latestResult] = await Promise.all([
+    const [overallStats, sourceStats, attributeStats] = await Promise.all([
       getStatsBase(
         db
           .select({
@@ -79,40 +79,17 @@ export async function GET(req: Request) {
             correct: sql`count(case when ${resultAttributes.status} = 'correct' then 1 end)`,
             incorrect: sql`count(case when ${resultAttributes.status} = 'incorrect' then 1 end)`,
             unmarked: sql`count(case when ${resultAttributes.status} = 'unmarked' then 1 end)`,
+            orderIndex: sql<number>`min(${resultAttributes.orderIndex})`,
           })
           .from(resultAttributes)
-      ).groupBy(resultAttributes.name),
-      
-      // Speed Optimization: Only fetch one trace for ordering
-      db
-        .select({ json: results.json })
-        .from(results)
-        .where(whereClause ? and(sql`${results.json} IS NOT NULL`, whereClause) : sql`${results.json} IS NOT NULL`)
-        .orderBy(desc(results.createdAt))
-        .limit(1)
+      )
+        .groupBy(resultAttributes.name)
+        .orderBy(sql`min(${resultAttributes.orderIndex})`),
     ]); 
 
     // REMOVED backgroundSync from here -> it's too expensive for a dashboard stats request.
     // Syncing is handled by the Trace Details page and Process Batch logic.
 
-
-    // 3. Determine dynamic display order from the 2 most recent results.
-    // This maintains a consistent UI layout without the overhead of parsing 50 rows...
-    type AttributeData = { attribute?: string; label?: string; name?: string; source?: string; value?: string | number; confidence?: number; timestamp?: number };
-    const dynamicOrder = new Map<string, number>();
-    let nextIndex = 0;
-
-    for (const res of latestResult) {
-      const json = res.json as { attributes?: AttributeData[] };
-      if (json && Array.isArray(json.attributes)) {
-        json.attributes.forEach((attr: AttributeData) => {
-          const name = attr.attribute || attr.label || attr.name || "Unknown";
-          if (!dynamicOrder.has(name)) {
-            dynamicOrder.set(name, nextIndex++);
-          }
-        });
-      }
-    }
 
     const formatPercent = (correct: unknown, total: unknown) => 
       Number(total) > 0 ? Math.round((Number(correct) / Number(total)) * 100) : 0;
@@ -149,7 +126,6 @@ export async function GET(req: Request) {
       attributes: attributeStats.map((attr: any) => {
         const reviewed = Number(attr.total) - Number(attr.unmarked);
         return {
-          originalName: attr.name,
           name: formatAttributeName(attr.name),
           accuracy: formatPercent(attr.correct, reviewed),
           correct: attr.correct,
@@ -157,11 +133,7 @@ export async function GET(req: Request) {
           unmarked: attr.unmarked,
           totalTraces: attr.total
         };
-      }).sort((a: any, b: any) => {
-        const orderA = dynamicOrder.has(a.originalName) ? dynamicOrder.get(a.originalName)! : 999;
-        const orderB = dynamicOrder.has(b.originalName) ? dynamicOrder.get(b.originalName)! : 999;
-        return orderA - orderB;
-      }).map(({ name, accuracy, correct, incorrect, unmarked, totalTraces }: any) => ({ name, accuracy, correct, incorrect, unmarked, totalTraces }))
+      })
     }, {
       headers: {
         'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=59'

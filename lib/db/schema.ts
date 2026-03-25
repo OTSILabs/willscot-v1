@@ -7,6 +7,7 @@ import {
   jsonb,
   doublePrecision,
   index,
+  integer,
 } from "drizzle-orm/pg-core";
 
 export const userRoleEnum = pgEnum("user_role", ["power_user", "normal_user"]);
@@ -56,6 +57,7 @@ export const resultAttributes = pgTable("result_attributes", {
   status: feedbackStatusEnum("status").default("unmarked").notNull(),
   confidence: doublePrecision("confidence"),
   timestamp: doublePrecision("timestamp"),
+  orderIndex: integer("order_index"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => {
   return {
