@@ -4,6 +4,7 @@ import { resultAttributes, results } from "@/lib/db/schema";
 import { and, eq, sql, count, desc, gte, lte } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { fromZonedTime } from "date-fns-tz";
+import { syncResultAttributes } from "@/lib/db/sync";
 
 export async function GET(req: Request) {
   try {
@@ -95,18 +96,7 @@ export async function GET(req: Request) {
             for (const res of completedWithoutAttrs) {
               const attributesFull = (res.json as { attributes?: any[] })?.attributes;
               if (Array.isArray(attributesFull) && attributesFull.length > 0) {
-                await tx.insert(resultAttributes).values(
-                  attributesFull.map((attr) => ({
-                    resultId: res.id,
-                    name: attr.attribute || attr.label || attr.name || "Unknown",
-                    source: attr.source || "interior",
-                    value: String(attr.value || ""),
-                    status: ((attr.status === "correct" || attr.feedback === "Correct") ? "correct" : 
-                            (attr.status === "wrong" || attr.status === "incorrect" || attr.feedback === "Incorrect") ? "incorrect" : "unmarked") as "correct" | "incorrect" | "unmarked",
-                    confidence: attr.confidence || null,
-                    timestamp: attr.timestamp || null,
-                  }))
-                ).onConflictDoNothing();
+                await syncResultAttributes(tx, res.id, attributesFull);
               }
             }
           });

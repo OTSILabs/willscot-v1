@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { getPresignedUrl } from "@/lib/s3";
 import { getCurrentUserServerAction } from "@/app/actions/current-user";
+import { syncResultAttributes } from "@/lib/db/sync";
 
 
 interface PresignedS3Result {
@@ -106,6 +107,20 @@ export async function GET(
       ? await getPresignedUrl(result.videoId)
       : null;
 
+    // Background self-healing for specialized table
+    if (result.status === "completed" && Array.isArray(processedJson.attributes)) {
+      const attributes = processedJson.attributes;
+      (async () => {
+        try {
+          await db.transaction(async (tx) => {
+            await syncResultAttributes(tx, id, attributes);
+          });
+        } catch (e) {
+          console.error("Self-healing sync failed for trace:", id, e);
+        }
+      })();
+    }
+
     return NextResponse.json({
       ...result,
       json: processedJson,
@@ -176,26 +191,8 @@ export async function PATCH(
         .set({ json: newJson })
         .where(eq(results.id, id));
 
-      // 2. Sync specialized attributes table (Delete then Re-insert for simplicity/consistency)
-      await tx
-        .delete(resultAttributes)
-        .where(eq(resultAttributes.resultId, id));
-
-      if (attributes.length > 0) {
-        type AttributeUpdate = { attribute?: string; label?: string; name?: string; source?: string; value?: string | number; status?: string; feedback?: string; isCorrect?: boolean; confidence?: number; timestamp?: number; };
-        await tx.insert(resultAttributes).values(
-          attributes.map((attr: AttributeUpdate) => ({
-            resultId: id,
-            name: attr.attribute || attr.label || attr.name || "Unknown",
-            source: attr.source || "interior",
-            value: String(attr.value || ""),
-            status: ((attr.status === "correct" || attr.feedback === "Correct" || attr.isCorrect === true) ? "correct" : 
-                    (attr.status === "wrong" || attr.status === "incorrect" || attr.feedback === "Incorrect" || attr.isCorrect === false) ? "incorrect" : "unmarked") as "correct" | "incorrect" | "unmarked",
-            confidence: attr.confidence || null,
-            timestamp: attr.timestamp || null,
-          }))
-        );
-      }
+      // 2. Sync specialized attributes table using centralized helper
+      await syncResultAttributes(tx, id, attributes);
     });
 
     return NextResponse.json({ success: true });
