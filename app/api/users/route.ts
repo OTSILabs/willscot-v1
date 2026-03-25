@@ -73,6 +73,10 @@ export async function GET(req: Request) {
         total,
         totalPages: Math.max(1, Math.ceil(total / pageSize)),
       },
+    }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=59'
+      }
     });
   } catch (error: unknown) {
     const errorMessage =

@@ -139,6 +139,7 @@ export function Header() {
                     <NavigationMenuLink asChild>
                       <Link
                         href={link.href}
+                        prefetch={false}
                         data-active={isActive}
                         className="group inline-flex h-9 w-max items-center justify-center rounded-md border border-transparent bg-transparent px-4 py-2 text-sm font-medium transition-colors hover:bg-accent/70 hover:text-accent-foreground focus:bg-accent/70 focus:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 data-[active=true]:border-border data-[active=true]:bg-accent data-[active=true]:text-foreground"
                       >
@@ -163,7 +164,7 @@ export function Header() {
               <DropdownMenuContent align="end" className="w-10">
                 {navLinks.map((link) => (
                   <DropdownMenuItem key={link.href} asChild>
-                    <Link href={link.href} className="w-full cursor-pointer">
+                    <Link href={link.href} prefetch={false} className="w-full cursor-pointer">
                       {link.label}
                     </Link>
                   </DropdownMenuItem>
