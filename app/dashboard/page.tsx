@@ -205,42 +205,49 @@ function DashboardContent() {
 
   return (
     <div className="mx-auto py-4 md:py-10 space-y-6 md:space-y-8 animate-in fade-in duration-700 relative">
-      {/* Back Button in the left corner */}
-      <div className="absolute top-2 left-0 md:-left-4">
-        <BackButton label="Traces" className="hover:bg-transparent" />
-      </div>
-
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-0">
-        <div className="space-y-1">
-          <PageTitle title="Accuracy Dashboard" />
-          <PageDescription description="Performance metrics and extraction precision across all processed traces." />
-        </div>
-        
-        <div className="flex items-center gap-3 self-end md:self-auto">
+      {/* Back Button and Header */}
+      <div className="flex flex-col gap-6">
+        <div className="flex items-center justify-between">
+          <BackButton label="Back to Traces" className="md:-ml-4" />
           {isFetching && (
-            <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground animate-pulse mr-2">
+            <div className="md:hidden flex items-center gap-2 text-[10px] font-medium text-muted-foreground animate-pulse mt-1">
               <div className="h-1.5 w-1.5 rounded-full bg-primary" />
               Refreshing...
             </div>
           )}
-          <div className="flex items-center gap-3">
-            <Badge variant="outline" className="bg-emerald-500/5 text-emerald-600 border-emerald-200 animate-pulse px-3 py-1">
-              <span className="relative flex h-2 w-2 mr-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              Live Updates
-            </Badge>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => refetch()} 
-              className="w-fit shadow-sm"
-            >
-              <RotateCcw className="w-4 h-4 mr-2" />
-              Refresh
-            </Button>
+        </div>
+
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-0">
+          <div className="space-y-1">
+            <PageTitle title="Accuracy Dashboard" />
+            <PageDescription description="Performance metrics and extraction precision across all processed traces." />
+          </div>
+          
+          <div className="flex items-center gap-3 self-end md:self-auto">
+            {isFetching && (
+              <div className="hidden md:flex items-center gap-2 text-[10px] font-medium text-muted-foreground animate-pulse mr-2">
+                <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                Refreshing...
+              </div>
+            )}
+            <div className="flex items-center gap-3">
+              <Badge variant="outline" className="bg-emerald-500/5 text-emerald-600 border-emerald-200 animate-pulse px-3 py-1 hidden sm:flex">
+                <span className="relative flex h-2 w-2 mr-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                Live Updates
+              </Badge>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => refetch()} 
+                className="w-fit shadow-sm h-9 md:h-8"
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Refresh
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -248,12 +255,12 @@ function DashboardContent() {
       <Separator className="opacity-50" />
 
       {/* Filter Bar */}
-      <div className="flex flex-col md:flex-row items-center justify-end gap-3 mb-6 mt-4">
-        <div className="flex flex-col md:flex-row items-center gap-2 bg-white/50 border border-dashed rounded-lg p-1.5 shadow-sm">
-          <div className="flex items-center gap-2 px-2 md:border-r border-border/50 w-full md:w-auto">
-            <ShieldCheck className="w-3.5 h-3.5 text-muted-foreground" />
+      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-end gap-3 mb-6 mt-4 p-4 md:p-0 bg-muted/30 md:bg-transparent rounded-xl border border-dashed md:border-none">
+        <div className="flex flex-col md:flex-row items-start md:items-center gap-2 bg-white/80 md:bg-white/50 border border-dashed md:border rounded-lg p-1.5 shadow-sm w-full md:w-auto">
+          <div className="flex items-center gap-2 px-0 md:px-2 md:border-r border-border/50 w-full md:w-auto">
+            <ShieldCheck className="w-3.5 h-3.5 text-muted-foreground ml-2 md:ml-0" />
             <Select value={userId} onValueChange={setUserId}>
-              <SelectTrigger id="user-filter" className="bg-transparent border-0 h-8 text-xs w-full md:w-[130px] shadow-none focus:ring-0">
+              <SelectTrigger id="user-filter" className="bg-transparent border-0 h-9 md:h-8 text-xs w-full md:w-[130px] shadow-none focus:ring-0">
                 <SelectValue placeholder="All Users" />
               </SelectTrigger>
               <SelectContent>
@@ -266,14 +273,13 @@ function DashboardContent() {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-center gap-2 px-2 w-full md:w-auto md:border-l border-border/50">
-            <span className="text-xs text-muted-foreground font-medium uppercase tracking-widest hidden md:inline ml-1">Date</span>
+          <div className="flex items-center gap-2 px-0 md:px-2 w-full md:w-auto md:border-l border-border/50">
             <div className="flex items-center gap-1 flex-1">
               <DatePickerWithRange date={dateRange} setDate={setDateRange} />
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
+        <div className="flex items-center justify-end gap-2 shrink-0 w-full md:w-auto mt-2 md:mt-0">
           {(userId !== "all" || startDate || endDate) && (
             <Button 
               variant="ghost" 
@@ -282,21 +288,12 @@ function DashboardContent() {
                 setUserId("all");
                 setDateRange(undefined);
               }}
-              className="h-8 px-3 text-xs text-muted-foreground hover:text-foreground"
+              className="h-9 md:h-8 px-3 text-xs text-muted-foreground hover:text-foreground"
             >
               <X className="w-3 h-3 mr-1" />
-              Clear
+              Clear Filters
             </Button>
           )}
-          <Button 
-            variant="secondary"
-            size="sm"
-            onClick={() => refetch()}
-            className="h-8 px-4 text-xs shadow-sm border border-secondary"
-          >
-            <Filter className="w-3 h-3 mr-1.5" />
-            Apply
-          </Button>
         </div>
       </div>
 
@@ -324,8 +321,8 @@ function DashboardContent() {
 
       {/* View Toggle Section */}
       <Tabs defaultValue="table" className="w-full">
-        <div className="flex items-center justify-between mb-4">
-          <TabsList className="grid grid-cols-2 w-[300px]">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+          <TabsList className="grid grid-cols-2 w-full md:w-[300px]">
             <TabsTrigger value="table">
               <TableProperties className="w-4 h-4 mr-2" />
               Table View
@@ -335,7 +332,7 @@ function DashboardContent() {
               Chart View
             </TabsTrigger>
           </TabsList>
-          <div className="hidden md:block text-xs text-muted-foreground font-medium bg-muted/50 px-3 py-1.5 rounded-full">
+          <div className="flex items-center justify-center md:block text-[11px] md:text-xs text-muted-foreground font-medium bg-muted/50 px-3 py-2 md:py-1.5 rounded-full md:rounded-lg">
             {attributes.length} Monitoring Categories
           </div>
         </div>
@@ -346,7 +343,8 @@ function DashboardContent() {
               <CardTitle className="text-lg font-semibold">Detailed Accuracy Breakdown</CardTitle>
               <CardDescription>Granular review progress and counts for all attributes</CardDescription>
             </CardHeader>
-            <div className="overflow-x-auto">
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent bg-muted/5">
@@ -389,6 +387,44 @@ function DashboardContent() {
                 </TableBody>
               </Table>
             </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden flex flex-col divide-y">
+              {attributes.map((attr) => (
+                <div key={attr.name} className="p-4 bg-white/40 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <span className="text-sm font-semibold text-foreground/90 max-w-[70%]">{attr.name}</span>
+                    <Badge 
+                      variant={(attr.accuracy > 80 ? "success" : attr.accuracy > 50 ? "warning" : "destructive") as "default" | "secondary" | "destructive" | "outline" | "success" | "warning"}
+                      className="font-bold"
+                    >
+                      {attr.accuracy}%
+                    </Badge>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 gap-3 pt-1">
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-[10px] uppercase font-medium text-muted-foreground">Total Traces</span>
+                      <span className="font-bold text-sm">{attr.totalTraces}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4 pt-2 border-t border-dashed">
+                    <div className="flex items-center gap-1.5 font-bold text-emerald-600 text-xs">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      {attr.correct} Correct
+                    </div>
+                    <div className="flex items-center gap-1.5 font-bold text-red-600 text-xs">
+                      <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                      {attr.incorrect} Incorrect
+                    </div>
+                    <div className="flex items-center gap-1.5 font-bold text-muted-foreground text-xs ml-auto">
+                      {attr.unmarked} ?
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </Card>
         </TabsContent>
 
@@ -410,8 +446,8 @@ function DashboardContent() {
                     <YAxis 
                       dataKey="name" 
                       type="category" 
-                      width={160} 
-                      fontSize={11} 
+                      width={typeof window !== 'undefined' && window.innerWidth < 768 ? 100 : 160} 
+                      fontSize={typeof window !== 'undefined' && window.innerWidth < 768 ? 9 : 11} 
                       axisLine={false}
                       tickLine={false}
                       className="font-medium text-foreground/70"
