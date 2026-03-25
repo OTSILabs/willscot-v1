@@ -97,7 +97,7 @@ export async function GET(req: Request) {
 
 
     // 3. Determine dynamic display order from the 2 most recent results.
-    // This maintains a consistent UI layout without the overhead of parsing 50 rows..
+    // This maintains a consistent UI layout without the overhead of parsing 50 rows...
     type AttributeData = { attribute?: string; label?: string; name?: string; source?: string; value?: string | number; confidence?: number; timestamp?: number };
     const dynamicOrder = new Map<string, number>();
     let nextIndex = 0;
