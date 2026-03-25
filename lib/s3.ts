@@ -2,6 +2,10 @@ import {
   S3Client,
   GetObjectCommand,
   PutObjectCommand,
+  CreateMultipartUploadCommand,
+  UploadPartCommand,
+  CompleteMultipartUploadCommand,
+  AbortMultipartUploadCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -115,6 +119,126 @@ export async function uploadFileToS3Buffer(
     return `s3://${bucket}/${key}`;
   } catch (error) {
     console.error("Error uploading to S3:", error);
+    throw error;
+  }
+}
+
+/**
+ * Initiates a multipart upload
+ */
+export async function initiateMultipartUpload(
+  bucket: string,
+  key: string,
+  contentType: string,
+  region?: string,
+) {
+  try {
+    const s3Client = getS3Client(region);
+    const command = new CreateMultipartUploadCommand({
+      Bucket: bucket,
+      Key: key,
+      ContentType: contentType,
+    });
+
+    const response = await s3Client.send(command);
+    return {
+      uploadId: response.UploadId,
+      key: response.Key,
+      bucket: response.Bucket,
+    };
+  } catch (error) {
+    console.error("Error initiating multipart upload:", error);
+    throw error;
+  }
+}
+
+/**
+ * Generates presigned URLs for a set of parts in a multipart upload
+ */
+export async function getPresignedPartUrls(
+  bucket: string,
+  key: string,
+  uploadId: string,
+  partsCount: number,
+  region?: string,
+) {
+  try {
+    const s3Client = getS3Client(region);
+    const presignedUrls: { partNumber: number; url: string }[] = [];
+
+    for (let i = 1; i <= partsCount; i++) {
+      const command = new UploadPartCommand({
+        Bucket: bucket,
+        Key: key,
+        UploadId: uploadId,
+        PartNumber: i,
+      });
+
+      const url = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+      presignedUrls.push({ partNumber: i, url });
+    }
+
+    return presignedUrls;
+  } catch (error) {
+    console.error("Error generating presigned part URLs:", error);
+    throw error;
+  }
+}
+
+/**
+ * Completes a multipart upload
+ */
+export async function completeMultipartUpload(
+  bucket: string,
+  key: string,
+  uploadId: string,
+  parts: { ETag: string; PartNumber: number }[],
+  region?: string,
+) {
+  try {
+    const s3Client = getS3Client(region);
+    const command = new CompleteMultipartUploadCommand({
+      Bucket: bucket,
+      Key: key,
+      UploadId: uploadId,
+      MultipartUpload: {
+        Parts: parts.sort((a, b) => a.PartNumber - b.PartNumber),
+      },
+    });
+
+    const response = await s3Client.send(command);
+    return {
+      location: response.Location,
+      bucket: response.Bucket,
+      key: response.Key,
+      s3Uri: `s3://${response.Bucket}/${response.Key}`,
+    };
+  } catch (error) {
+    console.error("Error completing multipart upload:", error);
+    throw error;
+  }
+}
+
+/**
+ * Aborts a multipart upload
+ */
+export async function abortMultipartUpload(
+  bucket: string,
+  key: string,
+  uploadId: string,
+  region?: string,
+) {
+  try {
+    const s3Client = getS3Client(region);
+    const command = new AbortMultipartUploadCommand({
+      Bucket: bucket,
+      Key: key,
+      UploadId: uploadId,
+    });
+
+    await s3Client.send(command);
+  } catch (error) {
+    console.error("Error aborting multipart upload:", error);
     throw error;
   }
 }

@@ -154,6 +154,102 @@ export function FileProcessingFormContent() {
       closeButton: false
     });
 
+    // Helper for Chunked Multipart Upload
+    const uploadMultipart = async (
+      file: File, 
+      bucket: string, 
+      key: string, 
+      region: string, 
+      contentType: string,
+      onProgress: (percent: number) => void
+    ) => {
+      const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB minimum for S3
+      const totalParts = Math.ceil(file.size / CHUNK_SIZE);
+      const CONCURRENCY = 6; // Upload 6 parts at a time
+      
+      // 1. INITIATE
+      let uploadId = "";
+      try {
+        const initRes = await axios.post("/api/s3/multipart", {
+          action: "INITIATE",
+          bucket,
+          key,
+          contentType,
+          region,
+        });
+        uploadId = initRes.data.uploadId;
+
+        const parts: { ETag: string; PartNumber: number }[] = [];
+        const partProgress = new Map<number, number>();
+
+        const updateProgress = () => {
+          let totalLoaded = 0;
+          partProgress.forEach((loaded) => { totalLoaded += loaded; });
+          const percent = Math.round((totalLoaded * 100) / file.size);
+          onProgress(percent);
+        };
+
+        // 2. UPLOAD PARTS (in batches for parallelism)
+        for (let i = 0; i < totalParts; i += CONCURRENCY) {
+          const currentBatchSize = Math.min(CONCURRENCY, totalParts - i);
+          
+          const presignRes = await axios.post("/api/s3/multipart", {
+            action: "PRESIGN_PARTS",
+            bucket,
+            key,
+            uploadId,
+            partsCount: totalParts,
+            region,
+          });
+          
+          const urls = presignRes.data.urls.slice(i, i + currentBatchSize);
+
+          const batchPromises = urls.map(async (partInfo: { url: string; partNumber: number }) => {
+            const start = (partInfo.partNumber - 1) * CHUNK_SIZE;
+            const end = Math.min(start + CHUNK_SIZE, file.size);
+            const chunk = file.slice(start, end);
+
+            const res = await axios.put(partInfo.url, chunk, {
+              onUploadProgress: (p) => {
+                partProgress.set(partInfo.partNumber, p.loaded);
+                updateProgress();
+              }
+            });
+
+            const etag = res.headers.etag?.replace(/"/g, "") || "";
+            return { ETag: etag, PartNumber: partInfo.partNumber };
+          });
+
+          const batchResults = await Promise.all(batchPromises);
+          parts.push(...batchResults);
+        }
+
+        // 3. COMPLETE
+        const completeRes = await axios.post("/api/s3/multipart", {
+          action: "COMPLETE",
+          bucket,
+          key,
+          uploadId,
+          parts,
+          region,
+        });
+
+        return completeRes.data;
+      } catch (error) {
+        if (uploadId) {
+          console.error("Multipart upload failed, aborting...", error);
+          await axios.post("/api/s3/multipart", {
+            action: "ABORT",
+            bucket,
+            key,
+            uploadId,
+            region,
+          }).catch(console.error);
+        }
+        throw error;
+      }
+    };
+
     try {
       const uploadPromises = filesToProcess.map(async (item) => {
         const uploadToastId = toast.loading(`Uploading ${item.file.name}...`, {
@@ -162,39 +258,59 @@ export function FileProcessingFormContent() {
         });
 
         try {
-          const presignResponse = await axios.post("/api/s3/presign-upload", {
-            fileName: item.file.name,
-            containerType: item.containerType,
-            region: item.region,
-            contentType: item.file.type,
-          });
+          const region = item.region;
+          let s3Uri = "";
 
-          const { presignedUrl, s3Uri } = presignResponse.data;
-
-          await axios.put(presignedUrl, item.file, {
-            headers: {
-              "Content-Type": item.file.type,
-            },
-            onUploadProgress: (progressEvent) => {
-              if (progressEvent.total) {
-                const percentCompleted = Math.round(
-                  (progressEvent.loaded * 100) / progressEvent.total,
-                );
+          // OPTIMIZATION: Use Multipart for files > 10MB, otherwise single PUT
+          if (item.file.size > 10 * 1024 * 1024) {
+            const multipartRes = await uploadMultipart(
+              item.file,
+              "ws-s3-unit-attribute-capture-nova",
+              `${item.containerType.toUpperCase()}/${Date.now()}_${item.file.name.replace(/\s+/g, "_")}`,
+              region,
+              item.file.type,
+              (percent) => {
                 toast.loading(
                   <div className="flex flex-col gap-2">
-                    <div className="text-sm text-muted-foreground">Uploading</div>
+                    <div className="text-sm text-muted-foreground">Uploading (Accelerated Chunks)</div>
                     <div className="truncate max-w-md">{item.file.name}</div>
-                    <div className="text-sm text-muted-foreground">{percentCompleted}%</div>
+                    <div className="text-sm text-muted-foreground">{percent}%</div>
                   </div>,
                   { id: uploadToastId },
                 );
-
-                if (percentCompleted === 100) {
-                  toast.dismiss(uploadToastId);
-                }
               }
-            },
-          });
+            );
+            s3Uri = multipartRes.s3Uri;
+            toast.dismiss(uploadToastId);
+          } else {
+            const presignResponse = await axios.post("/api/s3/presign-upload", {
+              fileName: item.file.name,
+              containerType: item.containerType,
+              region: item.region,
+              contentType: item.file.type,
+            });
+
+            const { presignedUrl, s3Uri: generatedUri } = presignResponse.data;
+            s3Uri = generatedUri;
+
+            await axios.put(presignedUrl, item.file, {
+              headers: { "Content-Type": item.file.type },
+              onUploadProgress: (progressEvent) => {
+                if (progressEvent.total) {
+                  const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                  toast.loading(
+                    <div className="flex flex-col gap-2">
+                      <div className="text-sm text-muted-foreground">Uploading</div>
+                      <div className="truncate max-w-md">{item.file.name}</div>
+                      <div className="text-sm text-muted-foreground">{percentCompleted}%</div>
+                    </div>,
+                    { id: uploadToastId },
+                  );
+                  if (percentCompleted === 100) toast.dismiss(uploadToastId);
+                }
+              },
+            });
+          }
 
           return {
             s3Uri,
