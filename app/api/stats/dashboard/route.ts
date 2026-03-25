@@ -38,83 +38,63 @@ export async function GET(req: Request) {
 
     const whereClause = filters.length > 0 ? and(...filters) : undefined;
 
-    // --- Optimized: Fetch all stats AND the dynamic order template in parallel ---
+    // --- Optimized: Conditional Joins and Parallel Execution ---
+    // If no filters are active, we can skip joining with the 'results' table entirely.
+    const getStatsBase = (baseQuery: any) => {
+      if (whereClause) {
+        return baseQuery.innerJoin(results, eq(resultAttributes.resultId, results.id)).where(whereClause);
+      }
+      return baseQuery;
+    };
+
     const [overallStats, sourceStats, attributeStats, latestResult] = await Promise.all([
-      db
-        .select({
-          total: count(resultAttributes.id),
-          correct: sql`count(case when ${resultAttributes.status} = 'correct' then 1 end)`,
-          incorrect: sql`count(case when ${resultAttributes.status} = 'incorrect' then 1 end)`,
-          unmarked: sql`count(case when ${resultAttributes.status} = 'unmarked' then 1 end)`,
-        })
-        .from(resultAttributes)
-        .innerJoin(results, eq(resultAttributes.resultId, results.id))
-        .where(whereClause),
+      getStatsBase(
+        db
+          .select({
+            total: count(resultAttributes.id),
+            correct: sql`count(case when ${resultAttributes.status} = 'correct' then 1 end)`,
+            incorrect: sql`count(case when ${resultAttributes.status} = 'incorrect' then 1 end)`,
+            unmarked: sql`count(case when ${resultAttributes.status} = 'unmarked' then 1 end)`,
+          })
+          .from(resultAttributes)
+      ),
 
-      db
-        .select({
-          source: resultAttributes.source,
-          total: count(resultAttributes.id),
-          correct: sql`count(case when ${resultAttributes.status} = 'correct' then 1 end)`,
-          incorrect: sql`count(case when ${resultAttributes.status} = 'incorrect' then 1 end)`,
-          unmarked: sql`count(case when ${resultAttributes.status} = 'unmarked' then 1 end)`,
-        })
-        .from(resultAttributes)
-        .innerJoin(results, eq(resultAttributes.resultId, results.id))
-        .where(whereClause)
-        .groupBy(resultAttributes.source),
+      getStatsBase(
+        db
+          .select({
+            source: resultAttributes.source,
+            total: count(resultAttributes.id),
+            correct: sql`count(case when ${resultAttributes.status} = 'correct' then 1 end)`,
+            incorrect: sql`count(case when ${resultAttributes.status} = 'incorrect' then 1 end)`,
+            unmarked: sql`count(case when ${resultAttributes.status} = 'unmarked' then 1 end)`,
+          })
+          .from(resultAttributes)
+      ).groupBy(resultAttributes.source),
 
-      db
-        .select({
-          name: resultAttributes.name,
-          total: count(resultAttributes.id),
-          correct: sql`count(case when ${resultAttributes.status} = 'correct' then 1 end)`,
-          incorrect: sql`count(case when ${resultAttributes.status} = 'incorrect' then 1 end)`,
-          unmarked: sql`count(case when ${resultAttributes.status} = 'unmarked' then 1 end)`,
-        })
-        .from(resultAttributes)
-        .innerJoin(results, eq(resultAttributes.resultId, results.id))
-        .where(whereClause)
-        .groupBy(resultAttributes.name),
+      getStatsBase(
+        db
+          .select({
+            name: resultAttributes.name,
+            total: count(resultAttributes.id),
+            correct: sql`count(case when ${resultAttributes.status} = 'correct' then 1 end)`,
+            incorrect: sql`count(case when ${resultAttributes.status} = 'incorrect' then 1 end)`,
+            unmarked: sql`count(case when ${resultAttributes.status} = 'unmarked' then 1 end)`,
+          })
+          .from(resultAttributes)
+      ).groupBy(resultAttributes.name),
       
-      // Speed Optimization: Only fetch the 2 most recent traces to determine display order.
-      // One trace is usually sufficient to identify all possible attributes.
+      // Speed Optimization: Only fetch one trace for ordering
       db
         .select({ json: results.json })
         .from(results)
-        .where(and(sql`${results.json} IS NOT NULL`, whereClause))
+        .where(whereClause ? and(sql`${results.json} IS NOT NULL`, whereClause) : sql`${results.json} IS NOT NULL`)
         .orderBy(desc(results.createdAt))
-        .limit(2)
+        .limit(1)
     ]); 
 
-    // Async Self-Healing Sync: Move this to background
-    async function backgroundSync() {
-      try {
-        const completedWithoutAttrs = await db
-          .select({ id: results.id, json: results.json })
-          .from(results)
-          .leftJoin(resultAttributes, eq(results.id, resultAttributes.resultId))
-          .where(and(
-            eq(results.status, 'completed'),
-            sql`${resultAttributes.id} IS NULL`,
-          ))
-          .limit(10);
+    // REMOVED backgroundSync from here -> it's too expensive for a dashboard stats request.
+    // Syncing is handled by the Trace Details page and Process Batch logic.
 
-        if (completedWithoutAttrs.length > 0) {
-          await db.transaction(async (tx) => {
-            for (const res of completedWithoutAttrs) {
-              const attributesFull = (res.json as { attributes?: any[] })?.attributes;
-              if (Array.isArray(attributesFull) && attributesFull.length > 0) {
-                await syncResultAttributes(tx, res.id, attributesFull);
-              }
-            }
-          });
-        }
-      } catch (e) {
-        console.error("Background sync failed:", e);
-      }
-    }
-    backgroundSync(); // Non-blocking
 
     // 3. Determine dynamic display order from the 2 most recent results.
     // This maintains a consistent UI layout without the overhead of parsing 50 rows.
@@ -141,8 +121,8 @@ export async function GET(req: Request) {
       return name.replace(/([a-z])([A-Z])/g, '$1 $2').trim();
     };
 
-    const interior = sourceStats.find(s => s.source === 'interior');
-    const exterior = sourceStats.find(s => s.source === 'exterior');
+    const interior = sourceStats.find((s: any) => s.source === 'interior');
+    const exterior = sourceStats.find((s: any) => s.source === 'exterior');
 
     return NextResponse.json({
       overview: {
@@ -166,7 +146,7 @@ export async function GET(req: Request) {
           unmarked: exterior?.unmarked || 0,
         },
       },
-      attributes: attributeStats.map(attr => {
+      attributes: attributeStats.map((attr: any) => {
         const reviewed = Number(attr.total) - Number(attr.unmarked);
         return {
           originalName: attr.name,
@@ -177,11 +157,11 @@ export async function GET(req: Request) {
           unmarked: attr.unmarked,
           totalTraces: attr.total
         };
-      }).sort((a, b) => {
+      }).sort((a: any, b: any) => {
         const orderA = dynamicOrder.has(a.originalName) ? dynamicOrder.get(a.originalName)! : 999;
         const orderB = dynamicOrder.has(b.originalName) ? dynamicOrder.get(b.originalName)! : 999;
         return orderA - orderB;
-      }).map(({ name, accuracy, correct, incorrect, unmarked, totalTraces }) => ({ name, accuracy, correct, incorrect, unmarked, totalTraces }))
+      }).map(({ name, accuracy, correct, incorrect, unmarked, totalTraces }: any) => ({ name, accuracy, correct, incorrect, unmarked, totalTraces }))
     });
 
   } catch (error) {
