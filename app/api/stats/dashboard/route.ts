@@ -38,8 +38,8 @@ export async function GET(req: Request) {
 
     const whereClause = filters.length > 0 ? and(...filters) : undefined;
 
-    // --- Optimized: Fetch all stats in parallel ---
-    const [overallStats, sourceStats, attributeStats] = await Promise.all([
+    // --- Optimized: Fetch all stats AND the dynamic order template in parallel ---
+    const [overallStats, sourceStats, attributeStats, latestResult] = await Promise.all([
       db
         .select({
           total: count(resultAttributes.id),
@@ -75,7 +75,16 @@ export async function GET(req: Request) {
         .from(resultAttributes)
         .innerJoin(results, eq(resultAttributes.resultId, results.id))
         .where(whereClause)
-        .groupBy(resultAttributes.name)
+        .groupBy(resultAttributes.name),
+      
+      // Speed Optimization: Only fetch the 2 most recent traces to determine display order.
+      // One trace is usually sufficient to identify all possible attributes.
+      db
+        .select({ json: results.json })
+        .from(results)
+        .where(and(sql`${results.json} IS NOT NULL`, whereClause))
+        .orderBy(desc(results.createdAt))
+        .limit(2)
     ]); 
 
     // Async Self-Healing Sync: Move this to background
@@ -107,34 +116,12 @@ export async function GET(req: Request) {
     }
     backgroundSync(); // Non-blocking
 
-    // 3. Determine dynamic display order from the most recent result tracking
-    const latestResult = await db
-      .select({ json: results.json })
-      .from(results)
-      .where(and(sql`${results.json} IS NOT NULL`, whereClause))
-      .orderBy(desc(results.createdAt))
-      .limit(50);
-
+    // 3. Determine dynamic display order from the 2 most recent results.
+    // This maintains a consistent UI layout without the overhead of parsing 50 rows.
     type AttributeData = { attribute?: string; label?: string; name?: string; source?: string; value?: string | number; confidence?: number; timestamp?: number };
-    let bestTrace: AttributeData[] = [];
-    for (const res of latestResult) {
-      const json = res.json as { attributes?: AttributeData[] };
-      if (json && Array.isArray(json.attributes)) {
-        if (json.attributes.length > bestTrace.length) {
-          bestTrace = json.attributes;
-        }
-      }
-    }
-
     const dynamicOrder = new Map<string, number>();
-    bestTrace.forEach((attr: AttributeData, index: number) => {
-      const name = attr.attribute || attr.label || attr.name || "Unknown";
-      if (!dynamicOrder.has(name)) {
-        dynamicOrder.set(name, index);
-      }
-    });
+    let nextIndex = 0;
 
-    let nextIndex = dynamicOrder.size;
     for (const res of latestResult) {
       const json = res.json as { attributes?: AttributeData[] };
       if (json && Array.isArray(json.attributes)) {
