@@ -162,6 +162,10 @@ export async function GET(req: Request) {
         const orderB = dynamicOrder.has(b.originalName) ? dynamicOrder.get(b.originalName)! : 999;
         return orderA - orderB;
       }).map(({ name, accuracy, correct, incorrect, unmarked, totalTraces }: any) => ({ name, accuracy, correct, incorrect, unmarked, totalTraces }))
+    }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=59'
+      }
     });
 
   } catch (error) {
