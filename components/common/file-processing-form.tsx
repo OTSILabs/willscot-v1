@@ -261,8 +261,8 @@ export function FileProcessingFormContent() {
           const region = item.region;
           let s3Uri = "";
 
-          // OPTIMIZATION: Use Multipart for files > 10MB, otherwise single PUT
-          if (item.file.size > 10 * 1024 * 1024) {
+          // OPTIMIZATION: Use Multipart for files > 5MB (S3 minimum), otherwise single PUT
+          if (item.file.size > 5 * 1024 * 1024) {
             const multipartRes = await uploadMultipart(
               item.file,
               "ws-s3-unit-attribute-capture-nova",
