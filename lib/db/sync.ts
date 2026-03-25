@@ -9,7 +9,7 @@ export async function syncResultAttributes(tx: any, resultId: string, attributes
   // 2. Insert the fresh attributes from the JSON
   if (attributes && attributes.length > 0) {
     await tx.insert(resultAttributes).values(
-      attributes.map((attr: any) => ({
+      attributes.map((attr: any, index: number) => ({
         resultId,
         name: attr.attribute || attr.label || attr.name || "Unknown",
         source: attr.source || "interior",
@@ -18,6 +18,7 @@ export async function syncResultAttributes(tx: any, resultId: string, attributes
                 (attr.status === "wrong" || attr.status === "incorrect" || attr.feedback === "Incorrect") ? "incorrect" : "unmarked"),
         confidence: attr.confidence || null,
         timestamp: attr.timestamp || null,
+        orderIndex: index,
       }))
     );
   }
