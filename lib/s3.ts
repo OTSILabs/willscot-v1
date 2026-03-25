@@ -23,6 +23,7 @@ function getS3Client(region?: string) {
   const client = new S3Client({
     region: resolvedRegion,
     credentials: sharedCredentials,
+    useAccelerateEndpoint: process.env.ENABLE_S3_ACCELERATION === "true",
   });
 
   s3ClientsByRegion.set(resolvedRegion, client);
