@@ -29,37 +29,41 @@ export async function GET(req: Request) {
       ilike(users.email, `%${search}%`),
     );
 
-    const [totalRow] = search
-      ? await db.select({ count: sql<number>`count(*)` }).from(users).where(filter)
-      : await db.select({ count: sql<number>`count(*)` }).from(users);
-    const total = Number(totalRow?.count ?? 0);
+    // --- Optimized: Parallel fetch for Total and Items ---
+    const [[totalRow], items] = await Promise.all([
+      search
+        ? db.select({ count: sql<number>`count(*)` }).from(users).where(filter)
+        : db.select({ count: sql<number>`count(*)` }).from(users),
+      
+      search
+        ? db
+            .select({
+              id: users.id,
+              name: users.name,
+              email: users.email,
+              role: users.role,
+              createdAt: users.createdAt,
+            })
+            .from(users)
+            .where(filter)
+            .orderBy(desc(users.createdAt))
+            .limit(pageSize)
+            .offset(offset)
+        : db
+            .select({
+              id: users.id,
+              name: users.name,
+              email: users.email,
+              role: users.role,
+              createdAt: users.createdAt,
+            })
+            .from(users)
+            .orderBy(desc(users.createdAt))
+            .limit(pageSize)
+            .offset(offset)
+    ]);
 
-    const items = search
-      ? await db
-          .select({
-            id: users.id,
-            name: users.name,
-            email: users.email,
-            role: users.role,
-            createdAt: users.createdAt,
-          })
-          .from(users)
-          .where(filter)
-          .orderBy(desc(users.createdAt))
-          .limit(pageSize)
-          .offset(offset)
-      : await db
-          .select({
-            id: users.id,
-            name: users.name,
-            email: users.email,
-            role: users.role,
-            createdAt: users.createdAt,
-          })
-          .from(users)
-          .orderBy(desc(users.createdAt))
-          .limit(pageSize)
-          .offset(offset);
+    const total = Number(totalRow?.count ?? 0);
 
     return NextResponse.json({
       items,
