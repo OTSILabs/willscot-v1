@@ -210,7 +210,7 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 md:px-0 py-4 md:py-10 space-y-4 md:space-y-6 pb-16 md:pb-10">
+    <div className="container mx-auto px-4 xl:px-0 py-4 xl:py-10 space-y-4 xl:space-y-6 pb-16 xl:pb-10">
       <div className="flex flex-col space-y-4">
         {/* Universal Back Button */}
         <div className="flex items-center gap-2">
@@ -218,8 +218,8 @@ export default function UsersPage() {
         </div>
 
         {/* Unified Header Layout matching Traces */}
-        <div className="flex items-start justify-between gap-3 border-b pb-3 md:border-none md:pb-0">
-          <div className="max-w-[calc(100%-100px)] md:max-w-none space-y-1">
+        <div className="flex items-start justify-between gap-3 border-b pb-3 xl:border-none xl:pb-0">
+          <div className="max-w-[calc(100%-100px)] xl:max-w-none space-y-1">
             <PageTitle title="Users" />
             <PageDescription description="Add, edit and delete application users." />
           </div>
@@ -309,7 +309,7 @@ export default function UsersPage() {
         <p className="text-sm text-destructive">{errorMessage}</p>
       ) : null}
 
-      <div className="rounded-md md:border border-none">
+      <div className="rounded-md xl:border border-none">
         <div className="border-b px-0 py-3 flex items-center">
           <Input
             value={search}
@@ -318,7 +318,7 @@ export default function UsersPage() {
               setPage(1);
             }}
             placeholder="Search by name or email..."
-            className="max-w-xs md:max-w-sm"
+            className="max-w-xs xl:max-w-sm"
           />
           {isUsersFetching && (
             <div className="flex items-center gap-2 ml-4 text-[10px] font-medium text-muted-foreground animate-pulse">
@@ -327,7 +327,7 @@ export default function UsersPage() {
             </div>
           )}
         </div>
-        <div className="hidden md:block">
+        <div className="hidden xl:block">
         <Table className="table-fixed">
           <TableHeader>
             <TableRow>
@@ -474,7 +474,7 @@ export default function UsersPage() {
         </div>
 
         {/* Mobile Card Layout */}
-        <div className="md:hidden flex flex-col gap-4 pt-2">
+        <div className="xl:hidden flex flex-col gap-4 pt-2">
           {isUsersLoading && !usersData ? (
             <div className="text-center py-8">
               <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
@@ -482,7 +482,7 @@ export default function UsersPage() {
             </div>
           ) : usersData?.items?.length ? (
             usersData.items.map((user) => (
-              <div key={user.id} className="rounded-xl p-3 bg-card shadow-sm flex flex-col gap-3 border md:border-none text-card-foreground">
+              <div key={user.id} className="rounded-xl p-3 bg-card shadow-sm flex flex-col gap-3 border xl:border-none text-card-foreground">
                 {editingId === user.id ? (
                   <div className="flex flex-col gap-3">
                     <Input
