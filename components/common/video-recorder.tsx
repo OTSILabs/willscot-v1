@@ -185,17 +185,14 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
 
       const newStream = await navigator.mediaDevices.getUserMedia({
         video: { 
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          frameRate: { ideal: 30 },
-          facingMode: "environment"
+          facingMode: "environment",
+          frameRate: { ideal: 30 }
         },
         audio: true
       });
       
       if (videoRef.current) {
         videoRef.current.srcObject = newStream;
-        // Start playing immediately
         try {
           await videoRef.current.play();
         } catch (e) {
@@ -540,7 +537,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
         3. Removed default bg and default header
       */}
       <DialogContent 
-        className="p-0 overflow-hidden bg-black border-none h-[100dvh] max-h-[100dvh] max-w-[100vw] sm:max-w-[80vw] sm:h-[90vh] sm:rounded-[20px] shadow-2xl transition-all duration-300 flex flex-col gap-0"
+        className="!fixed !inset-0 !top-0 !left-0 !translate-x-0 !translate-y-0 p-0 overflow-hidden bg-black !border-none !h-screen !w-screen !max-w-none !rounded-none shadow-none transition-all duration-300 gap-0"
         aria-describedby="video-recorder-description" // Adding standard accessibility prop
       >
         {/* Invisible Description for Screen Readers to satisfy Dialog requirements */}
@@ -553,7 +550,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
           TOP OVERLAY BAR 
           Positioned absolute over the video for native feel overlay
         */}
-        <div className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between p-4 sm:p-6 bg-gradient-to-b from-black/80 to-transparent pointer-events-none">
+        <div className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between p-4 sm:p-6 bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
           {/* Back/Close Button */}
           <Button 
             variant="ghost" 
@@ -575,32 +572,32 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
           <div className="w-10 h-10" /> 
         </div>
 
-        <div className="flex-1 relative bg-zinc-950 flex items-center justify-center overflow-hidden group">
+        <div className="absolute inset-0 bg-zinc-950 flex items-center justify-center overflow-hidden group">
           
-          {/* CAMERA FEED OR PREVIEW RENDERER */}
+          {/* CAMERA FEED OR PREVIEW RENDERER (Full Viewport Fill) */}
           {status !== "preview" ? (
             <video
               ref={videoRef}
               autoPlay
               muted
               playsInline
-              className="w-full h-full object-cover transition-opacity duration-700 opacity-0 data-[loaded=true]:opacity-100"
+              className="absolute inset-0 w-full h-full object-cover transition-opacity duration-700 opacity-0 data-[loaded=true]:opacity-100"
               onLoadedMetadata={(e) => e.currentTarget.setAttribute("data-loaded", "true")}
             />
           ) : (
             <video
-              key={previewUrl} // Force remount if URL changes occasionally
+              key={previewUrl} 
               src={previewUrl || undefined}
               controls
-              autoPlay    // INSTAGRAM FLOW: Automatically plays the preview
+              autoPlay
               playsInline
-              className="w-full h-full object-contain md:object-cover bg-black"
+              className="absolute inset-0 w-full h-full object-cover bg-black"
             />
           )}
 
           {/* OVERLAY UI (Only when NOT previewing) */}
           {status !== "preview" && (
-            <div className="absolute inset-x-0 top-16 pointer-events-none flex flex-col justify-between p-6">
+            <div className="absolute inset-x-0 top-16 pointer-events-none flex flex-col justify-between p-6 z-40">
               <div className="flex justify-center items-start w-full">
                 {/* 
                   Moved Center Top: Timer and Quality Warnings 
@@ -667,96 +664,97 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
         </div>
 
         {/* 
-          BOTTOM CONTROL BAR
-          Solid black backdrop, native feeling controls
+          BOTTOM OVERLAY CONTROL BAR
+          Floating translucent controls for native camera feel
         */}
-        <DialogFooter className="h-32 sm:h-36 bg-black flex flex-col items-center justify-center border-t border-white/10 shrink-0">
-          
-          {/* FOOTER CONTROLS BASED ON STATUS */}
-          {status === "idle" && (
-            <div className="flex items-center justify-center w-full relative">
-              <span className="absolute left-6 text-white/50 text-xs font-semibold tracking-widest uppercase">Video</span>
-              {/* Native Style Record Button (White Outer Ring, Red Inner Circle) */}
-              <button 
-                onClick={startRecording} 
-                className="relative group flex items-center justify-center w-[72px] h-[72px]"
-              >
-                {/* Outer Ring */}
-                <div className="absolute inset-0 rounded-full border-[4px] border-white/80 group-hover:border-white transition-colors duration-200" />
-                {/* Inner Red Fill (Shrinks slightly when pressed) */}
-                <div className="absolute w-[56px] h-[56px] rounded-full bg-red-600 shadow-inner scale-100 group-active:scale-90 transition-transform duration-150" />
-                <span className="sr-only">Start Recording</span>
-              </button>
-            </div>
-          )}
+        <div className="absolute bottom-0 left-0 right-0 z-50 h-40 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col items-center justify-center p-6 pb-12 pointer-events-none">
+          <div className="w-full flex items-center justify-center pointer-events-auto">
+            {/* FOOTER CONTROLS BASED ON STATUS */}
+            {status === "idle" && (
+              <div className="flex items-center justify-center w-full relative">
+                <span className="absolute left-6 text-white/50 text-xs font-semibold tracking-widest uppercase hidden sm:block">Video</span>
+                {/* Native Style Record Button (White Outer Ring, Red Inner Circle) */}
+                <button 
+                  onClick={startRecording} 
+                  className="relative group flex items-center justify-center w-[76px] h-[76px]"
+                >
+                  {/* Outer Ring */}
+                  <div className="absolute inset-0 rounded-full border-[4px] border-white/80 group-hover:border-white transition-colors duration-200" />
+                  {/* Inner Red Fill (Shrinks slightly when pressed) */}
+                  <div className="absolute w-[58px] h-[58px] rounded-full bg-red-600 shadow-inner scale-100 group-active:scale-90 transition-transform duration-150" />
+                  <span className="sr-only">Start Recording</span>
+                </button>
+              </div>
+            )}
 
-          {(status === "recording" || status === "paused") && (
-            <div className="flex items-center justify-center w-full gap-8">
-              {/* Pause/Resume Secondary Button */}
-              <button
-                onClick={status === "recording" ? pauseRecording : resumeRecording}
-                className="flex flex-col items-center gap-1.5 group"
-              >
-                <div className="w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10 flex items-center justify-center transition-all active:scale-90">
-                  {status === "recording" ? (
-                    <Pause className="w-5 h-5 text-white" fill="currentColor" />
-                  ) : (
-                    <Play className="w-5 h-5 text-white ml-0.5" fill="currentColor" />
-                  )}
-                </div>
-                <span className="text-[10px] text-white/60 font-medium uppercase tracking-wider">
-                  {status === "recording" ? "Pause" : "Resume"}
-                </span>
-              </button>
+            {(status === "recording" || status === "paused") && (
+              <div className="flex items-center justify-center w-full gap-10">
+                {/* Pause/Resume Secondary Button */}
+                <button
+                  onClick={status === "recording" ? pauseRecording : resumeRecording}
+                  className="flex flex-col items-center gap-1.5 group"
+                >
+                  <div className="w-12 h-12 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/20 flex items-center justify-center transition-all active:scale-90">
+                    {status === "recording" ? (
+                      <Pause className="w-4 h-4 text-white" fill="currentColor" />
+                    ) : (
+                      <Play className="w-4 h-4 text-white ml-0.5" fill="currentColor" />
+                    )}
+                  </div>
+                  <span className="text-[9px] text-white/70 font-bold uppercase tracking-widest">
+                    {status === "recording" ? "Pause" : "Resume"}
+                  </span>
+                </button>
 
-              {/* Native Style Stop Button (White Outer Ring, Red Inner Square) */}
-              <button 
-                onClick={stopRecording} 
-                className="relative group flex items-center justify-center w-[72px] h-[72px]"
-              >
-                 {/* Outer Ring indicating progress roughly */}
-                <div className="absolute inset-0 rounded-full border-[4px] border-white/80" />
-                 {/* Circular progress bar overlay for the 5-minute limit */}
-                 <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none">
-                    <circle 
-                      cx="36" cy="36" r="34" 
-                      fill="none" 
-                      stroke="red" 
-                      strokeWidth="4" 
-                      strokeDasharray="213" /* 2 * PI * r */
-                      strokeDashoffset={213 - (213 * (recordingTime / RECORDING_LIMIT_SECONDS))}
-                      className="transition-all duration-1000 ease-linear"
-                    />
-                 </svg>
-                {/* Inner Red Square (Morphed from Circle) */}
-                <div className="absolute w-[32px] h-[32px] rounded border border-red-500/50 bg-red-600 scale-100 group-active:scale-90 transition-all duration-300" />
-                <span className="sr-only">Stop Recording</span>
-              </button>
+                {/* Native Style Stop Button (White Outer Ring, Red Inner Square) */}
+                <button 
+                  onClick={stopRecording} 
+                  className="relative group flex items-center justify-center w-[76px] h-[76px]"
+                >
+                  {/* Outer Ring indicating progress roughly */}
+                  <div className="absolute inset-0 rounded-full border-[4px] border-white/80" />
+                  {/* Circular progress bar overlay for the 5-minute limit */}
+                  <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none">
+                      <circle 
+                        cx="38" cy="38" r="36" 
+                        fill="none" 
+                        stroke="red" 
+                        strokeWidth="4" 
+                        strokeDasharray="226" /* 2 * PI * r */
+                        strokeDashoffset={226 - (226 * (recordingTime / RECORDING_LIMIT_SECONDS))}
+                        className="transition-all duration-1000 ease-linear"
+                      />
+                  </svg>
+                  {/* Inner Red Square (Morphed from Circle) */}
+                  <div className="absolute w-[28px] h-[28px] rounded-sm bg-red-600 scale-100 group-active:scale-90 transition-all duration-300" />
+                  <span className="sr-only">Stop Recording</span>
+                </button>
 
-              {/* Spacer button for layout balance (like a gallery button) */}
-              <div className="w-12 opacity-0 pointer-events-none" />
-            </div>
-          )}
+                {/* Spacer button for layout balance (like a gallery button) */}
+                <div className="w-12" />
+              </div>
+            )}
 
-          {status === "preview" && (
-            <div className="flex justify-between items-center w-full px-8 max-w-[400px]">
-              {/* Native-style text buttons for post-capture */}
-              <button 
-                className="text-white/90 hover:text-white text-[15px] p-2 transition-colors active:scale-95 flex items-center gap-1"
-                onClick={handleRetake}
-              >
-                Retake
-              </button>
-              <button 
-                className="bg-white text-black font-semibold text-[15px] px-6 py-2.5 rounded-full hover:bg-zinc-200 transition-colors active:scale-95 flex items-center gap-2"
-                onClick={handleSave}
-              >
-                Use Video
-                <Check className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-        </DialogFooter>
+            {status === "preview" && (
+              <div className="flex justify-between items-center w-full px-8 max-w-[450px]">
+                {/* Native-style text buttons for post-capture */}
+                <button 
+                  className="text-white/90 hover:text-white text-[16px] font-medium p-2 transition-colors active:scale-95 flex items-center gap-1"
+                  onClick={handleRetake}
+                >
+                  Retake
+                </button>
+                <button 
+                  className="bg-white text-black font-bold text-[16px] px-8 py-3 rounded-full hover:bg-zinc-200 transition-colors active:scale-95 flex items-center gap-2 shadow-lg"
+                  onClick={handleSave}
+                >
+                  Use Video
+                  <Check className="w-4 h-4 stroke-[3px]" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );

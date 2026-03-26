@@ -192,8 +192,8 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
   const totalItems = data?.pagination.total ?? 0;
 
   return (
-    <div className="rounded-md md:border md:bg-white border-none bg-transparent">
-      <div className="border-b px-2 md:px-0 py-3 flex justify-start">
+    <div className="rounded-md xl:border xl:bg-white border-none bg-transparent">
+      <div className="border-b px-2 xl:px-0 py-3 flex justify-start">
         <Input
           value={search}
           onChange={(event) => {
@@ -201,7 +201,7 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
             setPage(1);
           }}
           placeholder="Search by Trace ID..."
-          className="max-w-xs md:max-w-sm"
+          className="max-w-xs xl:max-w-sm"
         />
         {isFetching && (
           <div className="flex items-center gap-2 ml-4 text-[10px] font-medium text-muted-foreground animate-pulse">
@@ -210,7 +210,7 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
           </div>
         )}
       </div>
-      <div className="hidden md:block">
+      <div className="hidden xl:block">
         <Table>
         <TableHeader>
           <TableRow>
@@ -330,7 +330,7 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
       </div>
 
       {/* Mobile Card Layout */}
-      <div className="md:hidden flex flex-col gap-4 pt-2">
+      <div className="xl:hidden flex flex-col gap-4 pt-2">
         {isLoading ? (
           <div className="text-center py-8 text-sm text-muted-foreground">
             Loading results...
@@ -370,7 +370,7 @@ function MobileResultCard({ result }: { result: Result }) {
   })).filter(item => item.vid || item.con || item.reg || item.mod);
 
   return (
-    <div className="rounded-xl p-4 bg-card shadow-md flex flex-col gap-3.5 text-card-foreground border md:border-none">
+    <div className="rounded-xl p-4 bg-card shadow-md flex flex-col gap-3.5 text-card-foreground border xl:border-none">
       <div className="flex justify-between items-center border-b pb-2">
         <span className="text-xs text-muted-foreground font-normal uppercase tracking-wider">Trace Details</span>
         <div className="flex items-center gap-2">

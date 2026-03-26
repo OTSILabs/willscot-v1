@@ -24,13 +24,15 @@ interface AttributesTableProps {
   attributes: TraceAttribute[];
   onAttributeUpdate: (index: number, newAttribute: TraceAttribute) => void;
   onTimestampClick?: (timestamp: number, source: string) => void;
+  isCompact?: boolean;
 }
 
 
 export function AttributesTable({ 
   attributes, 
   onAttributeUpdate,
-  onTimestampClick 
+  onTimestampClick,
+  isCompact = false
 }: AttributesTableProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"correct" | "incorrect" | null>(null);
@@ -85,16 +87,26 @@ export function AttributesTable({
 
   return (
     <>
-      <div className="hidden md:block">
+      <div className="hidden xl:block">
         <Table className="text-xs table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead><TruncatedCell content="Property" /></TableHead>
-            <TableHead><TruncatedCell content="Attribute" /></TableHead>
-            <TableHead><TruncatedCell content="Value" /></TableHead>
-            <TableHead><TruncatedCell content="Source" /></TableHead>
-            <TableHead className="w-[40%]"><TruncatedCell content="Evidence" maxW="max-w-none" /></TableHead>
-            <TableHead className="w-[25%] truncate" title="Feedback">Feedback</TableHead>
+            <TableHead>
+              {isCompact ? <TruncatedCell content="Property" /> : "Property"}
+            </TableHead>
+            <TableHead>
+              {isCompact ? <TruncatedCell content="Attribute" /> : "Attribute"}
+            </TableHead>
+            <TableHead>
+              {isCompact ? <TruncatedCell content="Value" /> : "Value"}
+            </TableHead>
+            <TableHead>
+              {isCompact ? <TruncatedCell content="Source" /> : "Source"}
+            </TableHead>
+            <TableHead className="w-[40%]">
+              {isCompact ? <TruncatedCell content="Evidence" maxW="max-w-none" /> : "Evidence"}
+            </TableHead>
+            <TableHead className="w-[20%] truncate" title="Feedback">Feedback</TableHead>
           </TableRow>
         </TableHeader>
 
@@ -106,19 +118,39 @@ export function AttributesTable({
             return (
               <TableRow key={index}>
                 <TableCell>
-                  <TruncatedCell content={humanizeString(attribute.pipeline)} maxW="max-w-[120px]" />
+                  {isCompact ? (
+                    <TruncatedCell content={humanizeString(attribute.pipeline)} maxW="max-w-[120px]" />
+                  ) : (
+                    <span className="whitespace-normal leading-normal">{humanizeString(attribute.pipeline)}</span>
+                  )}
                 </TableCell>
                 <TableCell>
-                  <TruncatedCell content={humanizeString(attribute.attribute)} maxW="max-w-[120px]" />
+                  {isCompact ? (
+                    <TruncatedCell content={humanizeString(attribute.attribute)} maxW="max-w-[120px]" />
+                  ) : (
+                    <span className="whitespace-normal leading-normal">{humanizeString(attribute.attribute)}</span>
+                  )}
                 </TableCell>
                 <TableCell>
-                  <TruncatedCell content={humanizeString(attribute.value)} maxW="max-w-[150px]" />
+                  {isCompact ? (
+                    <TruncatedCell content={humanizeString(attribute.value)} maxW="max-w-[150px]" />
+                  ) : (
+                    <span className="whitespace-normal leading-normal">{humanizeString(attribute.value)}</span>
+                  )}
                 </TableCell>
                 <TableCell>
-                  <TruncatedCell content={humanizeString(attribute.source)} maxW="max-w-[100px]" />
+                  {isCompact ? (
+                    <TruncatedCell content={humanizeString(attribute.source)} maxW="max-w-[100px]" />
+                  ) : (
+                    <span className="whitespace-normal leading-normal">{humanizeString(attribute.source)}</span>
+                  )}
                 </TableCell>
                 <TableCell>
-                  <TruncatedCell content={humanizeString(attribute.evidence)} maxW="max-w-[200px]" />
+                  {isCompact ? (
+                    <TruncatedCell content={humanizeString(attribute.evidence)} maxW="max-w-[200px]" />
+                  ) : (
+                    <span className="whitespace-normal leading-relaxed">{humanizeString(attribute.evidence)}</span>
+                  )}
                 </TableCell>
 
                 <TableCell>
@@ -179,7 +211,7 @@ export function AttributesTable({
       </div>
 
       {/* Mobile Card Layout */}
-      <div className="md:hidden flex flex-col gap-4 pb-20">
+      <div className="xl:hidden flex flex-col gap-4 pb-20">
         {attributes.map((attribute, index) => {
           const isLocked =
             attribute.status === "correct" || attribute.status === "incorrect";

@@ -470,7 +470,7 @@ export function FileProcessingFormContent() {
           >
             <UploadIcon className="w-6 h-6 lg:w-8 lg:h-8 mb-0 lg:mb-1 shrink-0" />
             <span className="text-xs sm:text-sm font-semibold uppercase tracking-tight text-center">Import from Device</span>
-            <span className="text-[10px] hidden lg:block opacity-50 text-center">or drag and drop video here</span>
+            <span className="text-[10px] hidden lg:block opacity-50 text-center">drag and drop video here</span>
           </Button>
           <Button
             variant="outline"
@@ -495,9 +495,9 @@ export function FileProcessingFormContent() {
 
         <div className="block">
           <div className="space-y-4">
-            <Card className="py-0 gap-0 border-none shadow-none bg-transparent md:border md:shadow-sm md:bg-card">
-              <CardHeader className="border-none px-0 py-4 items-center md:border-b md:px-6">
-                <CardTitle className="md:block hidden">Files to Process</CardTitle>
+            <Card className="py-0 gap-0 border-none shadow-none bg-transparent xl:border xl:shadow-sm xl:bg-card">
+              <CardHeader className="border-none px-0 py-4 items-center xl:border-b xl:px-6">
+                <CardTitle className="xl:block hidden">Files to Process</CardTitle>
                 <CardDescription className="text-xs text-muted-foreground mt-1 space-y-1 block max-w-sm">
                   <p>You can upload up to 2 files.</p>
                   <p>Allowed file types: <span className="font-mono bg-muted/50 px-1 rounded">video/*</span></p>
@@ -507,23 +507,23 @@ export function FileProcessingFormContent() {
                     <div className="mt-3 p-2 bg-muted/30 rounded-md border border-border/50 text-foreground flex flex-col gap-1">
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground">Current total:</span>
-                        <span className="font-normal md:font-bold font-mono text-xs md:text-sm">{humanizeFileSize(totalSize)}</span>
+                        <span className="font-normal xl:font-bold font-mono text-xs xl:text-sm">{humanizeFileSize(totalSize)}</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground">Remaining limit:</span>
-                        <span className="font-normal md:font-bold font-mono text-xs md:text-sm text-blue-600 dark:text-blue-400">{humanizeFileSize(remainingSize)}</span>
+                        <span className="font-normal xl:font-bold font-mono text-xs xl:text-sm text-blue-600 dark:text-blue-400">{humanizeFileSize(remainingSize)}</span>
                       </div>
                     </div>
                   )}
                 </CardDescription>
-                <CardAction className="w-full md:w-auto mt-2 md:mt-0">
-                  <ButtonGroup className="w-full md:w-auto justify-between md:justify-end">
+                <CardAction className="w-full xl:w-auto mt-2 xl:mt-0">
+                  <ButtonGroup className="w-full xl:w-auto justify-between xl:justify-end">
                     <Button
                       variant="outline"
                       size="sm"
                       type="button"
                       disabled={isPending || files.length === 0}
-                      className={cn("flex-1 md:flex-none", files.length === 0 && "opacity-50 pointer-events-none")}
+                      className={cn("flex-1 xl:flex-none", files.length === 0 && "opacity-50 pointer-events-none")}
                       onClick={() => {
                         handleClearFiles();
                         form.reset();
@@ -535,14 +535,14 @@ export function FileProcessingFormContent() {
                   </ButtonGroup>
                 </CardAction>
               </CardHeader>
-              <CardContent className="p-0 px-0 md:px-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 py-4 px-0 md:py-6">
+              <CardContent className="p-0 px-0 xl:px-6">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 xl:gap-6 py-4 px-0 xl:py-6">
                   {renderUploadCard("Interior Video", "interior", interiorFile)}
                   {renderUploadCard("Exterior Video", "exterior", exteriorFile)}
                 </div>
               </CardContent>
-              <CardFooter className={cn("border-none px-0 pt-4 md:border-t md:px-6 mb-4 justify-end", !hasBoth && "hidden")}>
-                <Button size="lg" type="submit" disabled={isPending || !hasBoth} className="w-full md:w-auto shadow-sm">
+              <CardFooter className={cn("border-none px-0 pt-4 xl:border-t xl:px-6 mb-4 justify-end", !hasBoth && "hidden")}>
+                <Button size="lg" type="submit" disabled={isPending || !hasBoth} className="w-full xl:w-auto shadow-sm">
                   {isPending ? (
                     <>
                       Processing Videos...

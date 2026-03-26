@@ -21,6 +21,7 @@ import { RawJsonTab } from "./components/raw-json-tab";
 import { ResultDetail, TraceAttribute } from "./components/types";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const DETAIL_POLLING_MS = 10000;
 
@@ -89,18 +90,8 @@ export default function ResultDetailPage() {
 
   const [type, setType] = useState<"interior" | "exterior">("interior");
   const [activeSeek, setActiveSeek] = useState<{ timestamp: number; source: "interior" | "exterior"; id: number } | null>(null);
-  const [isMobileView, setIsMobileView] = useState(false);
-
-  useEffect(() => {
-    // Check initial and on resize
-    const checkViewport = () => {
-      setIsMobileView(window.innerWidth < 768);
-    };
-    
-    checkViewport();
-    window.addEventListener("resize", checkViewport);
-    return () => window.removeEventListener("resize", checkViewport);
-  }, []);
+  const isMobileView = useIsMobile();
+  const [isTableCompact, setIsTableCompact] = useState(false);
 
   if (isLoading) {
     return (
@@ -143,8 +134,8 @@ export default function ResultDetailPage() {
     setType(s);
     setActiveSeek({ timestamp, source: s, id: Date.now() });
 
-    // Auto-scroll to video section on mobile
-    if (window.innerWidth < 768 && videoSectionRef.current) {
+    // Auto-scroll to video section on mobile/tablet view
+    if (isMobileView && videoSectionRef.current) {
       videoSectionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
@@ -158,15 +149,15 @@ export default function ResultDetailPage() {
         <BackButton label="Back to Traces" />
       </div>
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         {/* Mobile Header per reference - Title only now */}
-        <div className="md:hidden flex items-center gap-3 border-b pb-3 -mx-4 px-4">
+        <div className="xl:hidden flex items-center gap-3 border-b pb-3 -mx-4 px-4">
           <PageTitle title="Trace Details" />
         </div>
 
         {/* Desktop elements and info container */}
-        <div className="flex flex-col md:flex-row md:items-center w-full justify-between gap-4">
-          <div className="flex flex-col md:flex-row gap-4 md:gap-8 w-full border-b pb-4 md:border-0 md:pb-0">
+        <div className="flex flex-col xl:flex-row xl:items-center w-full justify-between gap-4">
+          <div className="flex flex-col xl:flex-row gap-4 xl:gap-8 w-full border-b pb-4 xl:border-0 xl:pb-0">
             <VideoInfoPanel result={result} type={type} />
           </div>
         </div>
@@ -180,10 +171,10 @@ export default function ResultDetailPage() {
         </Alert> : (
           <Tabs defaultValue="results" className="w-full">
             {isProcessing ? (
-              <div className="md:h-[calc(100vh-100px)] md:min-h-[calc(100vh-100px)] rounded-md border p-8 md:p-0">
+              <div className="xl:h-[calc(100vh-100px)] xl:min-h-[calc(100vh-100px)] rounded-md border p-8 xl:p-0">
                 <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  <p className="text-sm font-normal md:font-medium">Video is processing...</p>
+                  <p className="text-sm font-normal xl:font-medium">Video is processing...</p>
                   <p className="text-xs text-muted-foreground">
                     This page refreshes automatically and will show results once processing is
                     complete.
@@ -191,13 +182,17 @@ export default function ResultDetailPage() {
                 </div>
               </div>
             ) : (
-              <div className="md:h-[calc(100vh-100px)] md:min-h-[calc(100vh-100px)] md:rounded-md md:border flex flex-col md:block">
+              <div className="xl:h-[calc(100vh-100px)] xl:min-h-[calc(100vh-100px)] xl:rounded-md xl:border flex flex-col xl:block">
                 {/* Conditionally render desktop OR mobile layout to prevent duplicate video refs */}
                 {!isMobileView ? (
                   /* Desktop Resizable View */
-                  <div className="hidden md:block h-full">
+                  <div className="hidden xl:block h-full">
                     <ResizablePanelGroup orientation="horizontal">
-                      <ResizablePanel defaultSize={70} minSize={0}>
+                        <ResizablePanel 
+                        defaultSize={70} 
+                        minSize={0}
+                        onResize={(size) => setIsTableCompact((size as unknown as number) < 40)}
+                      >
                         <div className="flex h-full min-h-0 flex-col">
                           <div className="border-b">
                             <TabsList variant="line" className="grid w-[260px] grid-cols-2">
@@ -211,6 +206,7 @@ export default function ResultDetailPage() {
                               attributes={attributes}
                               onAttributeUpdate={handleFeedbackChange}
                               onTimestampClick={handleTimestampClick}
+                              isCompact={isTableCompact}
                             />
                           </TabsContent>
   
@@ -236,7 +232,7 @@ export default function ResultDetailPage() {
                   </div>
                 ) : (
                   /* Mobile Stacked View */
-                  <div className="md:hidden flex flex-col gap-6">
+                  <div className="xl:hidden flex flex-col gap-6">
                     {/* Video Preview with Tab switch */}
                     <div ref={videoSectionRef} className="scroll-mt-4">
                       <VideoPreviewTabs 
@@ -257,6 +253,7 @@ export default function ResultDetailPage() {
                         attributes={attributes}
                         onAttributeUpdate={handleFeedbackChange}
                         onTimestampClick={handleTimestampClick}
+                        isCompact={isTableCompact}
                       />
                     </div>
                   </div>
