@@ -104,36 +104,33 @@ export async function GET(req: Request) {
     return NextResponse.json({
       overview: {
         overall: {
-          accuracy: formatPercent(overallStats[0].correct, Number(overallStats[0].total) - Number(overallStats[0].unmarked)),
+          accuracy: formatPercent(overallStats[0].correct, overallStats[0].total),
           correct: overallStats[0].correct,
           incorrect: overallStats[0].incorrect,
           unmarked: overallStats[0].unmarked,
           total: overallStats[0].total
         },
         interior: {
-          accuracy: formatPercent(interior?.correct, Number(interior?.total || 0) - Number(interior?.unmarked || 0)),
+          accuracy: formatPercent(interior?.correct, interior?.total || 0),
           correct: interior?.correct || 0,
           incorrect: interior?.incorrect || 0,
           unmarked: interior?.unmarked || 0,
         },
         exterior: {
-          accuracy: formatPercent(exterior?.correct, Number(exterior?.total || 0) - Number(exterior?.unmarked || 0)),
+          accuracy: formatPercent(exterior?.correct, exterior?.total || 0),
           correct: exterior?.correct || 0,
           incorrect: exterior?.incorrect || 0,
           unmarked: exterior?.unmarked || 0,
         },
       },
-      attributes: attributeStats.map((attr: any) => {
-        const reviewed = Number(attr.total) - Number(attr.unmarked);
-        return {
-          name: formatAttributeName(attr.name),
-          accuracy: formatPercent(attr.correct, reviewed),
-          correct: attr.correct,
-          incorrect: attr.incorrect,
-          unmarked: attr.unmarked,
-          totalTraces: attr.total
-        };
-      })
+      attributes: attributeStats.map((attr: any) => ({
+        name: formatAttributeName(attr.name),
+        accuracy: formatPercent(attr.correct, attr.total),
+        correct: attr.correct,
+        incorrect: attr.incorrect,
+        unmarked: attr.unmarked,
+        totalTraces: attr.total
+      }))
     }, {
       headers: {
         'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=59'
