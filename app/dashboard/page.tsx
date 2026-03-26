@@ -361,8 +361,8 @@ function DashboardContent() {
         <TabsContent value="table" className="animate-in slide-in-from-right-2 duration-300">
           <Card className="shadow-sm border-border bg-card overflow-hidden">
             <CardHeader className="border-b bg-muted/10 pb-4">
-              <CardTitle className="text-lg font-semibold">Detailed Accuracy Breakdown</CardTitle>
-              <CardDescription>Granular review progress and counts for all attributes</CardDescription>
+              <CardTitle className="text-lg font-semibold">Accuracy Breakdown</CardTitle>
+              <CardDescription>Proportion of correct predictions out of all traces (including unmarked)</CardDescription>
             </CardHeader>
             {/* Desktop Table View */}
             <div className="hidden xl:block overflow-x-auto">
