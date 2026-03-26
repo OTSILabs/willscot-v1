@@ -13,6 +13,7 @@ import {
   Cell,
   LabelList
 } from "recharts";
+import { cn } from "@/lib/utils";
 import { 
   Card, 
   CardContent, 
@@ -26,6 +27,7 @@ import {
   TabsList, 
   TabsTrigger 
 } from "@/components/ui/tabs";
+import { useRouter, useSearchParams } from "next/navigation";
 import { 
   BarChart3, 
   TableProperties,
@@ -33,7 +35,11 @@ import {
   TrendingUp, 
   RotateCcw,
   ShieldCheck,
-  Zap
+  Zap,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -54,20 +60,14 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { PageTitle, PageDescription } from "@/components/typography";
 import { BackButton } from "@/components/back-button";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useState, useEffect } from "react";
-import { Filter, X } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useCurrentUser } from "@/components/current-user-provider";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback } from "react";
+
+// Dashboard Components
+import { MetricCard } from "./components/metric-card";
+import { MultiSelectUserFilter } from "./components/multi-select-user-filter";
+import { DashboardLoading } from "./components/dashboard-loading";
+import { DashboardError } from "./components/dashboard-error";
 
 interface DashboardStats {
   overview: {
@@ -115,7 +115,10 @@ function DashboardContent() {
   const searchParams = useSearchParams();
 
   // Initialize state from URL params
-  const [userId, setUserId] = useState<string>(searchParams.get("userId") || "all");
+  const [userIds, setUserIds] = useState<string[]>(() => {
+    const ids = searchParams.getAll("userId");
+    return ids.filter(id => id !== "all" && id !== "");
+  });
   
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     const from = searchParams.get("startDate");
@@ -131,13 +134,22 @@ function DashboardContent() {
   const startDate = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : "";
   const endDate = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : "";
 
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc" | null>(() => {
+    const sort = searchParams.get("sortOrder");
+    if (sort === "asc" || sort === "desc") return sort;
+    return null;
+  });
+
   // Helper to update URL search params
-  const updateQueryParams = useCallback((updates: Record<string, string | null>) => {
-    const current = new URLSearchParams(Array.from(searchParams.entries()));
+  const updateQueryParams = useCallback((updates: Record<string, string | string[] | null>) => {
+    const current = new URLSearchParams(searchParams.toString());
     
     Object.entries(updates).forEach(([key, value]) => {
-      if (value === null || value === "all" || value === "") {
+      if (value === null || value === "all" || value === "" || (Array.isArray(value) && value.length === 0)) {
         current.delete(key);
+      } else if (Array.isArray(value)) {
+        current.delete(key);
+        value.forEach(id => current.append(key, id));
       } else {
         current.set(key, value);
       }
@@ -153,11 +165,12 @@ function DashboardContent() {
   // Sync state changes back to URL
   useEffect(() => {
     updateQueryParams({
-      userId,
+      userId: userIds,
       startDate,
       endDate,
+      sortOrder,
     });
-  }, [userId, startDate, endDate, updateQueryParams]);
+  }, [userIds, startDate, endDate, sortOrder, updateQueryParams]);
 
   useEffect(() => {
     if (currentUser && currentUser.role !== "power_user") {
@@ -177,10 +190,12 @@ function DashboardContent() {
   const timezone = typeof window !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC";
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery<DashboardStats>({
-    queryKey: ["dashboard-stats", userId, startDate, endDate, timezone],
+    queryKey: ["dashboard-stats", userIds, startDate, endDate, timezone],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (userId && userId !== "all") params.append("userId", userId);
+      if (userIds.length > 0) {
+        userIds.forEach(id => params.append("userId", id));
+      }
       if (startDate) params.append("startDate", startDate);
       if (endDate) params.append("endDate", endDate);
       params.append("timezone", timezone);
@@ -192,6 +207,21 @@ function DashboardContent() {
     enabled: !!currentUser && currentUser.role === "power_user",
     placeholderData: keepPreviousData,
   });
+
+  const sortedAttributes = useMemo(() => {
+    const attrs = data?.attributes || [];
+    if (!sortOrder) return attrs;
+    return [...attrs].sort((a, b) => {
+      if (sortOrder === "asc") return a.accuracy - b.accuracy;
+      return b.accuracy - a.accuracy;
+    });
+  }, [data?.attributes, sortOrder]);
+
+  const toggleSort = useCallback(() => {
+    if (!sortOrder) setSortOrder("desc");
+    else if (sortOrder === "desc") setSortOrder("asc");
+    else setSortOrder(null);
+  }, [sortOrder]);
 
   if (!currentUser || currentUser.role !== "power_user") return <DashboardLoading />;
 
@@ -259,19 +289,11 @@ function DashboardContent() {
         <div className="flex flex-col md:flex-row items-start md:items-center gap-2 bg-white/80 md:bg-white/50 border border-dashed md:border rounded-lg p-1.5 shadow-sm w-full md:w-auto">
           <div className="flex items-center gap-2 px-0 md:px-2 md:border-r border-border/50 w-full md:w-auto">
             <ShieldCheck className="w-3.5 h-3.5 text-muted-foreground ml-2 md:ml-0" />
-            <Select value={userId} onValueChange={setUserId}>
-              <SelectTrigger id="user-filter" className="bg-transparent border-0 h-9 md:h-8 text-xs w-full md:w-[130px] shadow-none focus:ring-0">
-                <SelectValue placeholder="All Users" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Users</SelectItem>
-                {usersData?.map((user) => (
-                  <SelectItem key={user.id} value={user.id}>
-                    {user.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <MultiSelectUserFilter 
+              users={usersData || []} 
+              selectedIds={userIds} 
+              onSelectionChange={setUserIds} 
+            />
           </div>
           <div className="flex items-center gap-2 px-0 md:px-2 w-full md:w-auto md:border-l border-border/50">
             <div className="flex items-center gap-1 flex-1">
@@ -280,12 +302,12 @@ function DashboardContent() {
           </div>
         </div>
         <div className="flex items-center justify-end gap-2 shrink-0 w-full md:w-auto mt-2 md:mt-0">
-          {(userId !== "all" || startDate || endDate) && (
+          {(userIds.length > 0 || startDate || endDate) && (
             <Button 
               variant="ghost" 
               size="sm" 
               onClick={() => {
-                setUserId("all");
+                setUserIds([]);
                 setDateRange(undefined);
               }}
               className="h-9 md:h-8 px-3 text-xs text-muted-foreground hover:text-foreground"
@@ -349,7 +371,42 @@ function DashboardContent() {
                 <TableHeader>
                   <TableRow className="hover:bg-transparent bg-muted/5">
                     <TableHead className="pl-6 py-4 font-bold text-foreground">Category Name</TableHead>
-                    <TableHead className="text-center font-bold text-foreground">Accuracy</TableHead>
+                    <TableHead className="text-center font-bold text-foreground">
+                      <div className="flex items-center justify-center gap-1.5 translate-x-3">
+                        <button 
+                          onClick={toggleSort}
+                          className={cn(
+                            "flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-primary/5 transition-all group",
+                            sortOrder && "text-primary bg-primary/5"
+                          )}
+                        >
+                          <span className="text-[11px] uppercase tracking-wider font-bold">Accuracy</span>
+                          <div className="flex flex-col -space-y-1 opacity-40 group-hover:opacity-100 transition-opacity">
+                            <ChevronUp className={cn(
+                              "h-3 w-3",
+                              sortOrder === "asc" && "text-primary opacity-100"
+                            )} />
+                            <ChevronDown className={cn(
+                              "h-3 w-3",
+                              sortOrder === "desc" && "text-primary opacity-100"
+                            )} />
+                          </div>
+                        </button>
+                        {sortOrder && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6 rounded-full hover:bg-primary/10 hover:text-primary"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSortOrder(null);
+                            }}
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableHead>
                     <TableHead className="text-center font-bold text-foreground">Correct</TableHead>
                     <TableHead className="text-center font-bold text-foreground">Incorrect</TableHead>
                     <TableHead className="text-center font-bold text-foreground">Unmarked</TableHead>
@@ -357,7 +414,7 @@ function DashboardContent() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {attributes.map((attr) => (
+                  {sortedAttributes.map((attr: DashboardStats["attributes"][0]) => (
                     <TableRow key={attr.name} className="hover:bg-muted/10 transition-colors group border-b last:border-0">
                       <TableCell className="pl-6 py-4 font-medium text-sm text-foreground/90">
                         {attr.name}
@@ -390,7 +447,7 @@ function DashboardContent() {
 
             {/* Mobile Card View */}
             <div className="md:hidden flex flex-col divide-y">
-              {attributes.map((attr) => (
+              {sortedAttributes.map((attr: DashboardStats["attributes"][0]) => (
                 <div key={attr.name} className="p-4 bg-white/40 space-y-3">
                   <div className="flex justify-between items-start">
                     <span className="text-sm font-semibold text-foreground/90 max-w-[70%]">{attr.name}</span>
@@ -440,7 +497,7 @@ function DashboardContent() {
             <CardContent>
               <div className="w-full pt-4" style={{ height: Math.max(400, attributes.length * 45) }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={attributes} layout="vertical" margin={{ left: 60, right: 80, top: 0, bottom: 0 }}>
+                  <BarChart data={sortedAttributes} layout="vertical" margin={{ left: 60, right: 80, top: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} opacity={0.1} />
                     <XAxis type="number" domain={[0, 100]} hide />
                     <YAxis 
@@ -479,62 +536,6 @@ function DashboardContent() {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
-  );
-}
-
-function MetricCard({ 
-  title, 
-  value, 
-  subtitle, 
-  icon 
-}: { 
-  title: string; 
-  value: number; 
-  subtitle: string; 
-  icon: React.ReactNode;
-}) {
-  return (
-    <Card className="shadow-sm border-border bg-card hover:shadow-md transition-all duration-300 hover:-translate-y-1">
-      <CardHeader className="pb-6">
-        <div className="flex justify-between items-start">
-          <div className="p-2.5 rounded-xl bg-muted/60 shadow-inner border border-border/40">{icon}</div>
-          <div className="text-4xl font-extrabold tracking-tighter text-foreground">{value}%</div>
-        </div>
-        <CardTitle className="text-lg mt-5 capitalize font-bold leading-none">{title}</CardTitle>
-        <CardDescription className="text-xs text-muted-foreground font-medium mt-1.5">{subtitle}</CardDescription>
-      </CardHeader>
-    </Card>
-  );
-}
-
-function DashboardLoading() {
-  return (
-    <div className="mx-auto py-10 space-y-8 animate-pulse text-center">
-      <Skeleton className="h-10 w-64 mx-auto" />
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-40 w-full rounded-xl" />
-        ))}
-      </div>
-      <Skeleton className="h-[600px] w-full rounded-xl" />
-    </div>
-  );
-}
-
-function DashboardError({ onRetry }: { onRetry: () => void }) {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[500px] gap-4">
-      <div className="p-6 rounded-full bg-red-50 text-red-600 border border-red-100">
-        <HelpCircle className="w-12 h-12" />
-      </div>
-      <h2 className="text-2xl font-bold">Unable to sync metrics</h2>
-      <p className="text-muted-foreground max-w-md text-center">
-        The real-time data connection encountered an issue. Please verify your connection or try a manual refresh.
-      </p>
-      <Button onClick={onRetry} variant="default" className="mt-4 px-8">
-        Try Again
-      </Button>
     </div>
   );
 }

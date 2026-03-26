@@ -18,6 +18,7 @@ import { TraceAttribute } from "./types";
 import { CheckIcon, XIcon, PlayCircle } from "lucide-react";
 import { FeedbackDialog, FeedbackFormValues } from "./feedback-dialog";
 import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group";
+import { TruncatedCell } from "@/components/common/truncated-cell";
 
 interface AttributesTableProps {
   attributes: TraceAttribute[];
@@ -88,12 +89,12 @@ export function AttributesTable({
         <Table className="text-xs table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead>Property</TableHead>
-            <TableHead>Attribute</TableHead>
-            <TableHead>Value</TableHead>
-            <TableHead>Source</TableHead>
-            <TableHead className="w-[40%]">Evidence</TableHead>
-            <TableHead className="w-[25%]">Feedback</TableHead>
+            <TableHead><TruncatedCell content="Property" /></TableHead>
+            <TableHead><TruncatedCell content="Attribute" /></TableHead>
+            <TableHead><TruncatedCell content="Value" /></TableHead>
+            <TableHead><TruncatedCell content="Source" /></TableHead>
+            <TableHead className="w-[40%]"><TruncatedCell content="Evidence" maxW="max-w-none" /></TableHead>
+            <TableHead className="w-[25%] truncate" title="Feedback">Feedback</TableHead>
           </TableRow>
         </TableHeader>
 
@@ -104,12 +105,20 @@ export function AttributesTable({
 
             return (
               <TableRow key={index}>
-                <TableCell>{humanizeString(attribute.pipeline)}</TableCell>
-                <TableCell>{humanizeString(attribute.attribute)}</TableCell>
-                <TableCell>{humanizeString(attribute.value)}</TableCell>
-                <TableCell>{humanizeString(attribute.source)}</TableCell>
-                <TableCell className="whitespace-normal wrap-break-word">
-                  {humanizeString(attribute.evidence)}
+                <TableCell>
+                  <TruncatedCell content={humanizeString(attribute.pipeline)} maxW="max-w-[120px]" />
+                </TableCell>
+                <TableCell>
+                  <TruncatedCell content={humanizeString(attribute.attribute)} maxW="max-w-[120px]" />
+                </TableCell>
+                <TableCell>
+                  <TruncatedCell content={humanizeString(attribute.value)} maxW="max-w-[150px]" />
+                </TableCell>
+                <TableCell>
+                  <TruncatedCell content={humanizeString(attribute.source)} maxW="max-w-[100px]" />
+                </TableCell>
+                <TableCell>
+                  <TruncatedCell content={humanizeString(attribute.evidence)} maxW="max-w-[200px]" />
                 </TableCell>
 
                 <TableCell>
