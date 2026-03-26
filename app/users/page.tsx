@@ -130,6 +130,13 @@ export default function UsersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<UserPayload>(DEFAULT_FORM);
   const [errorMessage, setErrorMessage] = useState("");
+  
+  // Confirmation state
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  
+  const [isRoleConfirmOpen, setIsRoleConfirmOpen] = useState(false);
+  const [pendingUpdate, setPendingUpdate] = useState<{ id: string; payload: Partial<UserPayload>; name: string; oldRole: string; newRole: string } | null>(null);
 
   const { data: usersData, isLoading: isUsersLoading, isFetching: isUsersFetching } = useQuery({
     queryKey: ["users", page, pageSize, search],
@@ -412,17 +419,27 @@ export default function UsersPage() {
                         <Button
                           size="sm"
                           disabled={isSaving}
-                          onClick={() =>
-                            updateUser.mutate({
-                              id: user.id,
-                              payload: {
-                                name: editForm.name,
-                                email: editForm.email,
-                                role: editForm.role,
-                                password: editForm.password,
-                              },
-                            })
-                          }
+                          onClick={() => {
+                            const payload = {
+                              name: editForm.name,
+                              email: editForm.email,
+                              role: editForm.role,
+                              password: editForm.password,
+                            };
+                            
+                            if (editForm.role !== user.role) {
+                              setPendingUpdate({
+                                id: user.id,
+                                payload,
+                                name: user.name,
+                                oldRole: user.role,
+                                newRole: editForm.role,
+                              });
+                              setIsRoleConfirmOpen(true);
+                            } else {
+                              updateUser.mutate({ id: user.id, payload });
+                            }
+                          }}
                         >
                           Save
                         </Button>
@@ -452,7 +469,10 @@ export default function UsersPage() {
                             size="sm"
                             variant="destructive"
                             disabled={deleteUser.isPending}
-                            onClick={() => deleteUser.mutate(user.id)}
+                            onClick={() => {
+                              setUserToDelete(user);
+                              setIsDeleteConfirmOpen(true);
+                            }}
                           >
                             Delete
                           </Button>
@@ -523,17 +543,27 @@ export default function UsersPage() {
                         className="flex-1"
                         size="sm"
                         disabled={isSaving}
-                        onClick={() =>
-                          updateUser.mutate({
-                            id: user.id,
-                            payload: {
-                              name: editForm.name,
-                              email: editForm.email,
-                              role: editForm.role,
-                              password: editForm.password,
-                            },
-                          })
-                        }
+                        onClick={() => {
+                          const payload = {
+                            name: editForm.name,
+                            email: editForm.email,
+                            role: editForm.role,
+                            password: editForm.password,
+                          };
+                          
+                          if (editForm.role !== user.role) {
+                            setPendingUpdate({
+                              id: user.id,
+                              payload,
+                              name: user.name,
+                              oldRole: user.role,
+                              newRole: editForm.role,
+                            });
+                            setIsRoleConfirmOpen(true);
+                          } else {
+                            updateUser.mutate({ id: user.id, payload });
+                          }
+                        }}
                       >
                         Save
                       </Button>
@@ -585,7 +615,10 @@ export default function UsersPage() {
                             variant="destructive"
                             className="h-7 text-xs px-2.5 shadow-sm"
                             disabled={deleteUser.isPending}
-                            onClick={() => deleteUser.mutate(user.id)}
+                            onClick={() => {
+                              setUserToDelete(user);
+                              setIsDeleteConfirmOpen(true);
+                            }}
                           >
                             Delete
                           </Button>
@@ -610,11 +643,8 @@ export default function UsersPage() {
           onPageChange={setPage}
         />
       </div>
-
-
-
       {editingId ? (
-        <div className="rounded-md border p-4 space-y-2">
+        <div className="rounded-md border p-4 mt-6 space-y-2 max-w-md">
           <p className="text-sm font-medium">Optional: Reset password while editing</p>
           <Input
             type="password"
@@ -623,9 +653,82 @@ export default function UsersPage() {
             onChange={(event) =>
               setEditForm((prev) => ({ ...prev, password: event.target.value }))
             }
+            className="h-9"
           />
         </div>
       ) : null}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-destructive font-bold text-xl flex items-center gap-2">
+              Confirm Deletion
+            </DialogTitle>
+            <DialogDescription className="text-base py-2">
+              Are you sure you want to delete <strong>{userToDelete?.name}</strong>? This action will permanently remove the user and cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteConfirmOpen(false)}
+              className="w-full sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="w-full sm:w-auto"
+              onClick={() => {
+                if (userToDelete) {
+                  deleteUser.mutate(userToDelete.id);
+                  setIsDeleteConfirmOpen(false);
+                }
+              }}
+            >
+              Delete User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Role Change Confirmation Dialog */}
+      <Dialog open={isRoleConfirmOpen} onOpenChange={setIsRoleConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="font-bold text-xl">Confirm Role Change</DialogTitle>
+            <DialogDescription className="text-base py-2">
+              Are you sure you want to change <strong>{pendingUpdate?.name}</strong>&apos;s role from{" "}
+              <span className="font-semibold uppercase px-1.5 py-0.5 rounded bg-muted text-muted-foreground text-sm">{pendingUpdate?.oldRole?.replace("_", " ")}</span> to{" "}
+              <span className="font-bold uppercase px-1.5 py-0.5 rounded bg-primary/10 text-primary text-sm">{pendingUpdate?.newRole?.replace("_", " ")}</span>?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => setIsRoleConfirmOpen(false)}
+              className="w-full sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              className="w-full sm:w-auto"
+              onClick={() => {
+                if (pendingUpdate) {
+                  updateUser.mutate({
+                    id: pendingUpdate.id,
+                    payload: pendingUpdate.payload,
+                  });
+                  setIsRoleConfirmOpen(false);
+                }
+              }}
+            >
+              Confirm Change
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
