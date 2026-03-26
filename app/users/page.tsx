@@ -35,7 +35,8 @@ import { ButtonGroup } from "@/components/ui/button-group";
 import { PaginationControls } from "@/components/ui/table";
 import { toast } from "sonner";
 import { useCurrentUser } from "@/components/current-user-provider";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { TruncatedCell } from "@/components/common/truncated-cell";
 import { useEffect } from "react";
 
 type UserRole = "power_user" | "normal_user";
@@ -365,10 +366,7 @@ export default function UsersPage() {
                       user.name
                     )}
                   </TableCell>
-                  <TableCell
-                    className="truncate max-w-[200px]"
-                    title={user.email}
-                  >
+                  <TableCell>
                     {editingId === user.id ? (
                       <Input
                         value={editForm.email}
@@ -380,7 +378,7 @@ export default function UsersPage() {
                         }
                       />
                     ) : (
-                      user.email
+                      <TruncatedCell content={user.email} />
                     )}
                   </TableCell>
                   <TableCell>

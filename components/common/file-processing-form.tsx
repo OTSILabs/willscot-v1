@@ -190,19 +190,20 @@ export function FileProcessingFormContent() {
         };
 
         // 2. UPLOAD PARTS (in batches for parallelism)
+        const presignRes = await axios.post("/api/s3/multipart", {
+          action: "PRESIGN_PARTS",
+          bucket,
+          key,
+          uploadId,
+          partsCount: totalParts,
+          region,
+        });
+        
+        const allUrls = presignRes.data.urls;
+
         for (let i = 0; i < totalParts; i += CONCURRENCY) {
           const currentBatchSize = Math.min(CONCURRENCY, totalParts - i);
-          
-          const presignRes = await axios.post("/api/s3/multipart", {
-            action: "PRESIGN_PARTS",
-            bucket,
-            key,
-            uploadId,
-            partsCount: totalParts,
-            region,
-          });
-          
-          const urls = presignRes.data.urls.slice(i, i + currentBatchSize);
+          const urls = allUrls.slice(i, i + currentBatchSize);
 
           const batchPromises = urls.map(async (partInfo: { url: string; partNumber: number }) => {
             const start = (partInfo.partNumber - 1) * CHUNK_SIZE;

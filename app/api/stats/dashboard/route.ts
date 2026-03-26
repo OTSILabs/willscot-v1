@@ -1,7 +1,7 @@
 import { getCurrentUserServerAction } from "@/app/actions/current-user";
 import { db } from "@/lib/db";
 import { resultAttributes, results } from "@/lib/db/schema";
-import { and, eq, sql, count, desc, gte, lte } from "drizzle-orm";
+import { and, eq, sql, count, desc, gte, lte, inArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { fromZonedTime } from "date-fns-tz";
 import { syncResultAttributes } from "@/lib/db/sync";
@@ -13,14 +13,14 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Forbidden: Power User access required" }, { status: 403 });
     }
     const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
+    const userIds = searchParams.getAll("userId").filter(id => id !== "all" && id !== "");
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
     const timezone = searchParams.get("timezone") || "UTC";
 
     const filters = [];
-    if (userId && userId !== "all") {
-      filters.push(eq(results.createdByUserId, userId));
+    if (userIds.length > 0) {
+      filters.push(inArray(results.createdByUserId, userIds));
     }
     
     // Optimized: Pre-calculate UTC date ranges in JS instead of calling DATE() in SQL.
