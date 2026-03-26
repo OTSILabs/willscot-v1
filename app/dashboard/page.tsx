@@ -370,25 +370,25 @@ function DashboardContent() {
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent bg-muted/5">
-                    <TableHead className="pl-6 py-4 font-bold text-foreground">Category Name</TableHead>
-                    <TableHead className="text-center font-bold text-foreground">
-                      <div className="flex items-center justify-center gap-1.5 translate-x-3">
+                    <TableHead className="pl-6 py-4 text-[11px] uppercase tracking-wider font-extrabold text-foreground">Category Name</TableHead>
+                    <TableHead className="text-center">
+                      <div className="flex items-center justify-center gap-1">
                         <button 
                           onClick={toggleSort}
                           className={cn(
-                            "flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-primary/5 transition-all group",
-                            sortOrder && "text-primary bg-primary/5"
+                            "flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted transition-all group",
+                            sortOrder && "bg-muted/50"
                           )}
                         >
-                          <span className="text-[11px] uppercase tracking-wider font-bold">Accuracy</span>
+                          <span className="text-[11px] uppercase tracking-wider font-extrabold text-foreground">Accuracy</span>
                           <div className="flex flex-col -space-y-1 opacity-40 group-hover:opacity-100 transition-opacity">
                             <ChevronUp className={cn(
-                              "h-3 w-3",
-                              sortOrder === "asc" && "text-primary opacity-100"
+                              "h-3 w-3 text-foreground",
+                              sortOrder === "asc" && "opacity-100"
                             )} />
                             <ChevronDown className={cn(
-                              "h-3 w-3",
-                              sortOrder === "desc" && "text-primary opacity-100"
+                              "h-3 w-3 text-foreground",
+                              sortOrder === "desc" && "opacity-100"
                             )} />
                           </div>
                         </button>
@@ -396,21 +396,21 @@ function DashboardContent() {
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className="h-6 w-6 rounded-full hover:bg-primary/10 hover:text-primary"
+                            className="h-6 w-6 rounded-full hover:bg-muted/10 shrink-0"
                             onClick={(e) => {
                               e.stopPropagation();
                               setSortOrder(null);
                             }}
                           >
-                            <RotateCcw className="w-3 h-3" />
+                            <RotateCcw className="w-3 h-3 text-foreground" />
                           </Button>
                         )}
                       </div>
                     </TableHead>
-                    <TableHead className="text-center font-bold text-foreground">Correct</TableHead>
-                    <TableHead className="text-center font-bold text-foreground">Incorrect</TableHead>
-                    <TableHead className="text-center font-bold text-foreground">Unmarked</TableHead>
-                    <TableHead className="text-right pr-6 font-bold text-foreground">Total Traces</TableHead>
+                    <TableHead className="text-center text-[11px] uppercase tracking-wider font-extrabold text-foreground">Correct</TableHead>
+                    <TableHead className="text-center text-[11px] uppercase tracking-wider font-extrabold text-foreground">Incorrect</TableHead>
+                    <TableHead className="text-center text-[11px] uppercase tracking-wider font-extrabold text-foreground">Unmarked</TableHead>
+                    <TableHead className="text-right pr-6 text-[11px] uppercase tracking-wider font-extrabold text-foreground">Total Traces</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
