@@ -234,8 +234,7 @@ function DashboardContent() {
   const { overview, attributes } = data;
 
   return (
-    <div className="mx-auto py-4 xl:py-10 space-y-6 xl:space-y-8 animate-in fade-in duration-700 relative">
-      {/* Back Button and Header */}
+   <div className="container mx-auto px-4 xl:px-0 py-4 xl:py-10 space-y-6 xl:space-y-8 pb-16 xl:pb-10 animate-in fade-in duration-700 relative">      {/* Back Button and Header */}
       <div className="flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <BackButton label="Back to Traces" className="xl:-ml-4" />
