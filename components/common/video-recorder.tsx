@@ -540,7 +540,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
         3. Removed default bg and default header
       */}
       <DialogContent 
-        className="p-0 overflow-hidden bg-black border-none h-[100dvh] max-h-[100dvh] max-w-[100vw] sm:max-w-[400px] sm:h-[85vh] sm:rounded-[40px] shadow-2xl transition-all duration-300 flex flex-col gap-0"
+        className="p-0 overflow-hidden bg-black border-none h-[100dvh] max-h-[100dvh] max-w-[100vw] sm:max-w-[80vw] sm:h-[90vh] sm:rounded-[20px] shadow-2xl transition-all duration-300 flex flex-col gap-0"
         aria-describedby="video-recorder-description" // Adding standard accessibility prop
       >
         {/* Invisible Description for Screen Readers to satisfy Dialog requirements */}
@@ -594,7 +594,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
               controls
               autoPlay    // INSTAGRAM FLOW: Automatically plays the preview
               playsInline
-              className="w-full h-full object-cover bg-black"
+              className="w-full h-full object-contain md:object-cover bg-black"
             />
           )}
 

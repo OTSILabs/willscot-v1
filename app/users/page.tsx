@@ -365,7 +365,10 @@ export default function UsersPage() {
                       user.name
                     )}
                   </TableCell>
-                  <TableCell>
+                  <TableCell
+                    className="truncate max-w-[200px]"
+                    title={user.email}
+                  >
                     {editingId === user.id ? (
                       <Input
                         value={editForm.email}
@@ -555,7 +558,7 @@ export default function UsersPage() {
                     <div className="flex justify-between items-start gap-2">
                       <div className="flex flex-col break-words max-w-[70%]">
                         <span className="font-normal">{user.name}</span>
-                        <span className="text-sm text-muted-foreground break-all">{user.email}</span>
+                        <span className="text-sm text-muted-foreground truncate" title={user.email}>{user.email}</span>
                       </div>
                       <span className="px-2.5 py-0.5 rounded-full bg-accent text-[10px] font-normal shrink-0 uppercase tracking-wider">
                         {user.role === "power_user" ? "Power User" : "Normal User"}

@@ -445,7 +445,7 @@ export function FileProcessingFormContent() {
       ) : (
         <div 
           className={cn(
-            "flex flex-col md:flex-row gap-3 h-full min-h-[160px] p-4 bg-background/50 border-2 border-dashed rounded-lg transition-all items-center justify-center relative group",
+            "flex flex-col lg:flex-row gap-4 h-full min-h-[160px] p-4 bg-background/50 border-2 border-dashed rounded-lg transition-all items-center justify-center relative group",
             isDragging && "border-blue-500 bg-blue-50/50 dark:bg-blue-900/10"
           )}
           onDragOver={handleOnDrag}
@@ -453,8 +453,8 @@ export function FileProcessingFormContent() {
           onDrop={handleDrop}
         >
           {isDragging && (
-             <div className="absolute inset-0 z-10 hidden md:flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg border-2 border-blue-500 pointer-events-none">
-               <span className="font-semibold text-blue-500 flex items-center gap-2">
+             <div className="absolute inset-0 z-10 hidden lg:flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg border-2 border-blue-500 pointer-events-none">
+               <span className="font-semibold text-blue-500 flex items-center gap-2 text-center">
                  <UploadIcon className="w-5 h-5 animate-bounce" />
                  Drop video here
                </span>
@@ -462,24 +462,25 @@ export function FileProcessingFormContent() {
           )}
           <Button
             variant="outline"
-            className="w-full flex-1 h-20 md:h-32 text-muted-foreground hover:text-foreground hover:bg-muted/50 shadow-sm flex flex-col gap-2 items-center justify-center p-3 relative transition-all"
+            className="w-full flex-1 min-h-[80px] lg:h-32 text-muted-foreground hover:text-foreground hover:bg-muted/50 shadow-sm flex flex-col gap-2 items-center justify-center p-3 relative transition-all"
             onClick={handleOpenFileInput}
             disabled={isPending || files.length >= maxFiles}
             type="button"
           >
-            <UploadIcon className="w-6 h-6 md:w-8 md:h-8 mb-0 md:mb-1" />
-            <span className="text-sm font-normal md:font-semibold uppercase tracking-tight">Import from Device</span>
-            <span className="text-xs hidden md:block opacity-50">or drag and drop video here</span>
+            <UploadIcon className="w-6 h-6 lg:w-8 lg:h-8 mb-0 lg:mb-1 shrink-0" />
+            <span className="text-xs sm:text-sm font-semibold uppercase tracking-tight text-center">Import from Device</span>
+            <span className="text-[10px] hidden lg:block opacity-50 text-center">or drag and drop video here</span>
           </Button>
           <Button
             variant="outline"
-            className="w-full flex-1 h-20 md:hidden text-muted-foreground hover:text-foreground hover:bg-muted/50 shadow-sm flex flex-col gap-2 items-center justify-center p-3"
+            className="w-full flex-1 min-h-[80px] lg:h-32 text-muted-foreground hover:text-foreground hover:bg-muted/50 shadow-sm flex flex-col gap-2 items-center justify-center p-3 transition-all"
             onClick={() => setRecordingType(expectedJobType)}
             disabled={isPending || files.length >= maxFiles}
             type="button"
           >
-            <CameraIcon className="w-6 h-6 mb-0" />
-            <span className="text-sm font-normal uppercase tracking-tight">Record Video</span>
+            <CameraIcon className="w-6 h-6 lg:w-8 lg:h-8 mb-0 lg:mb-1 shrink-0" />
+            <span className="text-xs sm:text-sm font-semibold uppercase tracking-tight text-center">Record Video</span>
+            <span className="text-[10px] hidden lg:block opacity-50 text-center">Capture live video from camera</span>
           </Button>
         </div>
       )}

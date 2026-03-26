@@ -88,12 +88,12 @@ export function AttributesTable({
         <Table className="text-xs table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead>Property</TableHead>
-            <TableHead>Attribute</TableHead>
-            <TableHead>Value</TableHead>
-            <TableHead>Source</TableHead>
-            <TableHead className="w-[40%]">Evidence</TableHead>
-            <TableHead className="w-[25%]">Feedback</TableHead>
+            <TableHead className="truncate" title="Property">Property</TableHead>
+            <TableHead className="truncate" title="Attribute">Attribute</TableHead>
+            <TableHead className="truncate" title="Value">Value</TableHead>
+            <TableHead className="truncate" title="Source">Source</TableHead>
+            <TableHead className="w-[40%] truncate" title="Evidence">Evidence</TableHead>
+            <TableHead className="w-[25%] truncate" title="Feedback">Feedback</TableHead>
           </TableRow>
         </TableHeader>
 
@@ -104,11 +104,19 @@ export function AttributesTable({
 
             return (
               <TableRow key={index}>
-                <TableCell>{humanizeString(attribute.pipeline)}</TableCell>
-                <TableCell>{humanizeString(attribute.attribute)}</TableCell>
-                <TableCell>{humanizeString(attribute.value)}</TableCell>
-                <TableCell>{humanizeString(attribute.source)}</TableCell>
-                <TableCell className="whitespace-normal wrap-break-word">
+                <TableCell className="truncate max-w-[120px]" title={humanizeString(attribute.pipeline)}>
+                  {humanizeString(attribute.pipeline)}
+                </TableCell>
+                <TableCell className="truncate max-w-[120px]" title={humanizeString(attribute.attribute)}>
+                  {humanizeString(attribute.attribute)}
+                </TableCell>
+                <TableCell className="truncate max-w-[150px]" title={humanizeString(attribute.value)}>
+                  {humanizeString(attribute.value)}
+                </TableCell>
+                <TableCell className="truncate max-w-[100px]" title={humanizeString(attribute.source)}>
+                  {humanizeString(attribute.source)}
+                </TableCell>
+                <TableCell className="truncate max-w-[200px]" title={humanizeString(attribute.evidence)}>
                   {humanizeString(attribute.evidence)}
                 </TableCell>
 
