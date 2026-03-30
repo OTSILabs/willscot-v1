@@ -84,6 +84,14 @@ export default function ResultDetailPage() {
       return response.data;
     },
     enabled: !!id,
+    retry: (failureCount, error) => {
+      // If it's a 404 from our API, it's likely DB lag - retry up to 5 times (total ~10-15s wait if needed)
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return failureCount < 5;
+      }
+      return failureCount < 3;
+    },
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
     refetchInterval: (query) =>
       query.state.data?.status === "processing" ? DETAIL_POLLING_MS : false,
   });

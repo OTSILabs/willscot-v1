@@ -61,27 +61,39 @@ export async function GET(
     const { id } = await params;
 
     const filter = currentUser.role === "power_user" ? undefined : eq(results.createdByUserId, currentUser.id);
+    
+    // Self-healing: Retry with small delays if record not found initially (DB replication lag)
+    let resultsList: any[] = [];
+    for (let attempt = 0; attempt < 3; attempt++) {
+      resultsList = await db
+        .select({
+          id: results.id,
+          videoId: results.videoId,
+          status: results.status,
+          containerType: results.containerType,
+          model: results.model,
+          regionName: results.regionName,
+          json: results.json,
+          createdByUserId: results.createdByUserId,
+          createdByName: users.name,
+          createdByEmail: users.email,
+          createdAt: results.createdAt,
+          videoName: results.videoName,
+          customId: results.customId,
+        })
+        .from(results)
+        .leftJoin(users, eq(results.createdByUserId, users.id))
+        .where(and(eq(results.id, id), filter))
+        .limit(1);
 
-    const [result] = await db
-      .select({
-        id: results.id,
-        videoId: results.videoId,
-        status: results.status,
-        containerType: results.containerType,
-        model: results.model,
-        regionName: results.regionName,
-        json: results.json,
-        createdByUserId: results.createdByUserId,
-        createdByName: users.name,
-        createdByEmail: users.email,
-        createdAt: results.createdAt,
-        videoName: results.videoName,
-        customId: results.customId,
-      })
-      .from(results)
-      .leftJoin(users, eq(results.createdByUserId, users.id))
-      .where(and(eq(results.id, id), filter))
-      .limit(1);
+      if (resultsList.length > 0) break;
+      if (attempt < 2) {
+        console.log(`Result not found for ${id}, retrying in 800ms (Attempt ${attempt + 1}/3)...`);
+        await new Promise((resolve) => setTimeout(resolve, 800));
+      }
+    }
+
+    const result = resultsList[0];
 
     if (!result) {
       return NextResponse.json({ error: "Result not found" }, { status: 404 });
