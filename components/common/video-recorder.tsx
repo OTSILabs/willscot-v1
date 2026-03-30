@@ -537,7 +537,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
         3. Removed default bg and default header
       */}
       <DialogContent 
-        className="!fixed !inset-0 !top-0 !left-0 !translate-x-0 !translate-y-0 p-0 overflow-hidden bg-black !border-none !h-screen !w-screen !max-w-none !rounded-none shadow-none transition-all duration-300 gap-0"
+        className="!fixed !top-0 !left-0 !translate-x-0 !translate-y-0 p-0 overflow-hidden bg-black !border-none !h-[100dvh] !w-screen !max-w-none !rounded-none shadow-none transition-all duration-300 gap-0"
         aria-describedby="video-recorder-description" // Adding standard accessibility prop
       >
         {/* Invisible Description for Screen Readers to satisfy Dialog requirements */}
@@ -667,7 +667,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
           BOTTOM OVERLAY CONTROL BAR
           Floating translucent controls for native camera feel
         */}
-        <div className="absolute bottom-0 left-0 right-0 z-50 h-40 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col items-center justify-center p-6 pb-12 pointer-events-none">
+        <div className="absolute bottom-0 left-0 right-0 z-50 h-40 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col items-center justify-center p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-12 pointer-events-none">
           <div className="w-full flex items-center justify-center pointer-events-auto">
             {/* FOOTER CONTROLS BASED ON STATUS */}
             {status === "idle" && (
