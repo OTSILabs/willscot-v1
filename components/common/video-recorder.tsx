@@ -254,7 +254,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
     try {
       const mediaRecorder = new MediaRecorder(captureStream, { 
         mimeType: supportedType,
-        videoBitsPerSecond: 2500000 // 2.5 Mbps
+        videoBitsPerSecond: 1000000 // 1.0 Mbps (Optimized for low-bandwidth uploads)
       });
       mediaRecorderRef.current = mediaRecorder;
 

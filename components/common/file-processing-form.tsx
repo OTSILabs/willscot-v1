@@ -165,7 +165,15 @@ export function FileProcessingFormContent() {
     ) => {
       const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB minimum for S3
       const totalParts = Math.ceil(file.size / CHUNK_SIZE);
-      const CONCURRENCY = 6; // Upload 6 parts at a time
+      
+      // ADAPTIVE CONCURRENCY: Adjust based on network quality (e.g. mobile data vs wifi)
+      let CONCURRENCY = 6;
+      const nav = typeof navigator !== "undefined" ? (navigator as any) : null;
+      if (nav?.connection) {
+        const type = nav.connection.effectiveType;
+        const isSlow = ["4g", "3g", "2g", "slow-2g"].includes(type) || nav.connection.saveData;
+        if (isSlow) CONCURRENCY = 2; // Throttle for mobile data/stability
+      }
       
       // 1. INITIATE
       let uploadId = "";
@@ -223,6 +231,12 @@ export function FileProcessingFormContent() {
 
           const batchResults = await Promise.all(batchPromises);
           parts.push(...batchResults);
+
+          // MEMORY-SAFE DELAY: If on a low-concurrency (likely slow/low-ram) device, 
+          // add a small delay between batches to allow garbage collection and steady networking.
+          if (CONCURRENCY <= 2) {
+            await new Promise(r => setTimeout(r, 200));
+          }
         }
 
         // 3. COMPLETE
