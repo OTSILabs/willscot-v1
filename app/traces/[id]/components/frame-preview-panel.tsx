@@ -2,6 +2,7 @@
 
 import { useState, type MouseEvent, type SyntheticEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useCurrentUser } from "@/components/current-user-provider";
 import { Loader2 } from "lucide-react";
 
 interface SelectedFrame {
@@ -37,8 +38,9 @@ export function FramePreviewPanel({
   const frameSource = selectedFrame?.source || "";
   const resolvedRegion = (regionName || "").trim() || undefined;
   const isS3Source = frameSource.startsWith("s3://");
+  const { currentUser } = useCurrentUser();
   const { data: signedFrameUrl, isLoading: isSigningFrame } = useQuery({
-    queryKey: ["presign-frame", frameSource, resolvedRegion],
+    queryKey: ["presign-frame", currentUser?.id, frameSource, resolvedRegion],
     queryFn: async () => {
       const response = await fetch("/api/s3/presign", {
         method: "POST",

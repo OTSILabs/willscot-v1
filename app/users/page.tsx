@@ -77,7 +77,15 @@ const DEFAULT_FORM: UserPayload = {
 async function fetchUsersApi(page: number, pageSize: number, search: string): Promise<UsersApiResponse> {
   const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
   if (search.trim()) params.set("search", search.trim());
-  const response = await fetch(`/api/users?${params.toString()}`);
+  
+  // Disable caching entirely to ensure we never get stale data during updates
+  const response = await fetch(`/api/users?${params.toString()}`, {
+    cache: "no-store",
+    headers: {
+      "Pragma": "no-cache",
+      "Cache-Control": "no-cache",
+    }
+  });
   if (!response.ok) throw new Error("Failed to fetch users");
   return response.json();
 }
@@ -138,8 +146,8 @@ export default function UsersPage() {
   const [isRoleConfirmOpen, setIsRoleConfirmOpen] = useState(false);
   const [pendingUpdate, setPendingUpdate] = useState<{ id: string; payload: Partial<UserPayload>; name: string; oldRole: string; newRole: string } | null>(null);
 
-  const { data: usersData, isLoading: isUsersLoading, isFetching: isUsersFetching } = useQuery({
-    queryKey: ["users", page, pageSize, search],
+  const { data: usersData, isLoading: isUsersLoading, isFetching: isUsersFetching, refetch: usersRefetch } = useQuery({
+    queryKey: ["users", currentUser?.id, page, pageSize, search],
     queryFn: () => fetchUsersApi(page, pageSize, search),
     enabled: !!currentUser && currentUser.role === "power_user",
     placeholderData: keepPreviousData,
@@ -147,31 +155,87 @@ export default function UsersPage() {
 
   const createUser = useMutation({
     mutationFn: createUserApi,
-    onSuccess: async () => {
+    onMutate: async (newUser) => {
+      await queryClient.cancelQueries({ queryKey: ["users", currentUser?.id, page, pageSize, search] });
+      const previousUsers = queryClient.getQueryData<UsersApiResponse>(["users", currentUser?.id, page, pageSize, search]);
+
+      if (previousUsers) {
+        queryClient.setQueryData<UsersApiResponse>(["users", currentUser?.id, page, pageSize, search], {
+          ...previousUsers,
+          items: [
+            {
+              id: "temp-id-" + Date.now(),
+              name: newUser.name,
+              email: newUser.email,
+              role: newUser.role,
+              createdAt: new Date().toISOString(),
+            },
+            ...previousUsers.items,
+          ].slice(0, pageSize), // Keep page size consistent
+          pagination: {
+            ...previousUsers.pagination,
+            total: previousUsers.pagination.total + 1,
+          },
+        });
+      }
+
+      return { previousUsers };
+    },
+    onSuccess: () => {
       setPage(1);
+      setSearch(""); // Reset search to see new user
       setCreateForm(DEFAULT_FORM);
       setIsCreateOpen(false);
       setErrorMessage("");
       toast.success("User created successfully");
-      await queryClient.invalidateQueries({ queryKey: ["users"] });
     },
-    onError: (error: unknown) => {
+    onError: (error: unknown, __, context) => {
+      if (context?.previousUsers) {
+        queryClient.setQueryData(["users", currentUser?.id, page, pageSize, search], context.previousUsers);
+      }
       const msg = error instanceof Error ? error.message : "Failed to create user";
       setErrorMessage(msg);
       toast.error(msg);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["users", currentUser?.id] });
     },
   });
 
   const updateUser = useMutation({
     mutationFn: updateUserApi,
+    onMutate: async ({ id, payload }) => {
+      const queryKey = ["users", currentUser?.id, page, pageSize, search];
+      await queryClient.cancelQueries({ queryKey });
+      const previousUsers = queryClient.getQueryData<UsersApiResponse>(queryKey);
+
+      if (previousUsers) {
+        queryClient.setQueryData<UsersApiResponse>(queryKey, {
+          ...previousUsers,
+          items: previousUsers.items.map((u) =>
+            u.id === id ? { ...u, ...payload } : u
+          ),
+        });
+      }
+
+      return { previousUsers, queryKey };
+    },
     onSuccess: async () => {
+      // Force a broad invalidation across ALL user pages/searches immediately
+      await queryClient.invalidateQueries({ 
+        queryKey: ["users", currentUser?.id],
+        exact: false
+      });
+      
       setEditingId(null);
       setEditForm(DEFAULT_FORM);
       setErrorMessage("");
       toast.success("User updated successfully");
-      await queryClient.invalidateQueries({ queryKey: ["users"] });
     },
-    onError: (error: unknown) => {
+    onError: (error: unknown, __, context) => {
+      if (context?.previousUsers && context?.queryKey) {
+        queryClient.setQueryData(context.queryKey, context.previousUsers);
+      }
       const msg = error instanceof Error ? error.message : "Failed to update user";
       setErrorMessage(msg);
       toast.error(msg);
@@ -180,14 +244,36 @@ export default function UsersPage() {
 
   const deleteUser = useMutation({
     mutationFn: deleteUserApi,
-    onSuccess: async () => {
-      toast.success("User deleted successfully");
-      await queryClient.invalidateQueries({ queryKey: ["users"] });
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["users", currentUser?.id, page, pageSize, search] });
+      const previousUsers = queryClient.getQueryData<UsersApiResponse>(["users", currentUser?.id, page, pageSize, search]);
+
+      if (previousUsers) {
+        queryClient.setQueryData<UsersApiResponse>(["users", currentUser?.id, page, pageSize, search], {
+          ...previousUsers,
+          items: previousUsers.items.filter((u) => u.id !== id),
+          pagination: {
+            ...previousUsers.pagination,
+            total: previousUsers.pagination.total - 1,
+          },
+        });
+      }
+
+      return { previousUsers };
     },
-    onError: (error: unknown) => {
+    onSuccess: () => {
+      toast.success("User deleted successfully");
+    },
+    onError: (error: unknown, __, context) => {
+      if (context?.previousUsers) {
+        queryClient.setQueryData(["users", currentUser?.id, page, pageSize, search], context.previousUsers);
+      }
       const msg = error instanceof Error ? error.message : "Failed to delete user";
       setErrorMessage(msg);
       toast.error(msg);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["users", currentUser?.id] });
     },
   });
 
@@ -230,15 +316,47 @@ export default function UsersPage() {
             <PageTitle title="Users" />
             <PageDescription description="Add, edit and delete application users." />
           </div>
-          <Button
-            onClick={() => {
-              setErrorMessage("");
-              setIsCreateOpen(true);
-            }}
-            className="shrink-0"
-          >
-            New User
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => usersRefetch()}
+              disabled={isUsersFetching}
+              className="shrink-0 h-9 xl:h-10"
+            >
+              {isUsersFetching ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <svg
+                  className="h-4 w-4 mr-2"
+                  fill="none"
+                  height="24"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  viewBox="0 0 24 24"
+                  width="24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                  <path d="M3 3v5h5" />
+                  <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+                  <path d="M16 16h5v5" />
+                </svg>
+              )}
+              {isUsersFetching ? "Refreshing..." : "Refresh"}
+            </Button>
+            <Button
+              onClick={() => {
+                setErrorMessage("");
+                setIsCreateOpen(true);
+              }}
+              className="shrink-0 h-9 xl:h-10"
+            >
+              New User
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -390,20 +508,28 @@ export default function UsersPage() {
                   </TableCell>
                   <TableCell>
                     {editingId === user.id ? (
-                      <Select
-                        value={editForm.role}
-                        onValueChange={(value: UserRole) =>
-                          setEditForm((prev) => ({ ...prev, role: value }))
-                        }
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="power_user">Power user</SelectItem>
-                          <SelectItem value="normal_user">Normal user</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <div className="space-y-1">
+                        <Select
+                          value={editForm.role}
+                          disabled={user.id === currentUser?.id}
+                          onValueChange={(value: UserRole) =>
+                            setEditForm((prev) => ({ ...prev, role: value }))
+                          }
+                        >
+                          <SelectTrigger className="w-full h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="power_user">Power user</SelectItem>
+                            <SelectItem value="normal_user">Normal user</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {user.id === currentUser?.id && (
+                          <p className="text-[10px] text-muted-foreground leading-none">
+                            Self-role change restricted
+                          </p>
+                        )}
+                      </div>
                     ) : user.role === "power_user" ? (
                       "Power user"
                     ) : (
@@ -464,7 +590,7 @@ export default function UsersPage() {
                         >
                           Edit
                         </Button>
-                        {user.role !== "power_user" ? (
+                        {user.role !== "power_user" && user.id !== currentUser?.id ? (
                           <Button
                             size="sm"
                             variant="destructive"
@@ -517,18 +643,26 @@ export default function UsersPage() {
                       onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
                       className="h-9"
                     />
-                    <Select
-                      value={editForm.role}
-                      onValueChange={(value: UserRole) => setEditForm(prev => ({ ...prev, role: value }))}
-                    >
-                      <SelectTrigger className="h-9 w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="power_user">Power user</SelectItem>
-                        <SelectItem value="normal_user">Normal user</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="space-y-1.5">
+                      <Select
+                        value={editForm.role}
+                        disabled={user.id === currentUser?.id}
+                        onValueChange={(value: UserRole) => setEditForm(prev => ({ ...prev, role: value }))}
+                      >
+                        <SelectTrigger className="h-9 w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="power_user">Power user</SelectItem>
+                          <SelectItem value="normal_user">Normal user</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {user.id === currentUser?.id && (
+                        <p className="text-[10px] px-1 text-muted-foreground">
+                          Self-role change restricted to prevent lockout.
+                        </p>
+                      )}
+                    </div>
                     
                     <Input
                       type="password"
@@ -609,7 +743,7 @@ export default function UsersPage() {
                         >
                           Edit
                         </Button>
-                        {user.role !== "power_user" && (
+                        {user.role !== "power_user" && user.id !== currentUser?.id && (
                           <Button
                             size="sm"
                             variant="destructive"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useCurrentUser } from "@/components/current-user-provider";
 import { ExternalLink, Loader2 } from "lucide-react";
 import { RefObject, useEffect, useState } from "react";
 
@@ -22,8 +23,9 @@ export function VideoPreviewPanel({
   const resolvedRegion = (regionName || "").trim() || undefined;
   const isS3Source = source.startsWith("s3://");
 
+  const { currentUser } = useCurrentUser();
   const { data: signedVideoUrl, isLoading: isSigningVideo } = useQuery({
-    queryKey: ["presign-video", source, resolvedRegion],
+    queryKey: ["presign-video", currentUser?.id, source, resolvedRegion],
     queryFn: async () => {
       const response = await fetch("/api/s3/presign", {
         method: "POST",

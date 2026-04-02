@@ -173,13 +173,20 @@ function DashboardContent() {
   }, [userIds, startDate, endDate, sortOrder, updateQueryParams]);
 
   useEffect(() => {
-    if (currentUser && currentUser.role !== "power_user") {
-      router.push("/traces");
+    if (!currentUser) {
+      router.push("/login");
     }
   }, [currentUser, router]);
 
+  // Defensive: Always clear multi-user filters for non-power users to prevent stale state
+  useEffect(() => {
+    if (currentUser && currentUser.role !== "power_user" && userIds.length > 0) {
+      setUserIds([]);
+    }
+  }, [currentUser, userIds]);
+
   const { data: usersData } = useQuery({
-    queryKey: ["users-list"],
+    queryKey: ["users-list", currentUser?.id],
     queryFn: async () => {
       const resp = await axios.get("/api/users?pageSize=100");
       return resp.data.items as Array<{ id: string, name: string }>;
@@ -190,7 +197,7 @@ function DashboardContent() {
   const timezone = typeof window !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "UTC";
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery<DashboardStats>({
-    queryKey: ["dashboard-stats", userIds, startDate, endDate, timezone],
+    queryKey: ["dashboard-stats", currentUser?.id, userIds, startDate, endDate, timezone],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (userIds.length > 0) {
@@ -204,7 +211,7 @@ function DashboardContent() {
       return resp.data;
     },
     refetchInterval: 10000, 
-    enabled: !!currentUser && currentUser.role === "power_user",
+    enabled: !!currentUser,
     placeholderData: keepPreviousData,
   });
 
@@ -223,7 +230,7 @@ function DashboardContent() {
     else setSortOrder(null);
   }, [sortOrder]);
 
-  if (!currentUser || currentUser.role !== "power_user") return <DashboardLoading />;
+  if (!currentUser) return <DashboardLoading />;
 
   // Only show full skeleton if we have NO data at all
   if (isLoading && !data) return <DashboardLoading />;
@@ -248,8 +255,13 @@ function DashboardContent() {
 
         <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4 xl:gap-0">
           <div className="space-y-1">
-            <PageTitle title="Accuracy Dashboard" />
-            <PageDescription description="Performance metrics and extraction precision across all processed traces." />
+            <PageTitle title={currentUser.role === "power_user" ? "Accuracy Dashboard" : "My Accuracy Performance"} />
+            <PageDescription 
+              description={currentUser.role === "power_user" 
+                ? "Performance metrics and extraction precision across all processed traces." 
+                : "Your personal extraction precision and performance metrics tracker."
+              } 
+            />
           </div>
           
           <div className="flex items-center gap-3 self-end md:self-auto">
@@ -286,14 +298,21 @@ function DashboardContent() {
       {/* Filter Bar */}
       <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-end gap-3 mb-6 mt-4 p-4 xl:p-0 bg-muted/30 xl:bg-transparent rounded-xl border border-dashed xl:border-none">
         <div className="flex flex-col xl:flex-row items-start xl:items-center gap-2 bg-white/80 xl:bg-white/50 border border-dashed xl:border rounded-lg p-1.5 shadow-sm w-full xl:w-auto">
-          <div className="flex items-center gap-2 px-0 xl:px-2 xl:border-r border-border/50 w-full xl:w-auto">
-            <ShieldCheck className="w-3.5 h-3.5 text-muted-foreground ml-2 xl:ml-0" />
-            <MultiSelectUserFilter 
-              users={usersData || []} 
-              selectedIds={userIds} 
-              onSelectionChange={setUserIds} 
-            />
-          </div>
+            {currentUser.role === "power_user" ? (
+              <div className="flex items-center gap-2 px-0 xl:px-2 xl:border-r border-border/50 w-full xl:w-auto">
+                <ShieldCheck className="w-3.5 h-3.5 text-muted-foreground ml-2 xl:ml-0" />
+                <MultiSelectUserFilter 
+                  users={usersData || []} 
+                  selectedIds={userIds} 
+                  onSelectionChange={setUserIds} 
+                />
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 px-0 xl:px-3 xl:border-r border-border/50 w-full xl:w-auto py-2 xl:py-0">
+                <Zap className="w-3.5 h-3.5 text-blue-500 ml-2 xl:ml-0" />
+                <span className="text-xs font-semibold text-foreground/80 px-2">Personal Stats</span>
+              </div>
+            )}
           <div className="flex items-center gap-2 px-0 xl:px-2 w-full xl:w-auto xl:border-l border-border/50">
             <div className="flex items-center gap-1 flex-1">
               <DatePickerWithRange date={dateRange} setDate={setDateRange} />

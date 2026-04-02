@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
+import { useCurrentUser } from "@/components/current-user-provider";
 
 import {
   Dialog,
@@ -48,6 +49,7 @@ export function ProcessVideoModal() {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { currentUser } = useCurrentUser();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -71,7 +73,7 @@ export function ProcessVideoModal() {
       return response.data as { id?: string };
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["results"] });
+      queryClient.invalidateQueries({ queryKey: ["results", currentUser?.id] });
       setOpen(false);
       form.reset();
       if (data?.id) {

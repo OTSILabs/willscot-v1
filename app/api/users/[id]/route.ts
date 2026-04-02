@@ -3,6 +3,7 @@ import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { createHash } from "crypto";
 import { NextResponse } from "next/server";
+import { getCurrentUserServerAction } from "@/app/actions/current-user";
 
 const ALLOWED_ROLES = ["power_user", "normal_user"] as const;
 
@@ -25,6 +26,16 @@ export async function PATCH(
 
     if (role && !ALLOWED_ROLES.includes(role as (typeof ALLOWED_ROLES)[number])) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+    }
+
+    const currentUser = await getCurrentUserServerAction();
+
+    // Prevent administrative lockout by blocking self-role changes
+    if (currentUser && currentUser.id === id && role && role !== currentUser.role) {
+      return NextResponse.json(
+        { error: "You cannot change your own role to prevent administrative lockout." },
+        { status: 403 }
+      );
     }
 
     const values: {
@@ -91,6 +102,14 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+    const currentUser = await getCurrentUserServerAction();
+
+    if (currentUser && currentUser.id === id) {
+      return NextResponse.json(
+        { error: "You cannot delete your own account for security reasons." },
+        { status: 403 }
+      );
+    }
 
     const [deleted] = await db
       .delete(users)
