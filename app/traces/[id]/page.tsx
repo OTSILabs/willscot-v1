@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "@/components/current-user-provider";
 import axios from "axios";
 import { useParams, useRouter } from "next/navigation";
@@ -72,6 +72,7 @@ export default function ResultDetailPage() {
   const interiorVideoRef = useRef<HTMLVideoElement | null>(null);
   const exteriorVideoRef = useRef<HTMLVideoElement | null>(null);
   const videoSectionRef = useRef<HTMLDivElement | null>(null);
+  const queryClient = useQueryClient();
 
   const { currentUser } = useCurrentUser();
   const {
@@ -103,6 +104,42 @@ export default function ResultDetailPage() {
   const isMobileView = useIsMobile();
   const [isTableCompact, setIsTableCompact] = useState(false);
 
+  const { mutate: updateFeedback } = useMutation({
+    mutationFn: async ({ index, newAttribute }: { index: number; newAttribute: TraceAttribute }) => {
+      // Accessing current attributes using result?.json.attributes inside the async function is safe
+      const currentAttributes = [...(result?.json.attributes || [])] as TraceAttribute[];
+      if (index < 0 || index >= currentAttributes.length) return;
+      currentAttributes[index] = newAttribute;
+      const resp = await axios.patch(`/api/results/${id}`, { attributes: currentAttributes });
+      return resp.data;
+    },
+    onMutate: async ({ index, newAttribute }) => {
+      await queryClient.cancelQueries({ queryKey: ["result", currentUser?.id, id] });
+      const previousResult = queryClient.getQueryData(["result", currentUser?.id, id]) as ResultDetail | undefined;
+
+      if (previousResult?.json?.attributes && Array.isArray(previousResult.json.attributes)) {
+        const optimisticResult = JSON.parse(JSON.stringify(previousResult)) as ResultDetail;
+        if (optimisticResult.json.attributes) {
+          optimisticResult.json.attributes[index] = newAttribute;
+          queryClient.setQueryData(["result", currentUser?.id, id], optimisticResult);
+        }
+      }
+
+      return { previousResult };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousResult) {
+        queryClient.setQueryData(["result", currentUser?.id, id], context.previousResult);
+      }
+      toast.error("Failed to update feedback", { description: "Please try again!" });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["result", currentUser?.id, id] });
+      queryClient.invalidateQueries({ queryKey: ["results", currentUser?.id] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats", currentUser?.id] });
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="flex min-h-[300px] items-center justify-center gap-2 text-muted-foreground">
@@ -125,19 +162,6 @@ export default function ResultDetailPage() {
   const attributes = Array.isArray(list) ? (list as TraceAttribute[]) : [];
   const isProcessing = result.status === "processing";
   const isFailed = result.status === "failed";
-
-  async function handleFeedbackChange(index: number, newAttribute: TraceAttribute) {
-    const currentAttributes = [...(result?.json.attributes || [])] as TraceAttribute[];
-    if (index < 0 || index >= currentAttributes.length) return;
-
-    currentAttributes[index] = newAttribute;
-    try {
-      await axios.patch(`/api/results/${id}`, { attributes: currentAttributes });
-      refetch();
-    } catch {
-      toast.error("Failed to update feedback", { description: "Please try again!" });
-    }
-  }
 
   const handleTimestampClick = (timestamp: number, source: string) => {
     const s = (source.toLowerCase() === "exterior" ? "exterior" : "interior") as "interior" | "exterior";
@@ -214,7 +238,7 @@ export default function ResultDetailPage() {
                           <TabsContent value="results" className="m-0 min-h-0 flex-1 overflow-auto">
                             <AttributesTable
                               attributes={attributes}
-                              onAttributeUpdate={handleFeedbackChange}
+                              onAttributeUpdate={(idx, attr) => updateFeedback({ index: idx, newAttribute: attr })}
                               onTimestampClick={handleTimestampClick}
                               isCompact={isTableCompact}
                             />
@@ -261,7 +285,7 @@ export default function ResultDetailPage() {
                       <h2 className="font-semibold mb-3 border-b pb-2">Extracted Attributes</h2>
                       <AttributesTable
                         attributes={attributes}
-                        onAttributeUpdate={handleFeedbackChange}
+                        onAttributeUpdate={(index, newAttr) => updateFeedback({ index, newAttribute: newAttr })}
                         onTimestampClick={handleTimestampClick}
                         isCompact={isTableCompact}
                       />

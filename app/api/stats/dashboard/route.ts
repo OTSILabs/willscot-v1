@@ -99,11 +99,38 @@ export async function GET(req: Request) {
       Number(total) > 0 ? Math.round((Number(correct) / Number(total)) * 100) : 0;
 
     const formatAttributeName = (name: string) => {
-      return name.replace(/([a-z])([A-Z])/g, '$1 $2').trim();
+      return name
+        .replace(/_/g, ' ')
+        .replace(/([a-z])([A-Z])/g, '$1 $2')
+        .trim();
+    };
+
+    const MASTER_ATTRIBUTE_ORDER = [
+      "Flooring", "Frame Type", "Exterior Color", "Exterior Finish", "Exterior Door", 
+      "Windows", "Interior Finish", "Interior Door", "Roof Design", "Ceiling Type", 
+      "Ceiling Height", "Restroom", "Restroom Water Closet", "Restroom Lavatory", 
+      "Restroom Shower", "Electrical Electric Board", "Electrical Load Center", 
+      "Electrical Lighting", "Emergency Exit Lighting", "Wiring", "Accessories", "Hvac"
+    ];
+
+    const getOrderPriority = (name: string) => {
+      const index = MASTER_ATTRIBUTE_ORDER.indexOf(name);
+      return index === -1 ? 999 : index;
     };
 
     const interior = sourceStats.find((s: any) => s.source === 'interior');
     const exterior = sourceStats.find((s: any) => s.source === 'exterior');
+
+    const attributes = attributeStats
+      .map((attr: any) => ({
+        name: formatAttributeName(attr.name),
+        accuracy: formatPercent(attr.correct, attr.total),
+        correct: attr.correct,
+        incorrect: attr.incorrect,
+        unmarked: attr.unmarked,
+        totalTraces: attr.total
+      }))
+      .sort((a: any, b: any) => getOrderPriority(a.name) - getOrderPriority(b.name));
 
     return NextResponse.json({
       overview: {
@@ -127,14 +154,7 @@ export async function GET(req: Request) {
           unmarked: exterior?.unmarked || 0,
         },
       },
-      attributes: attributeStats.map((attr: any) => ({
-        name: formatAttributeName(attr.name),
-        accuracy: formatPercent(attr.correct, attr.total),
-        correct: attr.correct,
-        incorrect: attr.incorrect,
-        unmarked: attr.unmarked,
-        totalTraces: attr.total
-      }))
+      attributes
     }, {
       headers: {
         'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=59'
