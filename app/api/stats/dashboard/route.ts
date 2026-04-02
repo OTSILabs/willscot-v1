@@ -9,14 +9,18 @@ import { syncResultAttributes } from "@/lib/db/sync";
 export async function GET(req: Request) {
   try {
     const currentUser = await getCurrentUserServerAction();
-    if (!currentUser || currentUser.role !== "power_user") {
-      return NextResponse.json({ error: "Forbidden: Power User access required" }, { status: 403 });
+    if (!currentUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
     const { searchParams } = new URL(req.url);
-    const userIds = searchParams.getAll("userId").filter(id => id !== "all" && id !== "");
+    const rawUserIds = searchParams.getAll("userId").filter(id => id !== "all" && id !== "");
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
     const timezone = searchParams.get("timezone") || "UTC";
+
+    // DATA ISOLATION: Normal users can only see their own statistics
+    const userIds = currentUser.role === "power_user" ? rawUserIds : [currentUser.id];
 
     const filters = [];
     if (userIds.length > 0) {

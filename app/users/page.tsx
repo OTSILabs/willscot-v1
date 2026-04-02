@@ -139,7 +139,7 @@ export default function UsersPage() {
   const [pendingUpdate, setPendingUpdate] = useState<{ id: string; payload: Partial<UserPayload>; name: string; oldRole: string; newRole: string } | null>(null);
 
   const { data: usersData, isLoading: isUsersLoading, isFetching: isUsersFetching } = useQuery({
-    queryKey: ["users", page, pageSize, search],
+    queryKey: ["users", currentUser?.id, page, pageSize, search],
     queryFn: () => fetchUsersApi(page, pageSize, search),
     enabled: !!currentUser && currentUser.role === "power_user",
     placeholderData: keepPreviousData,
@@ -153,7 +153,7 @@ export default function UsersPage() {
       setIsCreateOpen(false);
       setErrorMessage("");
       toast.success("User created successfully");
-      await queryClient.invalidateQueries({ queryKey: ["users"] });
+      await queryClient.invalidateQueries({ queryKey: ["users", currentUser?.id] });
     },
     onError: (error: unknown) => {
       const msg = error instanceof Error ? error.message : "Failed to create user";
@@ -169,7 +169,7 @@ export default function UsersPage() {
       setEditForm(DEFAULT_FORM);
       setErrorMessage("");
       toast.success("User updated successfully");
-      await queryClient.invalidateQueries({ queryKey: ["users"] });
+      await queryClient.invalidateQueries({ queryKey: ["users", currentUser?.id] });
     },
     onError: (error: unknown) => {
       const msg = error instanceof Error ? error.message : "Failed to update user";
@@ -182,7 +182,7 @@ export default function UsersPage() {
     mutationFn: deleteUserApi,
     onSuccess: async () => {
       toast.success("User deleted successfully");
-      await queryClient.invalidateQueries({ queryKey: ["users"] });
+      await queryClient.invalidateQueries({ queryKey: ["users", currentUser?.id] });
     },
     onError: (error: unknown) => {
       const msg = error instanceof Error ? error.message : "Failed to delete user";

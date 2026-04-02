@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useCurrentUser } from "@/components/current-user-provider";
 import axios from "axios";
 import { useParams, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
@@ -72,13 +73,14 @@ export default function ResultDetailPage() {
   const exteriorVideoRef = useRef<HTMLVideoElement | null>(null);
   const videoSectionRef = useRef<HTMLDivElement | null>(null);
 
+  const { currentUser } = useCurrentUser();
   const {
     data: result,
     isLoading,
     error,
     refetch,
   } = useQuery<ResultDetail>({
-    queryKey: ["result", id],
+    queryKey: ["result", currentUser?.id, id],
     queryFn: async () => {
       const response = await axios.get(`/api/results/${id}`);
       return response.data;

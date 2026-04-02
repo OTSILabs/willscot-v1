@@ -16,6 +16,7 @@ import { Loader2, Eye, Info, ChevronDown, FileVideo, CheckCircle2, XCircle, Cloc
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn, humanizeDateTime, extractFilenames } from "@/lib/utils";
+import { useCurrentUser } from "@/components/current-user-provider";
 import { Input } from "@/components/ui/input";
 import {
   Tooltip,
@@ -169,8 +170,9 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
     }
   }, [page, search, pathname, router, searchParams]);
 
+  const { currentUser } = useCurrentUser();
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ["results", page, pageSize, search],
+    queryKey: ["results", currentUser?.id, page, pageSize, search],
     queryFn: async () => {
       const response = await axios.get<ResultsApiResponse>("/api/results", {
         params: { page, pageSize, search: search || undefined },
