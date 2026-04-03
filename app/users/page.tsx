@@ -153,6 +153,17 @@ export default function UsersPage() {
     placeholderData: keepPreviousData,
   });
 
+  // PREFETCHING: Silent background fetch of the next page for Users
+  useEffect(() => {
+    if (usersData?.pagination?.page && usersData.pagination.page < usersData.pagination.totalPages) {
+      const nextPage = usersData.pagination.page + 1;
+      queryClient.prefetchQuery({
+        queryKey: ["users", currentUser?.id, nextPage, pageSize, search],
+        queryFn: () => fetchUsersApi(nextPage, pageSize, search),
+      });
+    }
+  }, [usersData, page, pageSize, search, queryClient, currentUser?.id]);
+
   const createUser = useMutation({
     mutationFn: createUserApi,
     onMutate: async (newUser) => {

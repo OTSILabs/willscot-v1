@@ -51,52 +51,33 @@ export async function GET(req: Request) {
       return baseQuery;
     };
 
-    const [overallStats, sourceStats, attributeStats] = await Promise.all([
-      getStatsBase(
-        db
-          .select({
-            total: count(resultAttributes.id),
-            correct: sql`count(case when ${resultAttributes.status} = 'correct' then 1 end)`,
-            incorrect: sql`count(case when ${resultAttributes.status} = 'incorrect' then 1 end)`,
-            unmarked: sql`count(case when ${resultAttributes.status} = 'unmarked' then 1 end)`,
-          })
-          .from(resultAttributes)
-      ),
+    // --- Optimized: Single Pass Aggregation ---
+    // Instead of 3 scans, we perform 1 scan grouped by name/source and aggregate the rest in JS.
+    const attributeStats = await getStatsBase(
+      db
+        .select({
+          name: resultAttributes.name,
+          source: resultAttributes.source,
+          total: count(resultAttributes.id),
+          correct: sql`count(case when ${resultAttributes.status} = 'correct' then 1 end)`,
+          incorrect: sql`count(case when ${resultAttributes.status} = 'incorrect' then 1 end)`,
+          unmarked: sql`count(case when ${resultAttributes.status} = 'unmarked' then 1 end)`,
+          orderIndex: sql<number>`min(${resultAttributes.orderIndex})`,
+        })
+        .from(resultAttributes)
+    )
+      .groupBy(resultAttributes.name, resultAttributes.source)
+      .orderBy(sql`min(${resultAttributes.orderIndex})`);
 
-      getStatsBase(
-        db
-          .select({
-            source: resultAttributes.source,
-            total: count(resultAttributes.id),
-            correct: sql`count(case when ${resultAttributes.status} = 'correct' then 1 end)`,
-            incorrect: sql`count(case when ${resultAttributes.status} = 'incorrect' then 1 end)`,
-            unmarked: sql`count(case when ${resultAttributes.status} = 'unmarked' then 1 end)`,
-          })
-          .from(resultAttributes)
-      ).groupBy(resultAttributes.source),
-
-      getStatsBase(
-        db
-          .select({
-            name: resultAttributes.name,
-            total: count(resultAttributes.id),
-            correct: sql`count(case when ${resultAttributes.status} = 'correct' then 1 end)`,
-            incorrect: sql`count(case when ${resultAttributes.status} = 'incorrect' then 1 end)`,
-            unmarked: sql`count(case when ${resultAttributes.status} = 'unmarked' then 1 end)`,
-            orderIndex: sql<number>`min(${resultAttributes.orderIndex})`,
-          })
-          .from(resultAttributes)
-      )
-        .groupBy(resultAttributes.name)
-        .orderBy(sql`min(${resultAttributes.orderIndex})`),
-    ]); 
-
-    // REMOVED backgroundSync from here -> it's too expensive for a dashboard stats request.
-    // Syncing is handled by the Trace Details page and Process Batch logic.
-
-
-    const formatPercent = (correct: unknown, total: unknown) => 
+    const formatPercent = (correct: number | string, total: number | string) => 
       Number(total) > 0 ? Math.round((Number(correct) / Number(total)) * 100) : 0;
+
+    // --- High Speed JS Aggregation ---
+    const summary = {
+      overall: { total: 0, correct: 0, incorrect: 0, unmarked: 0 },
+      interior: { total: 0, correct: 0, incorrect: 0, unmarked: 0 },
+      exterior: { total: 0, correct: 0, incorrect: 0, unmarked: 0 },
+    };
 
     const formatAttributeName = (name: string) => {
       return name
@@ -118,40 +99,50 @@ export async function GET(req: Request) {
       return index === -1 ? 999 : index;
     };
 
-    const interior = sourceStats.find((s: any) => s.source === 'interior');
-    const exterior = sourceStats.find((s: any) => s.source === 'exterior');
+    const attributes = attributeStats.map((attr: any) => {
+      const total = Number(attr.total);
+      const correct = Number(attr.correct);
+      const incorrect = Number(attr.incorrect);
+      const unmarked = Number(attr.unmarked);
 
-    const attributes = attributeStats
-      .map((attr: any) => ({
+      // Add to overall
+      summary.overall.total += total;
+      summary.overall.correct += correct;
+      summary.overall.incorrect += incorrect;
+      summary.overall.unmarked += unmarked;
+
+      // Add to specific source
+      if (attr.source === 'interior' || attr.source === 'exterior') {
+        const target = attr.source === 'interior' ? summary.interior : summary.exterior;
+        target.total += total;
+        target.correct += correct;
+        target.incorrect += incorrect;
+        target.unmarked += unmarked;
+      }
+
+      return {
         name: formatAttributeName(attr.name),
-        accuracy: formatPercent(attr.correct, attr.total),
-        correct: attr.correct,
-        incorrect: attr.incorrect,
-        unmarked: attr.unmarked,
-        totalTraces: attr.total
-      }))
-      .sort((a: any, b: any) => getOrderPriority(a.name) - getOrderPriority(b.name));
+        accuracy: formatPercent(correct, total),
+        correct,
+        incorrect,
+        unmarked,
+        totalTraces: total
+      };
+    }).sort((a: any, b: any) => getOrderPriority(a.name) - getOrderPriority(b.name));
 
     return NextResponse.json({
       overview: {
         overall: {
-          accuracy: formatPercent(overallStats[0].correct, overallStats[0].total),
-          correct: overallStats[0].correct,
-          incorrect: overallStats[0].incorrect,
-          unmarked: overallStats[0].unmarked,
-          total: overallStats[0].total
+          accuracy: formatPercent(summary.overall.correct, summary.overall.total),
+          ...summary.overall
         },
         interior: {
-          accuracy: formatPercent(interior?.correct, interior?.total || 0),
-          correct: interior?.correct || 0,
-          incorrect: interior?.incorrect || 0,
-          unmarked: interior?.unmarked || 0,
+          accuracy: formatPercent(summary.interior.correct, summary.interior.total),
+          ...summary.interior
         },
         exterior: {
-          accuracy: formatPercent(exterior?.correct, exterior?.total || 0),
-          correct: exterior?.correct || 0,
-          incorrect: exterior?.incorrect || 0,
-          unmarked: exterior?.unmarked || 0,
+          accuracy: formatPercent(summary.exterior.correct, summary.exterior.total),
+          ...summary.exterior
         },
       },
       attributes

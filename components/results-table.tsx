@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { useCurrentUser } from "@/components/current-user-provider";
 import axios from "axios";
 import {
   Table,
@@ -16,7 +17,6 @@ import { Loader2, Eye, Info, ChevronDown, FileVideo, CheckCircle2, XCircle, Cloc
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { cn, humanizeDateTime, extractFilenames } from "@/lib/utils";
-import { useCurrentUser } from "@/components/current-user-provider";
 import { Input } from "@/components/ui/input";
 import {
   Tooltip,
@@ -187,6 +187,24 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
     },
     placeholderData: keepPreviousData,
   });
+
+  const queryClient = useQueryClient();
+
+  // PREFETCHING: Silent background fetch of the next page to make pagination feel instant
+  useEffect(() => {
+    if (data?.pagination?.page && data.pagination.page < data.pagination.totalPages) {
+      const nextPage = data.pagination.page + 1;
+      queryClient.prefetchQuery({
+        queryKey: ["results", currentUser?.id, nextPage, pageSize, search],
+        queryFn: async () => {
+          const response = await axios.get<ResultsApiResponse>("/api/results", {
+            params: { page: nextPage, pageSize, search: search || undefined },
+          });
+          return response.data;
+        },
+      });
+    }
+  }, [data, page, pageSize, search, queryClient, currentUser?.id]);
 
 
   const currentPage = data?.pagination.page ?? 1;
