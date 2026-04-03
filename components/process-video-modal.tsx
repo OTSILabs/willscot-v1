@@ -73,7 +73,10 @@ export function ProcessVideoModal() {
       return response.data as { id?: string };
     },
     onSuccess: (data) => {
+      // Refresh both the results table AND the dashboard counters
       queryClient.invalidateQueries({ queryKey: ["results", currentUser?.id] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats", currentUser?.id] });
+      
       setOpen(false);
       form.reset();
       if (data?.id) {

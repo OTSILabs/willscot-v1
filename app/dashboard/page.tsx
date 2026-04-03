@@ -39,7 +39,8 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  X
+  X,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -68,6 +69,18 @@ import { MetricCard } from "./components/metric-card";
 import { MultiSelectUserFilter } from "./components/multi-select-user-filter";
 import { DashboardLoading } from "./components/dashboard-loading";
 import { DashboardError } from "./components/dashboard-error";
+import { UserPerformanceTable, UserPerformanceMobile } from "./components/user-performance-table";
+
+interface UserStat {
+  id: string;
+  name: string;
+  email: string;
+  accuracy: number;
+  correct: number;
+  incorrect: number;
+  unmarked: number;
+  totalTraces: number;
+}
 
 interface DashboardStats {
   overview: {
@@ -215,6 +228,20 @@ function DashboardContent() {
     placeholderData: keepPreviousData,
   });
 
+  const { data: usersStats, isLoading: isUsersStatsLoading } = useQuery<UserStat[]>({
+    queryKey: ["user-stats", currentUser?.id, startDate, endDate, timezone],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (startDate) params.append("startDate", startDate);
+      if (endDate) params.append("endDate", endDate);
+      params.append("timezone", timezone);
+      const resp = await axios.get(`/api/stats/users?${params.toString()}`);
+      return resp.data;
+    },
+    enabled: !!currentUser && currentUser.role === "power_user",
+    placeholderData: keepPreviousData,
+  });
+
   const sortedAttributes = useMemo(() => {
     const attrs = data?.attributes || [];
     if (!sortOrder) return attrs;
@@ -231,14 +258,11 @@ function DashboardContent() {
   }, [sortOrder]);
 
   if (!currentUser) return <DashboardLoading />;
-
-  // Only show full skeleton if we have NO data at all
-  if (isLoading && !data) return <DashboardLoading />;
   
   if (isError) return <DashboardError onRetry={() => refetch()} />;
-  if (!data) return <DashboardLoading />;
 
-  const { overview, attributes } = data;
+  const overview = data?.overview;
+  const attributes = data?.attributes || [];
 
   return (
    <div className="container mx-auto px-4 xl:px-0 py-4 xl:py-10 space-y-6 xl:space-y-8 pb-16 xl:pb-10 animate-in fade-in duration-700 relative">      {/* Back Button and Header */}
@@ -341,32 +365,44 @@ function DashboardContent() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <MetricCard 
           title="Overall Accuracy" 
-          value={overview.overall.accuracy} 
-          subtitle={`${overview.overall.correct} approved`}
+          value={overview?.overall.accuracy} 
+          subtitle={`${overview?.overall.correct} approved`}
           icon={<Zap className="w-5 h-5 text-yellow-500" />}
+          loading={isLoading}
         />
         <MetricCard 
           title="Interior " 
-          value={overview.interior.accuracy} 
+          value={overview?.interior.accuracy} 
           subtitle="Internal Attributes"
           icon={<ShieldCheck className="w-5 h-5 text-blue-500" />}
+          loading={isLoading}
         />
         <MetricCard 
           title="Exterior " 
-          value={overview.exterior.accuracy} 
+          value={overview?.exterior.accuracy} 
           subtitle="External Attributes"
           icon={<ShieldCheck className="w-5 h-5 text-emerald-500" />}
+          loading={isLoading}
         />
       </div>
 
       {/* View Toggle Section */}
       <Tabs defaultValue="table" className="w-full">
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-4">
-          <TabsList className="grid grid-cols-2 w-full xl:w-[300px]">
+          <TabsList className={cn(
+            "grid w-full xl:w-auto",
+            currentUser.role === "power_user" ? "grid-cols-3 xl:min-w-[450px]" : "grid-cols-2 xl:min-w-[300px]"
+          )}>
             <TabsTrigger value="table">
               <TableProperties className="w-4 h-4 mr-2" />
-              Table View
+              Accuracy 
             </TabsTrigger>
+            {currentUser.role === "power_user" && (
+              <TabsTrigger value="users">
+                <ShieldCheck className="w-4 h-4 mr-2" />
+                User Performance
+              </TabsTrigger>
+            )}
             <TabsTrigger value="chart">
               <BarChart3 className="w-4 h-4 mr-2" />
               Chart View
@@ -383,7 +419,13 @@ function DashboardContent() {
               <CardTitle className="text-lg font-semibold">Accuracy Breakdown</CardTitle>
               <CardDescription>Proportion of correct predictions out of all traces (including unmarked)</CardDescription>
             </CardHeader>
-            {/* Desktop Table View */}
+            {isLoading && !data ? (
+              <div className="p-8">
+                <DashboardLoading />
+              </div>
+            ) : (
+              <>
+                {/* Desktop Table View */}
             <div className="hidden xl:block overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -500,8 +542,33 @@ function DashboardContent() {
                 </div>
               ))}
             </div>
-          </Card>
-        </TabsContent>
+          </>
+        )}
+      </Card>
+    </TabsContent>
+
+        {currentUser.role === "power_user" && (
+          <TabsContent value="users" className="animate-in slide-in-from-right-2 duration-300">
+            <Card className="shadow-sm border-border bg-card overflow-hidden">
+              <CardHeader className="border-b bg-muted/10 pb-4">
+                <CardTitle className="text-lg font-semibold">User Performance Tracking</CardTitle>
+                <CardDescription>Individual precision metrics and processing volume across the team.</CardDescription>
+              </CardHeader>
+              
+              {isUsersStatsLoading && !usersStats ? (
+                <div className="p-8 text-center">
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground mt-2">Loading user performance...</p>
+                </div>
+              ) : (
+                <>
+                  <UserPerformanceTable stats={usersStats || []} />
+                  <UserPerformanceMobile stats={usersStats || []} />
+                </>
+              )}
+            </Card>
+          </TabsContent>
+        )}
 
         <TabsContent value="chart" className="space-y-4 animate-in slide-in-from-left-2 duration-300">
           <Card className="shadow-sm border-border bg-card">
