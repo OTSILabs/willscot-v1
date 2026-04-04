@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useRef, ChangeEvent } from "react";
 import {
   Card,
   CardAction,
@@ -23,7 +23,7 @@ import {
   FileInputProvider,
   useFileInput,
 } from "../file";
-import { CameraIcon, PlayIcon, XIcon, UploadIcon } from "lucide-react";
+import { CameraIcon, PlayIcon, XIcon, UploadIcon, PlusIcon, Camera } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Select,
@@ -38,7 +38,9 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import { VideoRecorder } from "./video-recorder";
+import { ImageCapture } from "./image-capture";
 import { humanizeString, humanizeFileSize } from "@/lib/utils";
+import { Label } from "../ui/label";
 
 type FileToProcess = {
   file: File;
@@ -88,6 +90,9 @@ export function FileProcessingFormContent() {
   const [filesToProcess, setFilesToProcess] = useState<FileToProcess[]>([]);
   const [isPending, setIsPending] = useState(false);
   const [recordingType, setRecordingType] = useState<"interior" | "exterior" | null>(null);
+  const [capturedPhotos, setCapturedPhotos] = useState<{ file: File; preview: string; qualityScore: number }[]>([]);
+  const [isCapturingPhoto, setIsCapturingPhoto] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -150,7 +155,7 @@ export function FileProcessingFormContent() {
     }
 
     setIsPending(true);
-    const toastId = toast.loading("Uploading videos to S3...", {
+    const toastId = toast.loading("Processing upload...", {
       closeButton: false
     });
 
@@ -266,6 +271,7 @@ export function FileProcessingFormContent() {
     };
 
     try {
+      // 1. Upload Videos
       const uploadPromises = filesToProcess.map(async (item) => {
         const uploadToastId = toast.loading(`Uploading ${item.file.name}...`, {
           closeButton: false,
@@ -364,11 +370,44 @@ export function FileProcessingFormContent() {
         return;
       }
 
+      // 2. Upload Captured Photos (Evidence)
+      let photoUris: string[] = [];
+      if (capturedPhotos.length > 0) {
+        const photoUploadPromises = capturedPhotos.map(async (photo, idx) => {
+          const photoToastId = `photo-upload-${idx}`;
+          toast.loading(`Uploading Photo Evidence ${idx + 1}...`, { id: photoToastId });
+          
+          try {
+            const presignResponse = await axios.post("/api/s3/presign-upload", {
+              fileName: photo.file.name,
+              containerType: "EVIDENCE",
+              region: "us-east-1",
+              contentType: photo.file.type,
+            });
+
+            const { presignedUrl, s3Uri } = presignResponse.data;
+            await axios.put(presignedUrl, photo.file, {
+              headers: { "Content-Type": photo.file.type }
+            });
+            
+            toast.dismiss(photoToastId);
+            return s3Uri;
+          } catch (err) {
+            toast.error(`Photo ${idx + 1} upload failed`, { id: photoToastId });
+            throw err;
+          }
+        });
+
+        photoUris = await Promise.all(photoUploadPromises);
+      }
+
+      // 3. Process Batch
       const response = await axios.post("/api/process-batch", {
         jobs: successfulJobs,
+        evidencePhotos: photoUris,
       });
 
-      toast.success("All videos have been submitted successfully!", {
+      toast.success("Batch successfully submitted with photo evidence!", {
         id: toastId,
       });
 
@@ -393,9 +432,46 @@ export function FileProcessingFormContent() {
     }
   };
 
+  const handleDeletePhoto = (idx: number) => {
+    setCapturedPhotos(prev => {
+      const next = [...prev];
+      URL.revokeObjectURL(next[idx].preview);
+      next.splice(idx, 1);
+      return next;
+    });
+  };
+  
+  const handleOpenImageInput = () => {
+    imageInputRef.current?.click();
+  };
+
+  const handleImageUpload = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const remaining = 3 - capturedPhotos.length;
+    const filesToAdd = files.slice(0, remaining);
+
+    const newPhotos = filesToAdd.map(file => ({
+      file,
+      preview: URL.createObjectURL(file),
+      qualityScore: 100 // Default quality score for uploaded photos
+    }));
+
+    setCapturedPhotos(prev => [...prev, ...newPhotos]);
+    toast.success(`${filesToAdd.length} photo(s) added successfully.`);
+    if (e.target) e.target.value = "";
+  };
+
+  const totalPhotosSize = useMemo(() => {
+    return capturedPhotos.reduce((sum, photo) => sum + photo.file.size, 0);
+  }, [capturedPhotos]);
+
+  const combinedTotalSize = totalSize + totalPhotosSize;
+
   const interiorFile = filesToProcess.find((f) => f.jobType === "interior");
   const exteriorFile = filesToProcess.find((f) => f.jobType === "exterior");
-  const hasBoth = interiorFile && exteriorFile;
+  const hasBoth = interiorFile && exteriorFile && capturedPhotos.length >= 1;
 
   const renderUploadCard = (title: string, expectedJobType: "interior" | "exterior", fileObj: FileToProcess | undefined) => (
     <div className="border rounded-xl p-4 bg-muted/20 flex flex-col gap-3">
@@ -405,18 +481,18 @@ export function FileProcessingFormContent() {
           <div className="text-xs font-mono truncate bg-background p-2 rounded border border-border/50">
             {fileObj.file.name}
           </div>
-          <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2 gap-3 text-sm">
             <div className="flex flex-col gap-1.5">
-              <span className="text-[10px] uppercase font-normal text-muted-foreground tracking-wider w-max">Region</span>
+              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider w-max">Region</span>
               <Input
                 value={fileObj.region}
                 disabled
-                className="h-9 text-xs bg-muted/50 font-medium"
+                className="h-9 text-xs bg-muted/50 font-medium border-border"
               />
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <span className="text-[10px] uppercase font-normal text-muted-foreground tracking-wider w-max">Container Type</span>
+              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider w-max">Container Type</span>
               <Select
                 value={fileObj.containerType}
                 onValueChange={(val) => {
@@ -425,7 +501,7 @@ export function FileProcessingFormContent() {
                   );
                 }}
               >
-                <SelectTrigger className="h-9 text-xs">
+                <SelectTrigger className="h-9 text-xs border-border">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -436,11 +512,11 @@ export function FileProcessingFormContent() {
               </Select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <span className="text-[10px] uppercase font-normal text-muted-foreground tracking-wider w-max">Model</span>
+              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider w-max">Model</span>
               <Input
                 value={humanizeString(fileObj.model)}
                 disabled
-                className="h-9 text-xs bg-muted/50 font-medium"
+                className="h-9 text-xs bg-muted/50 font-medium border-border"
               />
             </div>
           </div>
@@ -517,15 +593,15 @@ export function FileProcessingFormContent() {
                   <p>Allowed file types: <span className="font-mono bg-muted/50 px-1 rounded">video/*</span></p>
                   <p>Max file size: 500.00 MB</p>
                   <p>Total upload limit: 500.00 MB</p>
-                  {totalSize > 0 && (
+                  {combinedTotalSize > 0 && (
                     <div className="mt-3 p-2 bg-muted/30 rounded-md border border-border/50 text-foreground flex flex-col gap-1">
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground">Current total:</span>
-                        <span className="font-normal xl:font-bold font-mono text-xs xl:text-sm">{humanizeFileSize(totalSize)}</span>
+                        <span className="font-normal xl:font-bold font-mono text-xs xl:text-sm">{humanizeFileSize(combinedTotalSize)}</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-muted-foreground">Remaining limit:</span>
-                        <span className="font-normal xl:font-bold font-mono text-xs xl:text-sm text-blue-600 dark:text-blue-400">{humanizeFileSize(remainingSize)}</span>
+                        <span className="font-normal xl:font-bold font-mono text-xs xl:text-sm text-blue-600 dark:text-blue-400">{humanizeFileSize(remainingSize - totalPhotosSize)}</span>
                       </div>
                     </div>
                   )}
@@ -550,9 +626,96 @@ export function FileProcessingFormContent() {
                 </CardAction>
               </CardHeader>
               <CardContent className="p-0 px-0 xl:px-6">
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 xl:gap-6 py-4 px-0 xl:py-6">
+                <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-6 xl:gap-8 py-4 px-0 xl:py-8">
                   {renderUploadCard("Interior Video", "interior", interiorFile)}
                   {renderUploadCard("Exterior Video", "exterior", exteriorFile)}
+                  
+                  {/* PHOTO EVIDENCE CARD */}
+                  <div className="border rounded-xl p-4 bg-muted/20 flex flex-col gap-3 min-h-[160px]">
+                    <div className="flex items-center justify-between">
+                       <h3 className="font-semibold text-sm uppercase tracking-wider">Photo Evidence</h3>
+                       {capturedPhotos.length > 0 && (
+                        <div className="text-[10px] font-mono text-muted-foreground bg-background px-2 py-0.5 rounded border border-border/50">
+                          {humanizeFileSize(totalPhotosSize)}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center gap-3 bg-background/50 p-2 rounded-lg border border-border/50">
+                        <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                          <CameraIcon className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <p className={`text-[10px] uppercase font-bold tracking-tight ${capturedPhotos.length > 0 ? "text-primary" : "text-muted-foreground"}`}>
+                            {capturedPhotos.length === 0 ? "Required Min 1 Max 3" : `${capturedPhotos.length} / 3 Captured`}
+                          </p>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 flex flex-col gap-3">
+                      {capturedPhotos.length > 0 ? (
+                        <div className="grid grid-cols-3 gap-2 bg-background/50 p-2 rounded-lg border border-dashed border-primary/20 min-h-[100px]">
+                          {capturedPhotos.map((photo, idx) => (
+                            <div key={idx} className="relative aspect-square rounded-md overflow-hidden border group shadow-sm bg-muted/20">
+                              <img src={photo.preview} className="w-full h-full object-cover" alt="Evidence" />
+                              <div className={`absolute top-0 right-0 w-3 h-3 rounded-bl-md z-10 ${
+                                photo.qualityScore >= 80 ? 'bg-emerald-500' : photo.qualityScore >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                              }`} title={`Quality: ${photo.qualityScore}%`} />
+                              <button
+                                type="button"
+                                onClick={() => handleDeletePhoto(idx)}
+                                className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                              >
+                                <XIcon className="w-4 h-4 text-white" />
+                              </button>
+                            </div>
+                          ))}
+                          {capturedPhotos.length < 3 && (
+                            <button
+                              type="button"
+                              onClick={handleOpenImageInput}
+                              className="aspect-square rounded-md border-2 border-dashed border-muted-foreground/30 flex items-center justify-center text-muted-foreground hover:bg-muted/50 hover:border-primary/50 transition-all"
+                            >
+                              <PlusIcon className="w-5 h-5" />
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex flex-col lg:flex-row gap-4 h-full min-h-[160px] p-4 bg-background/50 border-2 border-dashed rounded-lg transition-all items-center justify-center relative group">
+                          <input 
+                            type="file" 
+                            ref={imageInputRef} 
+                            className="hidden" 
+                            accept="image/*" 
+                            multiple 
+                            onChange={handleImageUpload} 
+                          />
+                          <Button
+                            variant="outline"
+                            className="w-full flex-1 min-h-[80px] lg:h-32 text-muted-foreground hover:text-foreground hover:bg-muted/50 shadow-sm flex flex-col gap-2 items-center justify-center p-3 transition-all"
+                            onClick={handleOpenImageInput}
+                            disabled={isPending}
+                            type="button"
+                          >
+                            <UploadIcon className="w-6 h-6 lg:w-8 lg:h-8 mb-0 lg:mb-1 shrink-0" />
+                            <span className="text-xs sm:text-sm font-semibold uppercase tracking-tight text-center">Import from Device</span>
+                            <span className="text-[10px] hidden lg:block opacity-50 text-center">Select photo evidence</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="w-full flex-1 min-h-[80px] lg:h-32 text-muted-foreground hover:text-foreground hover:bg-muted/50 shadow-sm flex flex-col gap-2 items-center justify-center p-3 transition-all"
+                            onClick={() => setIsCapturingPhoto(true)}
+                            disabled={isPending}
+                            type="button"
+                          >
+                            <CameraIcon className="w-6 h-6 lg:w-8 lg:h-8 mb-0 lg:mb-1 shrink-0" />
+                            <span className="text-xs sm:text-sm font-semibold uppercase tracking-tight text-center">Capture Photo</span>
+                            <span className="text-[10px] hidden lg:block opacity-50 text-center">Capture live high-quality evidence</span>
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </CardContent>
               <CardFooter className={cn("border-none px-0 pt-4 xl:border-t xl:px-6 mb-4 justify-end", !hasBoth && "hidden")}>
@@ -582,6 +745,15 @@ export function FileProcessingFormContent() {
         onCapture={(file) => {
           addFiles([file]);
           toast.success("Live video captured and added!");
+        }}
+      />
+
+      <ImageCapture 
+        isOpen={isCapturingPhoto}
+        onClose={() => setIsCapturingPhoto(false)}
+        onCapture={(photos) => {
+          setCapturedPhotos(prev => [...prev, ...photos].slice(0, 3));
+          toast.success("Shelf/Unit photos captured successfully.");
         }}
       />
     </Form>
