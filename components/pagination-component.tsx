@@ -30,6 +30,7 @@ export function PaginationComponent({
   const handlePageChange = (newPage: number) => {
     if (onPageChange && isValidPageChange(newPage, totalPages)) {
       onPageChange(newPage);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 

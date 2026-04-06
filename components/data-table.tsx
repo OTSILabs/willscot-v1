@@ -176,7 +176,6 @@ export function DataTable<TData>({
         pageSize={pageSize}
         onPageChange={(page: number) => {
           onPageChange?.(page);
-          tableContainerRef.current?.scrollIntoView({ behavior: "smooth" });
         }}
         enablePagination={enablePagination}
         className="justify-end"
