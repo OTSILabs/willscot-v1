@@ -612,11 +612,14 @@ export function FileProcessingFormContent() {
                       variant="outline"
                       size="sm"
                       type="button"
-                      disabled={isPending || files.length === 0}
-                      className={cn("flex-1 xl:flex-none", files.length === 0 && "opacity-50 pointer-events-none")}
+                      disabled={isPending || (files.length === 0 && capturedPhotos.length === 0)}
+                      className={cn("flex-1 xl:flex-none", (files.length === 0 && capturedPhotos.length === 0) && "opacity-50 pointer-events-none")}
                       onClick={() => {
                         handleClearFiles();
+                        capturedPhotos.forEach(p => URL.revokeObjectURL(p.preview));
+                        setCapturedPhotos([]);
                         form.reset();
+                        toast.success("All files and evidence cleared.");
                       }}
                     >
                       <XIcon className="mr-1 h-4 w-4" />
@@ -652,7 +655,16 @@ export function FileProcessingFormContent() {
                         </div>
                     </div>
 
-                    <div className="flex-1 flex flex-col gap-3">
+                    <div className="flex-1 flex flex-col gap-3 relative">
+                      <input 
+                        type="file" 
+                        ref={imageInputRef} 
+                        className="hidden" 
+                        accept="image/*" 
+                        multiple 
+                        onChange={handleImageUpload} 
+                      />
+
                       {capturedPhotos.length > 0 ? (
                         <div className="grid grid-cols-3 gap-2 bg-background/50 p-2 rounded-lg border border-dashed border-primary/20 min-h-[100px]">
                           {capturedPhotos.map((photo, idx) => (
@@ -670,29 +682,33 @@ export function FileProcessingFormContent() {
                               </button>
                             </div>
                           ))}
+                          
+                          {capturedPhotos.length < 3 && (
+                            <button
+                              type="button"
+                              onClick={() => setIsCapturingPhoto(true)}
+                              className="aspect-square rounded-md border-2 border-dashed border-muted-foreground/20 flex flex-col items-center justify-center text-muted-foreground hover:bg-muted/50 hover:border-primary/50 hover:text-primary transition-all gap-1"
+                            >
+                              <CameraIcon className="w-4 h-4" />
+                              <span className="text-[8px] font-bold uppercase">Capture</span>
+                            </button>
+                          )}
                           {capturedPhotos.length < 3 && (
                             <button
                               type="button"
                               onClick={handleOpenImageInput}
-                              className="aspect-square rounded-md border-2 border-dashed border-muted-foreground/30 flex items-center justify-center text-muted-foreground hover:bg-muted/50 hover:border-primary/50 transition-all"
+                              className="aspect-square rounded-md border-2 border-dashed border-muted-foreground/20 flex flex-col items-center justify-center text-muted-foreground hover:bg-muted/50 hover:border-primary/50 hover:text-primary transition-all gap-1"
                             >
-                              <PlusIcon className="w-5 h-5" />
+                              <PlusIcon className="w-4 h-4" />
+                              <span className="text-[8px] font-bold uppercase">Add</span>
                             </button>
                           )}
                         </div>
                       ) : (
                         <div className="flex flex-col lg:flex-row gap-4 h-full min-h-[160px] p-4 bg-background/50 border-2 border-dashed rounded-lg transition-all items-center justify-center relative group">
-                          <input 
-                            type="file" 
-                            ref={imageInputRef} 
-                            className="hidden" 
-                            accept="image/*" 
-                            multiple 
-                            onChange={handleImageUpload} 
-                          />
                           <Button
                             variant="outline"
-                            className="w-full flex-1 min-h-[80px] lg:h-32 text-muted-foreground hover:text-foreground hover:bg-muted/50 shadow-sm flex flex-col gap-2 items-center justify-center p-3 transition-all"
+                            className="w-full flex-1 min-h-[80px] lg:h-32 text-muted-foreground hover:text-foreground hover:bg-muted/50 shadow-sm flex flex-col gap-2 items-center justify-center p-3 relative transition-all"
                             onClick={handleOpenImageInput}
                             disabled={isPending}
                             type="button"
@@ -751,6 +767,7 @@ export function FileProcessingFormContent() {
       <ImageCapture 
         isOpen={isCapturingPhoto}
         onClose={() => setIsCapturingPhoto(false)}
+        initialCount={capturedPhotos.length}
         onCapture={(photos) => {
           setCapturedPhotos(prev => [...prev, ...photos].slice(0, 3));
           toast.success("Shelf/Unit photos captured successfully.");

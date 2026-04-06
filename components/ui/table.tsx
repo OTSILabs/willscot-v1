@@ -159,7 +159,10 @@ export function PaginationControls({
                 className="cursor-pointer"
                 onClick={(e) => {
                   e.preventDefault();
-                  if (currentPage > 1) onPageChange(currentPage - 1);
+                  if (currentPage > 1) {
+                    onPageChange(currentPage - 1);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }
                 }}
                 aria-disabled={currentPage <= 1}
               />
@@ -183,6 +186,7 @@ export function PaginationControls({
                     onClick={(e) => {
                       e.preventDefault();
                       onPageChange(pageNumber as number);
+                      window.scrollTo({ top: 0, behavior: "smooth" });
                     }}
                   >
                     {pageNumber}
@@ -197,7 +201,10 @@ export function PaginationControls({
                 className="cursor-pointer"
                 onClick={(e) => {
                   e.preventDefault();
-                  if (currentPage < totalPages) onPageChange(currentPage + 1);
+                  if (currentPage < totalPages) {
+                    onPageChange(currentPage + 1);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }
                 }}
                 aria-disabled={currentPage >= totalPages}
               />

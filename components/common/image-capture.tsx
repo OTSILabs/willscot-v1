@@ -18,9 +18,17 @@ interface ImageCaptureProps {
   onCapture: (photos: CapturedImage[]) => void;
   title?: string;
   maxPhotos?: number;
+  initialCount?: number;
 }
 
-export function ImageCapture({ isOpen, onClose, onCapture, title = "Capture Photo", maxPhotos = 3 }: ImageCaptureProps) {
+export function ImageCapture({ 
+  isOpen, 
+  onClose, 
+  onCapture, 
+  title = "Capture Photo", 
+  maxPhotos = 3,
+  initialCount = 0 
+}: ImageCaptureProps) {
   const [capturedImages, setCapturedImages] = useState<{ blob: Blob; preview: string; qualityScore: number }[]>([]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -87,7 +95,7 @@ export function ImageCapture({ isOpen, onClose, onCapture, title = "Capture Phot
   };
 
   const capturePhoto = () => {
-    if (!videoRef.current || capturedImages.length >= maxPhotos) return;
+    if (!videoRef.current || (initialCount + capturedImages.length) >= maxPhotos) return;
     // Trigger Flash Effect
     if (flashRef.current) {
       flashRef.current.style.opacity = "1";
@@ -105,7 +113,7 @@ export function ImageCapture({ isOpen, onClose, onCapture, title = "Capture Phot
     canvas.toBlob((blob) => {
       if (blob) {
         setCapturedImages(prev => [...prev, { blob, preview: URL.createObjectURL(blob), qualityScore }]);
-        toast.success(`Photo ${capturedImages.length + 1} captured`);
+        toast.success(`Photo ${initialCount + capturedImages.length + 1} captured`);
       }
     }, "image/jpeg", 1.0);
   };
@@ -117,11 +125,14 @@ export function ImageCapture({ isOpen, onClose, onCapture, title = "Capture Phot
     });
   };
 
+  const isSaving = useRef(false);
+
   const handleSave = () => {
     if (capturedImages.length < 1) {
       toast.error("Please capture at least 1 image.");
       return;
     }
+    isSaving.current = true;
     onCapture(capturedImages.map((img, i) => ({
       file: new File([img.blob], `cap-${Date.now()}-${i}.jpg`, { type: "image/jpeg" }),
       preview: img.preview,
@@ -131,14 +142,21 @@ export function ImageCapture({ isOpen, onClose, onCapture, title = "Capture Phot
   };
 
   useEffect(() => {
-    if (isOpen) startCamera();
-    else {
+    if (isOpen) {
+      isSaving.current = false;
+      startCamera();
+    } else {
       stopCamera();
-      capturedImages.forEach(img => URL.revokeObjectURL(img.preview));
+      if (!isSaving.current) {
+        capturedImages.forEach(img => URL.revokeObjectURL(img.preview));
+      }
       setCapturedImages([]);
     }
     return () => stopCamera();
   }, [isOpen]);
+
+  const totalCount = initialCount + capturedImages.length;
+  const isMaxReached = totalCount >= maxPhotos;
 
   const getScoreColor = (score: number) => {
     if (score > 70) return "text-emerald-400";
@@ -160,10 +178,10 @@ export function ImageCapture({ isOpen, onClose, onCapture, title = "Capture Phot
           <div className="flex flex-col items-center">
             <div className="flex gap-2 mb-1">
               {Array.from({ length: maxPhotos }).map((_, i) => (
-                <div key={i} className={`w-2 h-2 rounded-full transition-all duration-300 ${i < capturedImages.length ? 'bg-emerald-500 scale-110' : 'bg-white/20'}`} />
+                <div key={i} className={`w-2 h-2 rounded-full transition-all duration-300 ${i < totalCount ? 'bg-emerald-500 scale-110' : 'bg-white/20'}`} />
               ))}
             </div>
-            <span className="text-[10px] text-white/60 font-medium uppercase tracking-widest">{capturedImages.length} / {maxPhotos} Captured</span>
+            <span className="text-[10px] text-white/60 font-medium uppercase tracking-widest">{totalCount} / {maxPhotos} Captured</span>
           </div>
 
           <div className="w-10 h-10 flex items-center justify-center bg-black/40 rounded-full border border-white/10">
@@ -220,7 +238,7 @@ export function ImageCapture({ isOpen, onClose, onCapture, title = "Capture Phot
             <div className="relative group">
               <button 
                 onClick={capturePhoto} 
-                disabled={capturedImages.length >= maxPhotos} 
+                disabled={isMaxReached} 
                 className="relative flex items-center justify-center w-[80px] h-[80px] disabled:opacity-20 active:scale-95 transition-transform"
               >
                 {/* Outer Ring */}
@@ -228,7 +246,7 @@ export function ImageCapture({ isOpen, onClose, onCapture, title = "Capture Phot
                 {/* Inner White Fill (Morphed/Scaled) */}
                 <div className="absolute w-[62px] h-[62px] rounded-full bg-white shadow-inner scale-100 group-hover:scale-95 transition-transform duration-150" />
               </button>
-              {capturedImages.length >= maxPhotos && (
+              {isMaxReached && (
                 <span className="absolute -top-10 left-1/2 -translate-x-1/2 text-[10px] text-white/40 font-bold whitespace-nowrap uppercase tracking-tighter">Max reach (3)</span>
               )}
             </div>
@@ -238,7 +256,7 @@ export function ImageCapture({ isOpen, onClose, onCapture, title = "Capture Phot
               disabled={capturedImages.length < 1} 
               className="w-20 px-4 py-2.5 rounded-xl bg-emerald-500 text-white font-bold text-[11px] uppercase tracking-wider transition-all hover:bg-emerald-600 disabled:opacity-30 disabled:grayscale shadow-lg"
             >
-              Done {capturedImages.length > 0 && `(${capturedImages.length})`}
+              Done {totalCount > 0 && `(${totalCount})`}
             </button>
           </div>
         </div>
