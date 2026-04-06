@@ -30,6 +30,7 @@ export interface TraceVideoInfo {
 export interface ResultJson {
   video?: TraceVideoInfo;
   attributes?: TraceAttribute[];
+  evidencePhotos?: string[];
   [key: string]: unknown;
   error?: string | null;
 }

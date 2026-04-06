@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "@/components/current-user-provider";
 import axios from "axios";
 import { useParams, useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, ImageIcon } from "lucide-react";
 import { BackButton } from "@/components/back-button";
 import { PageTitle } from "@/components/typography";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -229,8 +229,16 @@ export default function ResultDetailPage() {
                       >
                         <div className="flex h-full min-h-0 flex-col">
                           <div className="border-b">
-                            <TabsList variant="line" className="grid w-[260px] grid-cols-2">
+                            <TabsList variant="line" className="grid w-[390px] grid-cols-3">
                               <TabsTrigger value="results">Results</TabsTrigger>
+                              <TabsTrigger value="photos">
+                                Photos
+                                {result.json.evidencePhotos && result.json.evidencePhotos.length > 0 && (
+                                  <span className="ml-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+                                    {result.json.evidencePhotos.length}
+                                  </span>
+                                )}
+                              </TabsTrigger>
                               <TabsTrigger value="raw-json">Raw Json</TabsTrigger>
                             </TabsList>
                           </div>
@@ -242,6 +250,35 @@ export default function ResultDetailPage() {
                               onTimestampClick={handleTimestampClick}
                               isCompact={isTableCompact}
                             />
+                          </TabsContent>
+
+                          <TabsContent value="photos" className="m-0 min-h-0 flex-1 overflow-auto p-6">
+                            {result.json.evidencePhotos && result.json.evidencePhotos.length > 0 ? (
+                              <div className="grid grid-cols-2 gap-4">
+                                {result.json.evidencePhotos.map((url, idx) => (
+                                  <div key={idx} className="group relative aspect-video overflow-hidden rounded-xl border bg-muted shadow-sm hover:shadow-md transition-all">
+                                    <img 
+                                      src={url} 
+                                      alt={`Evidence ${idx + 1}`} 
+                                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" 
+                                    />
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                      <Button variant="secondary" size="sm" onClick={() => window.open(url, "_blank")}>
+                                        View Full size
+                                      </Button>
+                                    </div>
+                                    <div className="absolute bottom-2 left-2 rounded-md bg-black/60 px-2 py-1 text-[10px] font-bold text-white uppercase tracking-wider backdrop-blur-sm">
+                                      Photo Evidence {idx + 1}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
+                                <ImageIcon className="h-10 w-10 opacity-20" />
+                                <p className="text-sm font-medium">No photo evidence available</p>
+                              </div>
+                            )}
                           </TabsContent>
   
                           <TabsContent value="raw-json" className="m-0 min-h-0 flex-1 overflow-auto p-0">
@@ -280,16 +317,53 @@ export default function ResultDetailPage() {
                       />
                     </div>
   
-                    {/* Results Section */}
-                    <div>
-                      <h2 className="font-semibold mb-3 border-b pb-2">Extracted Attributes</h2>
-                      <AttributesTable
-                        attributes={attributes}
-                        onAttributeUpdate={(index, newAttr) => updateFeedback({ index, newAttribute: newAttr })}
-                        onTimestampClick={handleTimestampClick}
-                        isCompact={isTableCompact}
-                      />
-                    </div>
+                    {/* Results / Photos Tabs for Mobile */}
+                    <Tabs defaultValue="results" className="w-full">
+                      <TabsList className="grid w-full grid-cols-2 mb-4">
+                        <TabsTrigger value="results">Attributes</TabsTrigger>
+                        <TabsTrigger value="photos">
+                          Photos
+                          {result.json.evidencePhotos && result.json.evidencePhotos.length > 0 && (
+                            <span className="ml-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+                              {result.json.evidencePhotos.length}
+                            </span>
+                          )}
+                        </TabsTrigger>
+                      </TabsList>
+
+                      <TabsContent value="results">
+                        <AttributesTable
+                          attributes={attributes}
+                          onAttributeUpdate={(index, newAttr) => updateFeedback({ index, newAttribute: newAttr })}
+                          onTimestampClick={handleTimestampClick}
+                          isCompact={isTableCompact}
+                        />
+                      </TabsContent>
+
+                      <TabsContent value="photos">
+                        {result.json.evidencePhotos && result.json.evidencePhotos.length > 0 ? (
+                          <div className="grid grid-cols-1 gap-4 pb-6">
+                            {result.json.evidencePhotos.map((url, idx) => (
+                              <div key={idx} className="group relative aspect-video overflow-hidden rounded-xl border bg-muted shadow-sm">
+                                <img 
+                                  src={url} 
+                                  alt={`Evidence ${idx + 1}`} 
+                                  className="h-full w-full object-cover" 
+                                />
+                                <div className="absolute bottom-2 left-2 rounded-md bg-black/60 px-2 py-1 text-[10px] font-bold text-white uppercase tracking-wider">
+                                  Evidence {idx + 1}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="flex min-h-[200px] flex-col items-center justify-center gap-3 text-muted-foreground border-2 border-dashed rounded-xl">
+                            <ImageIcon className="h-8 w-8 opacity-20" />
+                            <p className="text-sm">No photo evidence</p>
+                          </div>
+                        )}
+                      </TabsContent>
+                    </Tabs>
                   </div>
                 )}
               </div>

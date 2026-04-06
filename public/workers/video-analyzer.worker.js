@@ -3,8 +3,8 @@ let motionHistory = []; // Rolling buffer of avgMotion values
 const HISTORY_LIMIT = 10;
 
 self.onmessage = function (e) {
-  const { imageData, width, height } = e.data;
-  const data = imageData.data;
+  const { buffer, width, height } = e.data;
+  const data = new Uint8ClampedArray(buffer);
   const length = data.length;
 
   let totalLuminance = 0;
@@ -103,5 +103,38 @@ self.onmessage = function (e) {
     warnings.push("BLURRY");
   }
 
-  self.postMessage({ warnings, metrics: { avgLuminance, avgMotion: sustainedMotion, motionVariance, variance } });
+  // 4. Glare/Reflection Detection
+  // Check for clusters of near-white pixels (Luminance > 240)
+  let overBrightCount = 0;
+  for (let i = 0; i < length; i += 16) { // Further sub-sample for glare
+    const r = data[i];
+    const g = data[i+1];
+    const b = data[i+2];
+    if (r > 240 && g > 240 && b > 240) overBrightCount++;
+  }
+  
+  if (overBrightCount > (length / 64) * 0.10) { // If > 10% of sub-sampled pixels are pure white
+    warnings.push("GLARE_DETECTED");
+  }
+
+  // 5. Final Quality Score (0-100)
+  // Sharpness (Variance): Base threshold 80 for 100% sharpness score contribution (50 pts)
+  const sharpnessComp = Math.min(50, (variance / 80) * 50);
+  
+  // Lighting: Ideal range 120-200. Max 30 pts.
+  let lightComp = 0;
+  if (avgLuminance >= 120 && avgLuminance <= 200) lightComp = 30;
+  else lightComp = Math.max(0, 30 - Math.abs(avgLuminance - 160) * 0.3);
+  
+  // Glare: Max 20 pts. Penalty for over-bright pixels.
+  const glareRatio = overBrightCount / (length / 64);
+  const glareComp = Math.max(0, 20 - (glareRatio * 100));
+
+  const qualityScore = Math.round(sharpnessComp + lightComp + glareComp);
+
+  self.postMessage({ 
+    warnings, 
+    qualityScore,
+    metrics: { avgLuminance, avgMotion: sustainedMotion, motionVariance, variance } 
+  });
 };

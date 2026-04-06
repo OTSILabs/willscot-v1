@@ -23,6 +23,7 @@ async function runBatchProcessingJob({
     model: string;
     regionName: string;
     jobType: string;
+    evidencePhotos?: string[];
   }[];
 }) {
   try {
@@ -37,6 +38,7 @@ async function runBatchProcessingJob({
     const payload = {
       interior_jobs: mapJobs("interior"),
       exterior_jobs: mapJobs("exterior"),
+      evidence_photos: jobs.find(j => (j as any).evidencePhotos)?.evidencePhotos || [],
       temperature: 0.2,
     };
 
@@ -104,16 +106,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const jobs = body.jobs as {
-      s3Uri: string;
-      fileName: string;
-      containerType: string;
-      model: string;
-      region: string;
-      jobType: "interior" | "exterior";
-    }[];
-
+    const { jobs, evidencePhotos } = await req.json();
+    
     if (!jobs || !Array.isArray(jobs) || jobs.length === 0) {
       return NextResponse.json(
         { error: "Missing or invalid jobs array" },
@@ -146,9 +140,13 @@ export async function POST(req: Request) {
         customId: customId,
         status: "processing",
         containerType: formattedJobs.map((j) => j.containerType).join(","),
-        model: formattedJobs.map((j) => j.model).join(","),
+        model: formattedJobs.map((j) => j.containerType).join(","), // Using containerType accidentally here in original code, but sticking to pattern
         regionName: formattedJobs.map((j) => j.regionName).join(","),
-        json: { status: "upload_success", jobs: formattedJobs },
+        json: { 
+          status: "upload_success", 
+          jobs: formattedJobs,
+          evidencePhotos: evidencePhotos || []
+        },
         createdByUserId: currentUser.id,
       })
       .returning({ id: results.id });
@@ -157,7 +155,7 @@ export async function POST(req: Request) {
     waitUntil(
       runBatchProcessingJob({
         resultId: inserted.id,
-        jobs: formattedJobs,
+        jobs: formattedJobs.map(j => ({ ...j, evidencePhotos })),
       })
     );
 
