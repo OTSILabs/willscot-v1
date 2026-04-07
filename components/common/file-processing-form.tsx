@@ -340,7 +340,7 @@ export function FileProcessingFormContent() {
           evidencePhotos: photoUris,
         });
 
-        return { id: response.data.id, toastId };
+        return { id: String(response.data.id), toastId: String(toastId) };
       } catch (error) {
         toast.dismiss(toastId);
         throw error;
