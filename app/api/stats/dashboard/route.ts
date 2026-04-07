@@ -69,8 +69,12 @@ export async function GET(req: Request) {
       .groupBy(resultAttributes.name, resultAttributes.source)
       .orderBy(sql`min(${resultAttributes.orderIndex})`);
 
-    const formatPercent = (correct: number | string, total: number | string) => 
-      Number(total) > 0 ? Math.round((Number(correct) / Number(total)) * 100) : 0;
+    const formatAccuracy = (correct: number | string, incorrect: number | string) => {
+      const c = Number(correct);
+      const i = Number(incorrect);
+      const denominator = c + i;
+      return denominator > 0 ? Math.round((c / denominator) * 100) : 0;
+    };
 
     // --- High Speed JS Aggregation ---
     const summary = {
@@ -122,7 +126,7 @@ export async function GET(req: Request) {
 
       return {
         name: formatAttributeName(attr.name),
-        accuracy: formatPercent(correct, total),
+        accuracy: formatAccuracy(correct, incorrect),
         correct,
         incorrect,
         unmarked,
@@ -133,15 +137,15 @@ export async function GET(req: Request) {
     return NextResponse.json({
       overview: {
         overall: {
-          accuracy: formatPercent(summary.overall.correct, summary.overall.total),
+          accuracy: formatAccuracy(summary.overall.correct, summary.overall.incorrect),
           ...summary.overall
         },
         interior: {
-          accuracy: formatPercent(summary.interior.correct, summary.interior.total),
+          accuracy: formatAccuracy(summary.interior.correct, summary.interior.incorrect),
           ...summary.interior
         },
         exterior: {
-          accuracy: formatPercent(summary.exterior.correct, summary.exterior.total),
+          accuracy: formatAccuracy(summary.exterior.correct, summary.exterior.incorrect),
           ...summary.exterior
         },
       },

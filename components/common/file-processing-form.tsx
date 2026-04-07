@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useRef, ChangeEvent } from "react";
+import { useMutation } from "@tanstack/react-query";
 import {
   Card,
   CardAction,
@@ -88,7 +89,6 @@ export function FileProcessingFormContent() {
   } = useFileInput();
 
   const [filesToProcess, setFilesToProcess] = useState<FileToProcess[]>([]);
-  const [isPending, setIsPending] = useState(false);
   const [recordingType, setRecordingType] = useState<"interior" | "exterior" | null>(null);
   const [capturedPhotos, setCapturedPhotos] = useState<{ file: File; preview: string; qualityScore: number }[]>([]);
   const [isCapturingPhoto, setIsCapturingPhoto] = useState(false);
@@ -136,7 +136,227 @@ export function FileProcessingFormContent() {
     },
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const processMutation = useMutation({
+    mutationFn: async ({ filesToProcess, capturedPhotos }: { filesToProcess: FileToProcess[], capturedPhotos: { file: File }[] }) => {
+      const toastId = toast.loading("Processing upload...", { closeButton: false });
+
+      // Helper for Chunked Multipart Upload
+      const uploadMultipart = async (
+        file: File, 
+        bucket: string, 
+        key: string, 
+        region: string, 
+        contentType: string,
+        onProgress: (percent: number) => void
+      ) => {
+        // 10MB chunks for files over 100MB, otherwise 5MB
+        const CHUNK_SIZE = file.size > 100 * 1024 * 1024 ? 10 * 1024 * 1024 : 5 * 1024 * 1024;
+        const totalParts = Math.ceil(file.size / CHUNK_SIZE);
+        
+        let CONCURRENCY = 8;
+        const nav = typeof navigator !== "undefined" ? (navigator as any) : null;
+        if (nav?.connection) {
+          const type = nav.connection.effectiveType;
+          const isSlow = ["3g", "2g", "slow-2g"].includes(type) || nav.connection.saveData;
+          if (isSlow) CONCURRENCY = 3;
+        }
+        
+        let uploadId = "";
+        try {
+          const initRes = await axios.post("/api/s3/multipart", {
+            action: "INITIATE", bucket, key, contentType, region,
+          });
+          uploadId = initRes.data.uploadId;
+
+          const parts: { ETag: string; PartNumber: number }[] = [];
+          const partProgress = new Map<number, number>();
+
+          const updateProgress = () => {
+            let totalLoaded = 0;
+            partProgress.forEach((loaded) => { totalLoaded += loaded; });
+            const percent = Math.round((totalLoaded * 100) / file.size);
+            onProgress(Math.min(99, percent));
+          };
+
+          const presignRes = await axios.post("/api/s3/multipart", {
+            action: "PRESIGN_PARTS", bucket, key, uploadId, partsCount: totalParts, region,
+          });
+          
+          const allUrls = presignRes.data.urls;
+
+          // Continuous Worker Pool Implementation
+          let currentPartIndex = 0;
+          const uploadPart = async (partInfo: { url: string; partNumber: number }) => {
+            const start = (partInfo.partNumber - 1) * CHUNK_SIZE;
+            const end = Math.min(start + CHUNK_SIZE, file.size);
+            const chunk = file.slice(start, end);
+
+            const res = await axios.put(partInfo.url, chunk, {
+              onUploadProgress: (p) => {
+                partProgress.set(partInfo.partNumber, p.loaded);
+                updateProgress();
+              }
+            });
+
+            const etag = res.headers.etag?.replace(/"/g, "") || "";
+            return { ETag: etag, PartNumber: partInfo.partNumber };
+          };
+
+          const workers = Array.from({ length: Math.min(CONCURRENCY, totalParts) }).map(async () => {
+            while (currentPartIndex < totalParts) {
+              const index = currentPartIndex++;
+              const partResult = await uploadPart(allUrls[index]);
+              parts.push(partResult);
+            }
+          });
+
+          await Promise.all(workers);
+
+          const completeRes = await axios.post("/api/s3/multipart", {
+            action: "COMPLETE", bucket, key, uploadId, parts, region,
+          });
+
+          return completeRes.data;
+        } catch (error) {
+          if (uploadId) {
+            await axios.post("/api/s3/multipart", {
+              action: "ABORT", bucket, key, uploadId, region,
+            }).catch(console.error);
+          }
+          throw error;
+        }
+      };
+
+      try {
+        // 1. Upload Videos
+        const uploadPromises = filesToProcess.map(async (item) => {
+          const uploadToastId = toast.loading(`Uploading ${item.file.name}...`, {
+            closeButton: false,
+            id: `upload-${item.file.name}`
+          });
+
+          try {
+            const region = item.region;
+            let s3Uri = "";
+
+            if (item.file.size > 5 * 1024 * 1024) {
+              const multipartRes = await uploadMultipart(
+                item.file,
+                "ws-s3-unit-attribute-capture-nova",
+                `${item.containerType.toUpperCase()}/${Date.now()}_${item.file.name.replace(/\s+/g, "_")}`,
+                region,
+                item.file.type,
+                (percent) => {
+                  toast.loading(
+                    <div className="flex flex-col gap-2">
+                      <div className="text-sm text-muted-foreground">Uploading (Accelerated Chunks)</div>
+                      <div className="truncate max-w-md">{item.file.name}</div>
+                      <div className="text-sm text-muted-foreground">{percent}%</div>
+                    </div>,
+                    { id: uploadToastId },
+                  );
+                }
+              );
+              s3Uri = multipartRes.s3Uri;
+              toast.dismiss(uploadToastId);
+            } else {
+              const presignResponse = await axios.post("/api/s3/presign-upload", {
+                fileName: item.file.name,
+                containerType: item.containerType,
+                region: item.region,
+                contentType: item.file.type,
+              });
+
+              const { presignedUrl, s3Uri: generatedUri } = presignResponse.data;
+              s3Uri = generatedUri;
+
+              await axios.put(presignedUrl, item.file, {
+                headers: { "Content-Type": item.file.type },
+                onUploadProgress: (p) => {
+                  if (p.total) {
+                    const percent = Math.round((p.loaded * 100) / p.total);
+                    toast.loading(
+                      <div className="flex flex-col gap-2">
+                        <div className="text-sm text-muted-foreground">Uploading</div>
+                        <div className="truncate max-w-md">{item.file.name}</div>
+                        <div className="text-sm text-muted-foreground">{percent}%</div>
+                      </div>,
+                      { id: uploadToastId },
+                    );
+                  }
+                },
+              });
+              toast.dismiss(uploadToastId);
+            }
+
+            return {
+              s3Uri,
+              fileName: item.file.name,
+              containerType: item.containerType,
+              model: item.model,
+              region: item.region,
+              jobType: item.jobType,
+            };
+          } catch (error) {
+            toast.dismiss(uploadToastId);
+            throw error;
+          }
+        });
+
+        const uploadResults = await Promise.all(uploadPromises);
+
+        // 2. Upload Captured Photos
+        let photoUris: string[] = [];
+        if (capturedPhotos.length > 0) {
+          const photoUploadPromises = capturedPhotos.map(async (photo, idx) => {
+            const photoToastId = `photo-upload-${idx}`;
+            toast.loading(`Uploading Photo Evidence ${idx + 1}...`, { id: photoToastId });
+            
+            try {
+              const res = await axios.post("/api/s3/presign-upload", {
+                fileName: photo.file.name,
+                containerType: "EVIDENCE",
+                region: "us-west-2",
+                contentType: photo.file.type,
+              });
+
+              await axios.put(res.data.presignedUrl, photo.file, {
+                headers: { "Content-Type": photo.file.type }
+              });
+              
+              toast.dismiss(photoToastId);
+              return res.data.s3Uri;
+            } catch (err) {
+              toast.dismiss(photoToastId);
+              throw err;
+            }
+          });
+          photoUris = await Promise.all(photoUploadPromises);
+        }
+
+        // 3. Process Batch
+        const response = await axios.post("/api/process-batch", {
+          jobs: uploadResults,
+          evidencePhotos: photoUris,
+        });
+
+        return { id: response.data.id, toastId };
+      } catch (error) {
+        toast.dismiss(toastId);
+        throw error;
+      }
+    },
+    onSuccess: (data: { id: string; toastId: string }) => {
+      toast.success("Batch successfully submitted!", { id: data.toastId });
+      if (data.id) router.push(`/traces/${data.id}`);
+    },
+    onError: (error: any) => {
+      const errorMessage = error.response?.data?.error || error.message || "Submission failed";
+      toast.error(`Failed to submit videos: ${errorMessage}`);
+    }
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (filesToProcess.length === 0) {
@@ -154,282 +374,7 @@ export function FileProcessingFormContent() {
       return;
     }
 
-    setIsPending(true);
-    const toastId = toast.loading("Processing upload...", {
-      closeButton: false
-    });
-
-    // Helper for Chunked Multipart Upload
-    const uploadMultipart = async (
-      file: File, 
-      bucket: string, 
-      key: string, 
-      region: string, 
-      contentType: string,
-      onProgress: (percent: number) => void
-    ) => {
-      const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB minimum for S3
-      const totalParts = Math.ceil(file.size / CHUNK_SIZE);
-      
-      // ADAPTIVE CONCURRENCY: Adjust based on network quality (e.g. mobile data vs wifi)
-      let CONCURRENCY = 6;
-      const nav = typeof navigator !== "undefined" ? (navigator as any) : null;
-      if (nav?.connection) {
-        const type = nav.connection.effectiveType;
-        const isSlow = ["4g", "3g", "2g", "slow-2g"].includes(type) || nav.connection.saveData;
-        if (isSlow) CONCURRENCY = 2; // Throttle for mobile data/stability
-      }
-      
-      // 1. INITIATE
-      let uploadId = "";
-      try {
-        const initRes = await axios.post("/api/s3/multipart", {
-          action: "INITIATE",
-          bucket,
-          key,
-          contentType,
-          region,
-        });
-        uploadId = initRes.data.uploadId;
-
-        const parts: { ETag: string; PartNumber: number }[] = [];
-        const partProgress = new Map<number, number>();
-
-        const updateProgress = () => {
-          let totalLoaded = 0;
-          partProgress.forEach((loaded) => { totalLoaded += loaded; });
-          const percent = Math.round((totalLoaded * 100) / file.size);
-          onProgress(percent);
-        };
-
-        // 2. UPLOAD PARTS (in batches for parallelism)
-        const presignRes = await axios.post("/api/s3/multipart", {
-          action: "PRESIGN_PARTS",
-          bucket,
-          key,
-          uploadId,
-          partsCount: totalParts,
-          region,
-        });
-        
-        const allUrls = presignRes.data.urls;
-
-        for (let i = 0; i < totalParts; i += CONCURRENCY) {
-          const currentBatchSize = Math.min(CONCURRENCY, totalParts - i);
-          const urls = allUrls.slice(i, i + currentBatchSize);
-
-          const batchPromises = urls.map(async (partInfo: { url: string; partNumber: number }) => {
-            const start = (partInfo.partNumber - 1) * CHUNK_SIZE;
-            const end = Math.min(start + CHUNK_SIZE, file.size);
-            const chunk = file.slice(start, end);
-
-            const res = await axios.put(partInfo.url, chunk, {
-              onUploadProgress: (p) => {
-                partProgress.set(partInfo.partNumber, p.loaded);
-                updateProgress();
-              }
-            });
-
-            const etag = res.headers.etag?.replace(/"/g, "") || "";
-            return { ETag: etag, PartNumber: partInfo.partNumber };
-          });
-
-          const batchResults = await Promise.all(batchPromises);
-          parts.push(...batchResults);
-
-          // MEMORY-SAFE DELAY: If on a low-concurrency (likely slow/low-ram) device, 
-          // add a small delay between batches to allow garbage collection and steady networking.
-          if (CONCURRENCY <= 2) {
-            await new Promise(r => setTimeout(r, 200));
-          }
-        }
-
-        // 3. COMPLETE
-        const completeRes = await axios.post("/api/s3/multipart", {
-          action: "COMPLETE",
-          bucket,
-          key,
-          uploadId,
-          parts,
-          region,
-        });
-
-        return completeRes.data;
-      } catch (error) {
-        if (uploadId) {
-          console.error("Multipart upload failed, aborting...", error);
-          await axios.post("/api/s3/multipart", {
-            action: "ABORT",
-            bucket,
-            key,
-            uploadId,
-            region,
-          }).catch(console.error);
-        }
-        throw error;
-      }
-    };
-
-    try {
-      // 1. Upload Videos
-      const uploadPromises = filesToProcess.map(async (item) => {
-        const uploadToastId = toast.loading(`Uploading ${item.file.name}...`, {
-          closeButton: false,
-          id: `upload-${item.file.name}`
-        });
-
-        try {
-          const region = item.region;
-          let s3Uri = "";
-
-          // OPTIMIZATION: Use Multipart for files > 5MB (S3 minimum), otherwise single PUT
-          if (item.file.size > 5 * 1024 * 1024) {
-            const multipartRes = await uploadMultipart(
-              item.file,
-              "ws-s3-unit-attribute-capture-nova",
-              `${item.containerType.toUpperCase()}/${Date.now()}_${item.file.name.replace(/\s+/g, "_")}`,
-              region,
-              item.file.type,
-              (percent) => {
-                toast.loading(
-                  <div className="flex flex-col gap-2">
-                    <div className="text-sm text-muted-foreground">Uploading (Accelerated Chunks)</div>
-                    <div className="truncate max-w-md">{item.file.name}</div>
-                    <div className="text-sm text-muted-foreground">{percent}%</div>
-                  </div>,
-                  { id: uploadToastId },
-                );
-              }
-            );
-            s3Uri = multipartRes.s3Uri;
-            toast.dismiss(uploadToastId);
-          } else {
-            const presignResponse = await axios.post("/api/s3/presign-upload", {
-              fileName: item.file.name,
-              containerType: item.containerType,
-              region: item.region,
-              contentType: item.file.type,
-            });
-
-            const { presignedUrl, s3Uri: generatedUri } = presignResponse.data;
-            s3Uri = generatedUri;
-
-            await axios.put(presignedUrl, item.file, {
-              headers: { "Content-Type": item.file.type },
-              onUploadProgress: (progressEvent) => {
-                if (progressEvent.total) {
-                  const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                  toast.loading(
-                    <div className="flex flex-col gap-2">
-                      <div className="text-sm text-muted-foreground">Uploading</div>
-                      <div className="truncate max-w-md">{item.file.name}</div>
-                      <div className="text-sm text-muted-foreground">{percentCompleted}%</div>
-                    </div>,
-                    { id: uploadToastId },
-                  );
-                  if (percentCompleted === 100) toast.dismiss(uploadToastId);
-                }
-              },
-            });
-          }
-
-          return {
-            s3Uri,
-            fileName: item.file.name,
-            containerType: item.containerType,
-            model: item.model,
-            region: item.region,
-            jobType: item.jobType,
-          };
-        } catch (error) {
-          const individualError = (error && typeof error === "object" && "response" in error
-            ? (error.response as { data?: { error?: string } })?.data?.error
-            : null) || (error instanceof Error ? error.message : "Upload failed");
-          
-          toast.error(`Upload failed for ${item.file.name}: ${individualError}`, {
-            id: uploadToastId,
-            closeButton: true
-          });
-          throw error;
-        }
-      });
-
-      const results = await Promise.allSettled(uploadPromises);
-      
-      const failedJobs = results.filter(r => r.status === 'rejected');
-      type UploadJobResult = { s3Uri: string; fileName: string; containerType: string; model: string; region: string; jobType: string; };
-      const successfulJobs = results
-        .filter((r) => r.status === 'fulfilled')
-        .map(r => (r as PromiseFulfilledResult<UploadJobResult>).value);
-
-      if (failedJobs.length > 0) {
-        toast.error(`${failedJobs.length} video(s) failed to upload. Please try again.`, {
-          id: toastId,
-          closeButton: true
-        });
-        return;
-      }
-
-      // 2. Upload Captured Photos (Evidence)
-      let photoUris: string[] = [];
-      if (capturedPhotos.length > 0) {
-        const photoUploadPromises = capturedPhotos.map(async (photo, idx) => {
-          const photoToastId = `photo-upload-${idx}`;
-          toast.loading(`Uploading Photo Evidence ${idx + 1}...`, { id: photoToastId });
-          
-          try {
-            const presignResponse = await axios.post("/api/s3/presign-upload", {
-              fileName: photo.file.name,
-              containerType: "EVIDENCE",
-              region: "us-east-1",
-              contentType: photo.file.type,
-            });
-
-            const { presignedUrl, s3Uri } = presignResponse.data;
-            await axios.put(presignedUrl, photo.file, {
-              headers: { "Content-Type": photo.file.type }
-            });
-            
-            toast.dismiss(photoToastId);
-            return s3Uri;
-          } catch (err) {
-            toast.error(`Photo ${idx + 1} upload failed`, { id: photoToastId });
-            throw err;
-          }
-        });
-
-        photoUris = await Promise.all(photoUploadPromises);
-      }
-
-      // 3. Process Batch
-      const response = await axios.post("/api/process-batch", {
-        jobs: successfulJobs,
-        evidencePhotos: photoUris,
-      });
-
-      toast.success("Batch successfully submitted with photo evidence!", {
-        id: toastId,
-      });
-
-      if (response.data?.id) {
-        router.push(`/traces/${response.data.id}`);
-      }
-
-    } catch (error: unknown) {
-      const errorMessage =
-        (error && typeof error === "object" && "response" in error
-          ? (error.response as { data?: { error?: string } })?.data?.error
-          : null) ||
-        (error instanceof Error ? error.message : "Unknown error");
-      
-      toast.error(`Failed to submit videos: ${errorMessage}`, {
-        id: toastId,
-        closeButton: true
-      });
-
-    } finally {
-      setIsPending(false);
-    }
+    processMutation.mutate({ filesToProcess, capturedPhotos });
   };
 
   const handleDeletePhoto = (idx: number) => {
@@ -526,7 +471,7 @@ export function FileProcessingFormContent() {
               size="sm"
               className="h-8 shadow-sm"
               onClick={() => handleDeleteFile(fileObj.index)}
-              disabled={isPending}
+              disabled={processMutation.isPending}
             >
               <XIcon className="w-4 h-4 mr-1" />
               Remove
@@ -555,7 +500,7 @@ export function FileProcessingFormContent() {
             variant="outline"
             className="w-full flex-1 min-h-[80px] lg:h-32 text-muted-foreground hover:text-foreground hover:bg-muted/50 shadow-sm flex flex-col gap-2 items-center justify-center p-3 relative transition-all"
             onClick={handleOpenFileInput}
-            disabled={isPending || files.length >= maxFiles}
+            disabled={processMutation.isPending || files.length >= maxFiles}
             type="button"
           >
             <UploadIcon className="w-6 h-6 lg:w-8 lg:h-8 mb-0 lg:mb-1 shrink-0" />
@@ -566,7 +511,7 @@ export function FileProcessingFormContent() {
             variant="outline"
             className="w-full flex-1 min-h-[80px] lg:h-32 text-muted-foreground hover:text-foreground hover:bg-muted/50 shadow-sm flex flex-col gap-2 items-center justify-center p-3 transition-all"
             onClick={() => setRecordingType(expectedJobType)}
-            disabled={isPending || files.length >= maxFiles}
+            disabled={processMutation.isPending || files.length >= maxFiles}
             type="button"
           >
             <CameraIcon className="w-6 h-6 lg:w-8 lg:h-8 mb-0 lg:mb-1 shrink-0" />
@@ -612,7 +557,7 @@ export function FileProcessingFormContent() {
                       variant="outline"
                       size="sm"
                       type="button"
-                      disabled={isPending || (files.length === 0 && capturedPhotos.length === 0)}
+                      disabled={processMutation.isPending || (files.length === 0 && capturedPhotos.length === 0)}
                       className={cn("flex-1 xl:flex-none", (files.length === 0 && capturedPhotos.length === 0) && "opacity-50 pointer-events-none")}
                       onClick={() => {
                         handleClearFiles();
@@ -654,7 +599,7 @@ export function FileProcessingFormContent() {
                           </p>
                         </div>
                     </div>
-
+ 
                     <div className="flex-1 flex flex-col gap-3 relative">
                       <input 
                         type="file" 
@@ -664,7 +609,7 @@ export function FileProcessingFormContent() {
                         multiple 
                         onChange={handleImageUpload} 
                       />
-
+ 
                       {capturedPhotos.length > 0 ? (
                         <div className="grid grid-cols-3 gap-2 bg-background/50 p-2 rounded-lg border border-dashed border-primary/20 min-h-[100px]">
                           {capturedPhotos.map((photo, idx) => (
@@ -710,7 +655,7 @@ export function FileProcessingFormContent() {
                             variant="outline"
                             className="w-full flex-1 min-h-[80px] lg:h-32 text-muted-foreground hover:text-foreground hover:bg-muted/50 shadow-sm flex flex-col gap-2 items-center justify-center p-3 relative transition-all"
                             onClick={handleOpenImageInput}
-                            disabled={isPending}
+                            disabled={processMutation.isPending}
                             type="button"
                           >
                             <UploadIcon className="w-6 h-6 lg:w-8 lg:h-8 mb-0 lg:mb-1 shrink-0" />
@@ -721,7 +666,7 @@ export function FileProcessingFormContent() {
                             variant="outline"
                             className="w-full flex-1 min-h-[80px] lg:h-32 text-muted-foreground hover:text-foreground hover:bg-muted/50 shadow-sm flex flex-col gap-2 items-center justify-center p-3 transition-all"
                             onClick={() => setIsCapturingPhoto(true)}
-                            disabled={isPending}
+                            disabled={processMutation.isPending}
                             type="button"
                           >
                             <CameraIcon className="w-6 h-6 lg:w-8 lg:h-8 mb-0 lg:mb-1 shrink-0" />
@@ -735,8 +680,8 @@ export function FileProcessingFormContent() {
                 </div>
               </CardContent>
               <CardFooter className={cn("border-none px-0 pt-4 xl:border-t xl:px-6 mb-4 justify-end", !hasBoth && "hidden")}>
-                <Button size="lg" type="submit" disabled={isPending || !hasBoth} className="w-full xl:w-auto shadow-sm">
-                  {isPending ? (
+                <Button size="lg" type="submit" disabled={processMutation.isPending || !hasBoth} className="w-full xl:w-auto shadow-sm">
+                  {processMutation.isPending ? (
                     <>
                       Processing Videos...
                       <Spinner className="ml-2" />

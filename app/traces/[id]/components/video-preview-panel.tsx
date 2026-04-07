@@ -19,8 +19,10 @@ export function VideoPreviewPanel({
   seekTo,
 }: VideoPreviewPanelProps) {
   const [isBuffering, setIsBuffering] = useState(false);
-  const source = (videoSource || "").trim();
-  const resolvedRegion = (regionName || "").trim() || undefined;
+  const rawSource = (videoSource || "").trim();
+  const source = rawSource.split(',')[0].trim();
+  const resolvedRaw = (regionName || "").trim();
+  const resolvedRegion = resolvedRaw.split(',')[0].trim() || undefined;
   const isS3Source = source.startsWith("s3://");
 
   const { currentUser } = useCurrentUser();
@@ -74,29 +76,39 @@ export function VideoPreviewPanel({
   return (
     <div className="relative min-h-0 flex-1 h-full w-full">
       <div className="h-full overflow-hidden bg-black flex items-center justify-center">
-        {isSigningVideo || (isBuffering && videoUrl) ? (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40 backdrop-blur-[1px] text-sm text-zinc-100">
-            <div className="flex items-center bg-zinc-900/80 px-4 py-2 rounded-full border border-zinc-700 shadow-xl">
-              <Loader2 className="mr-2.5 h-4 w-4 animate-spin text-blue-400" />
-              {isSigningVideo ? "Generating video link..." : "Buffering video..."}
+          {(isSigningVideo || isBuffering) && videoUrl ? (
+            <div className="absolute inset-x-0 bottom-12 z-20 flex justify-center pointer-events-none">
+              <div className="flex items-center bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <Loader2 className="mr-2.5 h-3.5 w-3.5 animate-spin text-blue-400" />
+                <span className="text-[11px] font-bold text-white uppercase tracking-wider">
+                  {isSigningVideo ? "Signing Link..." : "Buffering..."}
+                </span>
+              </div>
             </div>
-          </div>
-        ) : null}
-        
-        {videoUrl ? (
-          <video 
-            ref={videoRef} 
-            src={videoUrl}
-            controls 
-            playsInline
-            preload="metadata"
-            className="w-full h-full object-cover" 
-            muted 
-            loop
-            onWaiting={() => setIsBuffering(true)}
-            onPlaying={() => setIsBuffering(false)}
-            onSeeked={() => setIsBuffering(false)}
-          >
+          ) : isSigningVideo && !videoUrl ? (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm gap-3">
+              <Loader2 className="h-6 w-6 animate-spin text-blue-400" />
+              <span className="text-xs font-bold text-white uppercase tracking-widest opacity-80">Preparing Video</span>
+            </div>
+          ) : null}
+          
+          {videoUrl ? (
+            <video 
+              ref={videoRef} 
+              src={videoUrl}
+              controls 
+              autoPlay
+              playsInline
+              preload="auto"
+              className="w-full h-full object-cover shadow-2xl" 
+              muted 
+              loop
+              onLoadStart={() => setIsBuffering(true)}
+              onWaiting={() => setIsBuffering(true)}
+              onPlaying={() => setIsBuffering(false)}
+              onSeeked={() => setIsBuffering(false)}
+              onCanPlayThrough={() => setIsBuffering(false)}
+            >
             Your browser does not support the video tag.
           </video>
         ) : !isSigningVideo ? (

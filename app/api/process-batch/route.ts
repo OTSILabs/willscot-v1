@@ -9,8 +9,8 @@ import { waitUntil } from "@vercel/functions";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
-const BATCH_LAMBDA_ENDPOINT =
-  `${process.env.LAMBDA_ENDPOINT}/process-video-with-targeted-frame-batch-pegasus`;
+const LAMBDA_BASE = (process.env.LAMBDA_ENDPOINT || "").trim().replace(/\/$/, "");
+const BATCH_LAMBDA_ENDPOINT = `${LAMBDA_BASE}/process-video-with-targeted-frame-batch-pegasus`;
 
 async function runBatchProcessingJob({
   resultId,
@@ -38,7 +38,7 @@ async function runBatchProcessingJob({
     const payload = {
       interior_jobs: mapJobs("interior"),
       exterior_jobs: mapJobs("exterior"),
-      evidence_photos: jobs.find(j => (j as any).evidencePhotos)?.evidencePhotos || [],
+      image_s3_uris: (jobs.find(j => (j as any).evidencePhotos)?.evidencePhotos || []),
       temperature: 0.2,
     };
 
@@ -52,7 +52,48 @@ async function runBatchProcessingJob({
     });
 
     const resultData = response.data;
-    const attributes = resultData?.attributes || [];
+    
+    const prunedResultData = {
+      ...resultData,
+      // If the user wants the raw JSON to look like Swagger, we should NOT prune 
+      // the 'results' key inside each load if they need it for verification.
+      loads: Array.isArray(resultData?.loads) 
+        ? resultData.loads.map((load: any) => ({
+            ...load,
+            // Only set results: undefined if you strictly want to hide massive raw prompts/outputs. 
+            // I will KEEP it preserved now to ensure the 'Raw JSON' is complete.
+          }))
+        : resultData?.loads,
+    };
+
+    // Collect attributes from top-level and also from each load (image results)
+    const attributes = [...(resultData?.attributes || [])];
+    if (Array.isArray(resultData?.loads)) {
+      resultData.loads.forEach((load: any) => {
+        // Handle the nested 'loads' object from image processing
+        if (load.loads && typeof load.loads === "object") {
+          Object.entries(load.loads).forEach(([key, val]: [string, any]) => {
+            if (val && typeof val === "object") {
+              attributes.push({
+                ...val,
+                attribute: val.attribute || key,
+                source: val.source || `photo_evidence`,
+              });
+            }
+          });
+        }
+        
+        // Handle legacy or alternative structures if present
+        if (load.results?.attributes && Array.isArray(load.results.attributes)) {
+          load.results.attributes.forEach((attr: any) => {
+            attributes.push({
+              ...attr,
+              source: attr.source || `photo_evidence`,
+            });
+          });
+        }
+      });
+    }
 
     await db.transaction(async (tx) => {
       // 1. Update the main record
@@ -60,7 +101,17 @@ async function runBatchProcessingJob({
         .update(results)
         .set({
           status: "completed",
-          json: resultData,
+          json: {
+            ...prunedResultData,
+            // Keep evidencePhotos for UI compatibility by mapping from the new 'loads' structure
+            // or falling back to the original uploaded photos
+            evidencePhotos: (resultData?.loads && Array.isArray(resultData.loads))
+              ? resultData.loads.map((load: any) => ({
+                  original: load.image_s3_uri,
+                  url: load.image_s3_uri_url || load.original_url || null
+                }))
+              : (jobs.find(j => (j as any).evidencePhotos)?.evidencePhotos || []),
+          },
         })
         .where(eq(results.id, resultId));
 
@@ -140,7 +191,7 @@ export async function POST(req: Request) {
         customId: customId,
         status: "processing",
         containerType: formattedJobs.map((j) => j.containerType).join(","),
-        model: formattedJobs.map((j) => j.containerType).join(","), // Using containerType accidentally here in original code, but sticking to pattern
+        model: formattedJobs.map((j) => j.model).join(","),
         regionName: formattedJobs.map((j) => j.regionName).join(","),
         json: { 
           status: "upload_success", 

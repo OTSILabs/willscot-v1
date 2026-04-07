@@ -417,7 +417,7 @@ function DashboardContent() {
           <Card className="shadow-sm border-border bg-card overflow-hidden">
             <CardHeader className="border-b bg-muted/10 pb-4">
               <CardTitle className="text-lg font-semibold">Accuracy Breakdown</CardTitle>
-              <CardDescription>Proportion of correct predictions out of all traces (including unmarked)</CardDescription>
+              <CardDescription>Proportion of correct predictions out of all verified traces (excluding unmarked)</CardDescription>
             </CardHeader>
             {isLoading && !data ? (
               <div className="p-8">
