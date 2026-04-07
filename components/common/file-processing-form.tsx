@@ -149,15 +149,16 @@ export function FileProcessingFormContent() {
         contentType: string,
         onProgress: (percent: number) => void
       ) => {
-        const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB minimum for S3
+        // 10MB chunks for files over 100MB, otherwise 5MB
+        const CHUNK_SIZE = file.size > 100 * 1024 * 1024 ? 10 * 1024 * 1024 : 5 * 1024 * 1024;
         const totalParts = Math.ceil(file.size / CHUNK_SIZE);
         
-        let CONCURRENCY = 6;
+        let CONCURRENCY = 8;
         const nav = typeof navigator !== "undefined" ? (navigator as any) : null;
         if (nav?.connection) {
           const type = nav.connection.effectiveType;
-          const isSlow = ["4g", "3g", "2g", "slow-2g"].includes(type) || nav.connection.saveData;
-          if (isSlow) CONCURRENCY = 2;
+          const isSlow = ["3g", "2g", "slow-2g"].includes(type) || nav.connection.saveData;
+          if (isSlow) CONCURRENCY = 3;
         }
         
         let uploadId = "";
@@ -174,7 +175,7 @@ export function FileProcessingFormContent() {
             let totalLoaded = 0;
             partProgress.forEach((loaded) => { totalLoaded += loaded; });
             const percent = Math.round((totalLoaded * 100) / file.size);
-            onProgress(percent);
+            onProgress(Math.min(99, percent));
           };
 
           const presignRes = await axios.post("/api/s3/multipart", {
@@ -183,30 +184,33 @@ export function FileProcessingFormContent() {
           
           const allUrls = presignRes.data.urls;
 
-          for (let i = 0; i < totalParts; i += CONCURRENCY) {
-            const currentBatchSize = Math.min(CONCURRENCY, totalParts - i);
-            const urls = allUrls.slice(i, i + currentBatchSize);
+          // Continuous Worker Pool Implementation
+          let currentPartIndex = 0;
+          const uploadPart = async (partInfo: { url: string; partNumber: number }) => {
+            const start = (partInfo.partNumber - 1) * CHUNK_SIZE;
+            const end = Math.min(start + CHUNK_SIZE, file.size);
+            const chunk = file.slice(start, end);
 
-            const batchPromises = urls.map(async (partInfo: { url: string; partNumber: number }) => {
-              const start = (partInfo.partNumber - 1) * CHUNK_SIZE;
-              const end = Math.min(start + CHUNK_SIZE, file.size);
-              const chunk = file.slice(start, end);
-
-              const res = await axios.put(partInfo.url, chunk, {
-                onUploadProgress: (p) => {
-                  partProgress.set(partInfo.partNumber, p.loaded);
-                  updateProgress();
-                }
-              });
-
-              const etag = res.headers.etag?.replace(/"/g, "") || "";
-              return { ETag: etag, PartNumber: partInfo.partNumber };
+            const res = await axios.put(partInfo.url, chunk, {
+              onUploadProgress: (p) => {
+                partProgress.set(partInfo.partNumber, p.loaded);
+                updateProgress();
+              }
             });
 
-            const batchResults = await Promise.all(batchPromises);
-            parts.push(...batchResults);
-            if (CONCURRENCY <= 2) await new Promise(r => setTimeout(r, 200));
-          }
+            const etag = res.headers.etag?.replace(/"/g, "") || "";
+            return { ETag: etag, PartNumber: partInfo.partNumber };
+          };
+
+          const workers = Array.from({ length: Math.min(CONCURRENCY, totalParts) }).map(async () => {
+            while (currentPartIndex < totalParts) {
+              const index = currentPartIndex++;
+              const partResult = await uploadPart(allUrls[index]);
+              parts.push(partResult);
+            }
+          });
+
+          await Promise.all(workers);
 
           const completeRes = await axios.post("/api/s3/multipart", {
             action: "COMPLETE", bucket, key, uploadId, parts, region,

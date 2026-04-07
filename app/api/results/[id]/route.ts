@@ -18,6 +18,15 @@ async function processS3Uris(obj: unknown): Promise<unknown> {
 
   if (typeof obj === "string") {
     if (obj.startsWith("s3://")) {
+      // Handle comma-separated URIs by signing each part (if it's a known multi-field)
+      // or just the first part for simple strings.
+      const uris = obj.split(",");
+      if (uris.length > 1) {
+        return Promise.all(uris.map(async (uri) => ({
+          original: uri,
+          url: await getPresignedUrl(uri),
+        })));
+      }
       return {
         original: obj,
         url: await getPresignedUrl(obj),
@@ -36,8 +45,10 @@ async function processS3Uris(obj: unknown): Promise<unknown> {
     const processed: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(obj)) {
       if (typeof value === "string" && value.startsWith("s3://")) {
+        const uris = value.split(",");
         processed[key] = value;
-        processed[`${key}_url`] = await getPresignedUrl(value);
+        // For the '_url' helper, use the first one if multiple
+        processed[`${key}_url`] = await getPresignedUrl(uris[0]);
       } else {
         processed[key] = await processS3Uris(value);
       }
@@ -114,9 +125,10 @@ export async function GET(
       }));
     }
 
-    // Also process the main videoId if it's an S3 URI
-    const videoUrl = result.videoId.startsWith("s3://")
-      ? await getPresignedUrl(result.videoId)
+    // Also process the main videoId if it's an S3 URI (Handle multi-video strings)
+    const videoUris = result.videoId?.split(",") || [];
+    const videoUrl = videoUris.length > 0 && videoUris[0].startsWith("s3://")
+      ? await getPresignedUrl(videoUris[0])
       : null;
 
     // Background self-healing for specialized table

@@ -38,7 +38,7 @@ async function runBatchProcessingJob({
     const payload = {
       interior_jobs: mapJobs("interior"),
       exterior_jobs: mapJobs("exterior"),
-      image_s3_uris: (jobs.find(j => (j as any).evidencePhotos)?.evidencePhotos || []).join(","),
+      image_s3_uris: (jobs.find(j => (j as any).evidencePhotos)?.evidencePhotos || []),
       temperature: 0.2,
     };
 
@@ -53,29 +53,42 @@ async function runBatchProcessingJob({
 
     const resultData = response.data;
     
-    // Pruning redundant fields from resultData to optimize DB size and frontend speed
     const prunedResultData = {
       ...resultData,
-      // Map through loads to remove massive raw outputs that aren't needed by the UI
+      // If the user wants the raw JSON to look like Swagger, we should NOT prune 
+      // the 'results' key inside each load if they need it for verification.
       loads: Array.isArray(resultData?.loads) 
         ? resultData.loads.map((load: any) => ({
             ...load,
-            results: undefined, // Remove raw outputs (already extracted into 'attributes' or 'loads.loads')
+            // Only set results: undefined if you strictly want to hide massive raw prompts/outputs. 
+            // I will KEEP it preserved now to ensure the 'Raw JSON' is complete.
           }))
         : resultData?.loads,
-      // Remove any top-level raw fields if they exist
-      results: undefined,
     };
 
     // Collect attributes from top-level and also from each load (image results)
     const attributes = [...(resultData?.attributes || [])];
     if (Array.isArray(resultData?.loads)) {
       resultData.loads.forEach((load: any) => {
+        // Handle the nested 'loads' object from image processing
+        if (load.loads && typeof load.loads === "object") {
+          Object.entries(load.loads).forEach(([key, val]: [string, any]) => {
+            if (val && typeof val === "object") {
+              attributes.push({
+                ...val,
+                attribute: val.attribute || key,
+                source: val.source || `photo_evidence`,
+              });
+            }
+          });
+        }
+        
+        // Handle legacy or alternative structures if present
         if (load.results?.attributes && Array.isArray(load.results.attributes)) {
           load.results.attributes.forEach((attr: any) => {
             attributes.push({
               ...attr,
-              source: attr.source || `image:${load.image_s3_uri}`,
+              source: attr.source || `photo_evidence`,
             });
           });
         }

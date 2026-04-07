@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "@/components/current-user-provider";
 import axios from "axios";
@@ -141,6 +141,39 @@ export default function ResultDetailPage() {
     },
   });
 
+  // Flatten attributes: combine top-level video attributes with any nested image attributes in loads
+  // We place this above the early returns to comply with the Rules of Hooks
+  const attributes = useMemo(() => {
+    if (!result?.json) return [] as TraceAttribute[];
+    
+    const list = [...(Array.isArray(result.json.attributes) ? result.json.attributes : [])];
+    
+    // Add image-based attributes from loads if they exist and aren't already included
+    if (Array.isArray(result.json.loads)) {
+      result.json.loads.forEach((load: any) => {
+        if (load.loads && typeof load.loads === "object") {
+          Object.entries(load.loads).forEach(([key, val]: [string, any]) => {
+            if (val && typeof val === "object") {
+              // Only add if not already in the list (deduplication)
+              const attrName = val.attribute || key;
+              const exists = list.some(a => a.attribute === attrName && a.source === (val.source || "photo_evidence"));
+              
+              if (!exists) {
+                list.push({
+                  ...val,
+                  attribute: attrName,
+                  source: val.source || "photo_evidence",
+                });
+              }
+            }
+          });
+        }
+      });
+    }
+    
+    return list as TraceAttribute[];
+  }, [result?.json]);
+
   if (isLoading) {
     return (
       <div className="flex min-h-[300px] items-center justify-center gap-2 text-muted-foreground">
@@ -159,8 +192,6 @@ export default function ResultDetailPage() {
     );
   }
 
-  const list = result.json.attributes;
-  const attributes = Array.isArray(list) ? (list as TraceAttribute[]) : [];
   const isProcessing = result.status === "processing";
   const isFailed = result.status === "failed";
 
