@@ -206,6 +206,49 @@ export function ResultsTable({ pollingMs = 10000 }: ResultsTableProps) {
     }
   }, [data, page, pageSize, search, queryClient, currentUser?.id]);
 
+  // VIDEO PREFETCHING: Batch sign video URLs for the current page
+  useEffect(() => {
+    if (!data?.items?.length || !currentUser?.id) return;
+
+    const signVideosBatch = async () => {
+      // 1. Collect all unique S3 URIs from the current table page
+      const s3Uris = new Set<string>();
+      data.items.forEach(item => {
+        if (item.videoId?.startsWith("s3://")) {
+          item.videoId.split(',').forEach(uri => {
+            const trimmed = uri.trim();
+            if (trimmed.startsWith("s3://")) s3Uris.add(trimmed);
+          });
+        }
+      });
+
+      if (s3Uris.size === 0) return;
+
+      try {
+        // 2. Call the new batch presign API
+        const { data: batchData } = await axios.post<{ results: { uri: string; url: string | null }[] }>(
+          "/api/s3/presigned-batch",
+          { s3Uris: Array.from(s3Uris), region: undefined }
+        );
+
+        // 3. Populate the React Query cache for each individual video
+        batchData.results.forEach(({ uri, url }) => {
+          if (url) {
+            queryClient.setQueryData(
+              ["presign-video", currentUser.id, uri, undefined],
+              url,
+              { updatedAt: Date.now() }
+            );
+          }
+        });
+      } catch (err) {
+        console.error("Video batch prefetch failed:", err);
+      }
+    };
+
+    signVideosBatch();
+  }, [data?.items, currentUser?.id, queryClient]);
+
 
   const currentPage = data?.pagination.page ?? 1;
   const totalPages = data?.pagination.totalPages ?? 1;

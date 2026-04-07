@@ -9,8 +9,8 @@ import { waitUntil } from "@vercel/functions";
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
-const BATCH_LAMBDA_ENDPOINT =
-  `${process.env.LAMBDA_ENDPOINT}/process-video-with-targeted-frame-batch-pegasus`;
+const LAMBDA_BASE = (process.env.LAMBDA_ENDPOINT || "").trim().replace(/\/$/, "");
+const BATCH_LAMBDA_ENDPOINT = `${LAMBDA_BASE}/process-video-with-targeted-frame-batch-pegasus`;
 
 async function runBatchProcessingJob({
   resultId,
@@ -38,7 +38,7 @@ async function runBatchProcessingJob({
     const payload = {
       interior_jobs: mapJobs("interior"),
       exterior_jobs: mapJobs("exterior"),
-      evidence_photos: jobs.find(j => (j as any).evidencePhotos)?.evidencePhotos || [],
+      image_s3_uris: (jobs.find(j => (j as any).evidencePhotos)?.evidencePhotos || []).join(","),
       temperature: 0.2,
     };
 
@@ -52,7 +52,35 @@ async function runBatchProcessingJob({
     });
 
     const resultData = response.data;
-    const attributes = resultData?.attributes || [];
+    
+    // Pruning redundant fields from resultData to optimize DB size and frontend speed
+    const prunedResultData = {
+      ...resultData,
+      // Map through loads to remove massive raw outputs that aren't needed by the UI
+      loads: Array.isArray(resultData?.loads) 
+        ? resultData.loads.map((load: any) => ({
+            ...load,
+            results: undefined, // Remove raw outputs (already extracted into 'attributes' or 'loads.loads')
+          }))
+        : resultData?.loads,
+      // Remove any top-level raw fields if they exist
+      results: undefined,
+    };
+
+    // Collect attributes from top-level and also from each load (image results)
+    const attributes = [...(resultData?.attributes || [])];
+    if (Array.isArray(resultData?.loads)) {
+      resultData.loads.forEach((load: any) => {
+        if (load.results?.attributes && Array.isArray(load.results.attributes)) {
+          load.results.attributes.forEach((attr: any) => {
+            attributes.push({
+              ...attr,
+              source: attr.source || `image:${load.image_s3_uri}`,
+            });
+          });
+        }
+      });
+    }
 
     await db.transaction(async (tx) => {
       // 1. Update the main record
@@ -60,7 +88,17 @@ async function runBatchProcessingJob({
         .update(results)
         .set({
           status: "completed",
-          json: resultData,
+          json: {
+            ...prunedResultData,
+            // Keep evidencePhotos for UI compatibility by mapping from the new 'loads' structure
+            // or falling back to the original uploaded photos
+            evidencePhotos: (resultData?.loads && Array.isArray(resultData.loads))
+              ? resultData.loads.map((load: any) => ({
+                  original: load.image_s3_uri,
+                  url: load.image_s3_uri_url || load.original_url || null
+                }))
+              : (jobs.find(j => (j as any).evidencePhotos)?.evidencePhotos || []),
+          },
         })
         .where(eq(results.id, resultId));
 
@@ -140,7 +178,7 @@ export async function POST(req: Request) {
         customId: customId,
         status: "processing",
         containerType: formattedJobs.map((j) => j.containerType).join(","),
-        model: formattedJobs.map((j) => j.containerType).join(","), // Using containerType accidentally here in original code, but sticking to pattern
+        model: formattedJobs.map((j) => j.model).join(","),
         regionName: formattedJobs.map((j) => j.regionName).join(","),
         json: { 
           status: "upload_success", 

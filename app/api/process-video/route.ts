@@ -26,29 +26,29 @@ async function runProcessingJob({
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-    const params = new URLSearchParams();
-    params.append("video_uri", videoUri);
-    params.append("container_type", containerType);
-    params.append("model", model);
-    params.append("region_name", regionName);
-    // Optional: Pass frames_bucket and frames_prefix to skip video download/chopping 
-    // and process pre-extracted frames directly from S3.
-    params.append("frames_bucket", "");
-    params.append("frames_prefix", "");
-    params.append("presigned_expiry_seconds", "");
-    params.append("result_id", resultId);
+    const payload = {
+      interior_jobs: [{
+        s3_uri: videoUri,
+        region: regionName,
+        container_type: containerType,
+      }],
+      exterior_jobs: [],
+      image_s3_uris: [],
+      temperature: 0.2,
+    };
 
     let response: Response;
     let responseText: string;
 
+    const lambdaBase = (process.env.LAMBDA_ENDPOINT || "").trim().replace(/\/$/, "");
     try {
-      response = await fetch(`${process.env.LAMBDA_ENDPOINT}/process-video-with-targeted-frame`, {
+      response = await fetch(`${lambdaBase}/process-video-with-targeted-frame-batch-pegasus`, {
         method: "POST",
         headers: {
           Accept: "application/json",
-          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Type": "application/json",
         },
-        body: params.toString(),
+        body: JSON.stringify(payload),
         signal: controller.signal,
       });
 

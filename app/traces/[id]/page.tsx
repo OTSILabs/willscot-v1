@@ -19,6 +19,7 @@ import { VideoInfoPanel } from "./components/video-info-panel";
 import { AttributesTable } from "./components/attributes-table";
 import { VideoPreviewPanel } from "./components/video-preview-panel";
 import { RawJsonTab } from "./components/raw-json-tab";
+import { PhotoEvidenceItem } from "./components/photo-evidence-item";
 import { ResultDetail, TraceAttribute } from "./components/types";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -197,13 +198,36 @@ export default function ResultDetailPage() {
         </div>
       </div>
       {
-        isFailed ? <Alert className="border-red-200 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950 dark:text-red-50">
-          <AlertTitle>Failed</AlertTitle>
-          <AlertDescription>
-            {result.json.error}
-          </AlertDescription>
-        </Alert> : (
-          <Tabs defaultValue="results" className="w-full">
+        isFailed ? (
+          <Alert className="border-red-200 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950 dark:text-red-50">
+            <AlertTitle>Failed</AlertTitle>
+            <AlertDescription>
+              {result.json.error}
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <>
+            {/* Partial Failures Alert */}
+            {Array.isArray(result.json.failures) && result.json.failures.length > 0 && (
+              <Alert className="mb-4 border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-50">
+                <AlertTitle className="flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                  Partial Failures Detected
+                </AlertTitle>
+                <AlertDescription className="mt-2 space-y-1">
+                  <p className="text-xs opacity-80 mb-2">The following process tasks encountered issues:</p>
+                  <ul className="list-disc list-inside text-xs space-y-1">
+                    {result.json.failures.map((fail: any, idx: number) => (
+                      <li key={idx}>
+                        <span className="font-bold uppercase text-[10px]">{fail.source}:</span> {fail.error}
+                      </li>
+                    ))}
+                  </ul>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <Tabs defaultValue="results" className="w-full">
             {isProcessing ? (
               <div className="xl:h-[calc(100vh-100px)] xl:min-h-[calc(100vh-100px)] rounded-md border p-8 xl:p-0">
                 <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
@@ -256,21 +280,12 @@ export default function ResultDetailPage() {
                             {result.json.evidencePhotos && result.json.evidencePhotos.length > 0 ? (
                               <div className="grid grid-cols-2 gap-4">
                                 {result.json.evidencePhotos.map((url, idx) => (
-                                  <div key={idx} className="group relative aspect-video overflow-hidden rounded-xl border bg-muted shadow-sm hover:shadow-md transition-all">
-                                    <img 
-                                      src={url} 
-                                      alt={`Evidence ${idx + 1}`} 
-                                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" 
-                                    />
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                      <Button variant="secondary" size="sm" onClick={() => window.open(url, "_blank")}>
-                                        View Full size
-                                      </Button>
-                                    </div>
-                                    <div className="absolute bottom-2 left-2 rounded-md bg-black/60 px-2 py-1 text-[10px] font-bold text-white uppercase tracking-wider backdrop-blur-sm">
-                                      Photo Evidence {idx + 1}
-                                    </div>
-                                  </div>
+                                  <PhotoEvidenceItem 
+                                    key={idx} 
+                                    s3Uri={url} 
+                                    index={idx} 
+                                    regionName={result.regionName} 
+                                  />
                                 ))}
                               </div>
                             ) : (
@@ -344,16 +359,12 @@ export default function ResultDetailPage() {
                         {result.json.evidencePhotos && result.json.evidencePhotos.length > 0 ? (
                           <div className="grid grid-cols-1 gap-4 pb-6">
                             {result.json.evidencePhotos.map((url, idx) => (
-                              <div key={idx} className="group relative aspect-video overflow-hidden rounded-xl border bg-muted shadow-sm">
-                                <img 
-                                  src={url} 
-                                  alt={`Evidence ${idx + 1}`} 
-                                  className="h-full w-full object-cover" 
-                                />
-                                <div className="absolute bottom-2 left-2 rounded-md bg-black/60 px-2 py-1 text-[10px] font-bold text-white uppercase tracking-wider">
-                                  Evidence {idx + 1}
-                                </div>
-                              </div>
+                              <PhotoEvidenceItem 
+                                key={idx} 
+                                s3Uri={url} 
+                                index={idx} 
+                                regionName={result.regionName} 
+                              />
                             ))}
                           </div>
                         ) : (
@@ -369,8 +380,8 @@ export default function ResultDetailPage() {
               </div>
             )}
           </Tabs>
-        )
-      }
+        </>
+      )}
     </div>
   );
 }

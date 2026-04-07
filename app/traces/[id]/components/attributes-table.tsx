@@ -1,6 +1,4 @@
-"use client";
-
-import { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { humanizeString } from "@/lib/utils";
@@ -27,6 +25,126 @@ interface AttributesTableProps {
   isCompact?: boolean;
 }
 
+// Memoized helper to humanize strings with caching
+const humanizeCache: Record<string, string> = {};
+const fastHumanize = (str: string | null | undefined) => {
+  if (!str) return "N/A";
+  if (humanizeCache[str]) return humanizeCache[str];
+  const result = humanizeString(str);
+  humanizeCache[str] = result;
+  return result;
+};
+
+const AttributeRow = React.memo(({ 
+  attribute, 
+  index, 
+  isCompact, 
+  onCorrect, 
+  onWrong, 
+  onTimestampClick 
+}: {
+  attribute: TraceAttribute;
+  index: number;
+  isCompact: boolean;
+  onCorrect: (index: number) => void;
+  onWrong: (index: number) => void;
+  onTimestampClick?: (timestamp: number, source: string) => void;
+}) => {
+  const isLocked = attribute.status === "correct" || attribute.status === "incorrect";
+
+  return (
+    <TableRow>
+      <TableCell>
+        {isCompact ? (
+          <TruncatedCell content={fastHumanize(attribute.pipeline)} maxW="max-w-[120px]" />
+        ) : (
+          <span className="whitespace-normal leading-normal">{fastHumanize(attribute.pipeline)}</span>
+        )}
+      </TableCell>
+      <TableCell>
+        {isCompact ? (
+          <TruncatedCell content={fastHumanize(attribute.attribute)} maxW="max-w-[120px]" />
+        ) : (
+          <span className="whitespace-normal leading-normal">{fastHumanize(attribute.attribute)}</span>
+        )}
+      </TableCell>
+      <TableCell>
+        {isCompact ? (
+          <TruncatedCell content={fastHumanize(attribute.value)} maxW="max-w-[150px]" />
+        ) : (
+          <span className="whitespace-normal leading-normal">{fastHumanize(attribute.value)}</span>
+        )}
+      </TableCell>
+      <TableCell>
+        {isCompact ? (
+          <TruncatedCell content={fastHumanize(attribute.source)} maxW="max-w-[100px]" />
+        ) : (
+          <span className="whitespace-normal leading-normal">{fastHumanize(attribute.source)}</span>
+        )}
+      </TableCell>
+      <TableCell>
+        {isCompact ? (
+          <TruncatedCell content={fastHumanize(attribute.evidence)} maxW="max-w-[200px]" />
+        ) : (
+          <span className="whitespace-normal leading-relaxed">{fastHumanize(attribute.evidence)}</span>
+        )}
+      </TableCell>
+
+      <TableCell>
+        <div className="flex flex-col gap-2">
+          {attribute.timestamp_seconds !== null && attribute.timestamp_seconds !== undefined && (
+            <button
+              onClick={() => onTimestampClick?.(attribute.timestamp_seconds!, attribute.source || "interior")}
+              className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-600 hover:text-blue-800 transition-colors w-fit bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100"
+            >
+              <PlayCircle className="w-3 h-3" />
+              {attribute.timestamp_seconds.toFixed(2)}s
+            </button>
+          )}
+          
+          {isLocked ? (
+            attribute.status === "correct" ? (
+              <span className="text-green-600 font-medium text-xs">
+                Marked Correct
+              </span>
+            ) : (
+              <div className="text-xs">
+                <p className="text-red-600">Marked Incorrect:</p>
+                <p className="line-clamp-2">{attribute.feedback}</p>
+              </div>
+            )
+          ) : (
+            <div className="flex items-center">
+              <ButtonGroup>
+                <ButtonGroupText className="text-[10px]">
+                  Verify
+                </ButtonGroupText>
+                <Button
+                  size="xs"
+                  title="Mark as Correct"
+                  className="bg-green-600 text-white hover:bg-green-700"
+                  onClick={() => onCorrect(index)}
+                >
+                  <CheckIcon className="w-3 h-3" />
+                </Button>
+
+                <Button
+                  size="xs"
+                  title="Mark as Wrong"
+                  onClick={() => onWrong(index)}
+                >
+                  <XIcon className="w-3 h-3" />
+                </Button>
+              </ButtonGroup>
+            </div>
+          )}
+        </div>
+      </TableCell>
+    </TableRow>
+  );
+});
+
+AttributeRow.displayName = "AttributeRow";
 
 export function AttributesTable({ 
   attributes, 
@@ -43,19 +161,19 @@ export function AttributesTable({
     setDialogOpen(false);
   };
 
-  const handleCorrectClick = (index: number) => {
+  const handleCorrectClick = React.useCallback((index: number) => {
     setDialogMode("correct");
     setSelectedIndex(index);
     setDialogStep("confirm");
     setDialogOpen(true);
-  };
+  }, []);
 
-  const handleWrongClick = (index: number) => {
+  const handleWrongClick = React.useCallback((index: number) => {
     setDialogMode("incorrect");
     setSelectedIndex(index);
     setDialogStep("input");
     setDialogOpen(true);
-  };
+  }, []);
 
   const handleFinalSave = (data: FeedbackFormValues | undefined) => {
     if (selectedIndex === null || !dialogMode) return;
@@ -111,101 +229,17 @@ export function AttributesTable({
         </TableHeader>
 
         <TableBody className="[&_td]:whitespace-normal">
-          {attributes.map((attribute, index) => {
-            const isLocked =
-              attribute.status === "correct" || attribute.status === "incorrect";
-
-            return (
-              <TableRow key={index}>
-                <TableCell>
-                  {isCompact ? (
-                    <TruncatedCell content={humanizeString(attribute.pipeline)} maxW="max-w-[120px]" />
-                  ) : (
-                    <span className="whitespace-normal leading-normal">{humanizeString(attribute.pipeline)}</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {isCompact ? (
-                    <TruncatedCell content={humanizeString(attribute.attribute)} maxW="max-w-[120px]" />
-                  ) : (
-                    <span className="whitespace-normal leading-normal">{humanizeString(attribute.attribute)}</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {isCompact ? (
-                    <TruncatedCell content={humanizeString(attribute.value)} maxW="max-w-[150px]" />
-                  ) : (
-                    <span className="whitespace-normal leading-normal">{humanizeString(attribute.value)}</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {isCompact ? (
-                    <TruncatedCell content={humanizeString(attribute.source)} maxW="max-w-[100px]" />
-                  ) : (
-                    <span className="whitespace-normal leading-normal">{humanizeString(attribute.source)}</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {isCompact ? (
-                    <TruncatedCell content={humanizeString(attribute.evidence)} maxW="max-w-[200px]" />
-                  ) : (
-                    <span className="whitespace-normal leading-relaxed">{humanizeString(attribute.evidence)}</span>
-                  )}
-                </TableCell>
-
-                <TableCell>
-                  <div className="flex flex-col gap-2">
-                    {attribute.timestamp_seconds !== null && attribute.timestamp_seconds !== undefined && (
-                      <button
-                        onClick={() => onTimestampClick?.(attribute.timestamp_seconds!, attribute.source || "interior")}
-                        className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-600 hover:text-blue-800 transition-colors w-fit bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100"
-                      >
-                        <PlayCircle className="w-3 h-3" />
-                        {attribute.timestamp_seconds.toFixed(2)}s
-                      </button>
-                    )}
-                    
-                    {isLocked ? (
-                      attribute.status === "correct" ? (
-                        <span className="text-green-600 font-medium text-xs">
-                          Marked Correct
-                        </span>
-                      ) : (
-                        <div className="text-xs">
-                          <p className="text-red-600">Marked Incorrect:</p>
-                          <p className="line-clamp-2">{attribute.feedback}</p>
-                        </div>
-                      )
-                    ) : (
-                      <div className="flex items-center">
-                        <ButtonGroup>
-                          <ButtonGroupText className="text-[10px]">
-                            Verify
-                          </ButtonGroupText>
-                          <Button
-                            size="xs"
-                            title="Mark as Correct"
-                            className="bg-green-600 text-white hover:bg-green-700"
-                            onClick={() => handleCorrectClick(index)}
-                          >
-                            <CheckIcon className="w-3 h-3" />
-                          </Button>
-
-                          <Button
-                            size="xs"
-                            title="Mark as Wrong"
-                            onClick={() => handleWrongClick(index)}
-                          >
-                            <XIcon className="w-3 h-3" />
-                          </Button>
-                        </ButtonGroup>
-                      </div>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            );
-          })}
+          {attributes.map((attribute, index) => (
+            <AttributeRow 
+              key={`${index}-${attribute.status}-${attribute.feedback}`}
+              attribute={attribute}
+              index={index}
+              isCompact={isCompact}
+              onCorrect={handleCorrectClick}
+              onWrong={handleWrongClick}
+              onTimestampClick={onTimestampClick}
+            />
+          ))}
         </TableBody>
       </Table>
       </div>
@@ -220,18 +254,18 @@ export function AttributesTable({
             <div key={index} className="flex flex-col gap-2 rounded-xl bg-card p-4 shadow-sm text-card-foreground">
               <div>
                 <p className="text-xs font-normal text-muted-foreground uppercase pb-1 tracking-wide">
-                  {humanizeString(attribute.pipeline)} &gt; {humanizeString(attribute.attribute)}
+                  {fastHumanize(attribute.pipeline)} &gt; {fastHumanize(attribute.attribute)}
                 </p>
                 <p className="font-normal text-base text-foreground leading-tight">
-                  {humanizeString(attribute.value)}
+                  {fastHumanize(attribute.value)}
                   <span className="text-xs font-normal text-muted-foreground ml-2">
-                    ({humanizeString(attribute.source)})
+                    ({fastHumanize(attribute.source)})
                   </span>
                 </p>
               </div>
 
               <p className="text-sm text-muted-foreground leading-relaxed break-words whitespace-normal py-1">
-                {humanizeString(attribute.evidence)}
+                {fastHumanize(attribute.evidence)}
               </p>
 
               <div className="flex items-center justify-between pt-2 border-t mt-1">
