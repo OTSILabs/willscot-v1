@@ -9,7 +9,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-const defaultRegion = process.env.AWS_REGION || "us-west-2";
+const defaultRegion = "us-west-2";
 
 const sharedCredentials = {
   accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
