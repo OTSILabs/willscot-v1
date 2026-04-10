@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useCurrentUser } from "@/components/current-user-provider";
 import { ExternalLink, Loader2 } from "lucide-react";
 import { RefObject, useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
 
 interface VideoPreviewPanelProps {
   videoRef: RefObject<HTMLVideoElement | null>;
