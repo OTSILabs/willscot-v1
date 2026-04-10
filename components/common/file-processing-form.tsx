@@ -365,6 +365,7 @@ export function FileProcessingFormContent() {
     if (!interiorJobs || !exteriorJobs) {
       toast.error("Invalid job type selection.", {
         description: "Please select at least one interior and one exterior job.",
+        id: "error-invalid-job-types"
       });
       return;
     }
