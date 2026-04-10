@@ -22,6 +22,9 @@ export function PhotoEvidenceItem({ s3Uri, index, regionName }: PhotoEvidenceIte
       ? String((s3Uri as any).original || "").trim()
       : "";
 
+  const resolvedRaw = typeof regionName === "string" ? regionName.trim() : "us-west-2";
+  const resolvedRegion = resolvedRaw.split(',')[0].trim() || "us-west-2";
+
   // Safe signing: split by comma if multiple URIs are provided (batch result artifacts)
   const cleanSource = source.split(',')[0].trim();
   const isS3Source = cleanSource.startsWith("s3://");
@@ -32,13 +35,13 @@ export function PhotoEvidenceItem({ s3Uri, index, regionName }: PhotoEvidenceIte
     : undefined;
 
   const { data: signedUrl, isLoading, error } = useQuery({
-    queryKey: ["presign-photo", currentUser?.id, cleanSource],
+    queryKey: ["presign-photo", currentUser?.id, cleanSource, resolvedRegion],
     queryFn: async () => {
-      console.log(`[PhotoEvidence] Presigning S3 URI:`, cleanSource);
+      console.log(`[PhotoEvidence] Presigning S3 URI:`, cleanSource, `in region:`, resolvedRegion);
       const response = await fetch("/api/s3/presign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ s3Uri: cleanSource }),
+        body: JSON.stringify({ s3Uri: cleanSource, region: resolvedRegion }),
       });
 
       if (!response.ok) {

@@ -1,9 +1,12 @@
 import { getCurrentUserServerAction } from "@/app/actions/current-user";
 import { db } from "@/lib/db";
 import { resultAttributes, results, users } from "@/lib/db/schema";
-import { and, eq, sql, count, gte, lte } from "drizzle-orm";
+import { and, eq, sql, count } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { fromZonedTime } from "date-fns-tz";
+import { getDateRangeFilters } from "@/lib/db/filters";
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function GET(req: Request) {
   try {
@@ -17,15 +20,7 @@ export async function GET(req: Request) {
     const endDate = searchParams.get("endDate");
     const timezone = searchParams.get("timezone") || "UTC";
 
-    const filters = [];
-    if (startDate) {
-      const startDateTime = fromZonedTime(`${startDate}T00:00:00`, timezone);
-      filters.push(gte(results.createdAt, startDateTime));
-    }
-    if (endDate) {
-      const endDateTime = fromZonedTime(`${endDate}T23:59:59.999`, timezone);
-      filters.push(lte(results.createdAt, endDateTime));
-    }
+    const filters = getDateRangeFilters(startDate, endDate, timezone);
 
     const whereClause = filters.length > 0 ? and(...filters) : undefined;
 
@@ -68,7 +63,9 @@ export async function GET(req: Request) {
 
     return NextResponse.json(formattedStats, {
       headers: {
-        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=59'
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
       }
     });
 

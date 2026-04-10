@@ -63,6 +63,7 @@ import { PageTitle, PageDescription } from "@/components/typography";
 import { BackButton } from "@/components/back-button";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useCurrentUser } from "@/components/current-user-provider";
+import { getAttributeOrder } from "@/lib/constants";
 
 // Dashboard Components
 import { MetricCard } from "./components/metric-card";
@@ -223,7 +224,10 @@ function DashboardContent() {
       const resp = await axios.get(`/api/stats/dashboard?${params.toString()}`);
       return resp.data;
     },
-    refetchInterval: 10000, 
+    refetchInterval: 5000, 
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    staleTime: 0,
     enabled: !!currentUser,
     placeholderData: keepPreviousData,
   });
@@ -244,7 +248,10 @@ function DashboardContent() {
 
   const sortedAttributes = useMemo(() => {
     const attrs = data?.attributes || [];
-    if (!sortOrder) return attrs;
+    if (!sortOrder) {
+      // Use master attribute order by default
+      return [...attrs].sort((a, b) => getAttributeOrder(a.name) - getAttributeOrder(b.name));
+    }
     return [...attrs].sort((a, b) => {
       if (sortOrder === "asc") return a.accuracy - b.accuracy;
       return b.accuracy - a.accuracy;
@@ -474,8 +481,8 @@ function DashboardContent() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedAttributes.map((attr: DashboardStats["attributes"][0]) => (
-                    <TableRow key={attr.name} className="hover:bg-muted/10 transition-colors group border-b last:border-0">
+                  {sortedAttributes.map((attr: DashboardStats["attributes"][0], idx: number) => (
+                    <TableRow key={`attr-row-${attr.name}-${idx}`} className="hover:bg-muted/10 transition-colors group border-b last:border-0">
                       <TableCell className="pl-6 py-4 font-medium text-sm text-foreground/90">
                         {attr.name}
                       </TableCell>
@@ -507,8 +514,8 @@ function DashboardContent() {
 
             {/* Mobile Card View */}
             <div className="xl:hidden flex flex-col divide-y">
-              {sortedAttributes.map((attr: DashboardStats["attributes"][0]) => (
-                <div key={attr.name} className="p-4 bg-white/40 space-y-3">
+              {sortedAttributes.map((attr: DashboardStats["attributes"][0], idx: number) => (
+                <div key={`attr-card-${attr.name}-${idx}`} className="p-4 bg-white/40 space-y-3">
                   <div className="flex justify-between items-start">
                     <span className="text-sm font-semibold text-foreground/90 max-w-[70%]">{attr.name}</span>
                     <Badge 

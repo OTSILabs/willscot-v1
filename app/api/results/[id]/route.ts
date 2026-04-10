@@ -2,62 +2,10 @@ import { db } from "@/lib/db";
 import { results, users, resultAttributes } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { getPresignedUrl } from "@/lib/s3";
+import { recursivePresign, getPresignedUrl } from "@/lib/s3";
 import { getCurrentUserServerAction } from "@/app/actions/current-user";
 import { syncResultAttributes } from "@/lib/db/sync";
 
-
-interface PresignedS3Result {
-  original: string;
-  url: string;
-}
-
-
-async function processS3Uris(obj: unknown): Promise<unknown> {
-  if (!obj) return obj;
-
-  if (typeof obj === "string") {
-    if (obj.startsWith("s3://")) {
-      // Handle comma-separated URIs by signing each part (if it's a known multi-field)
-      // or just the first part for simple strings.
-      const uris = obj.split(",");
-      if (uris.length > 1) {
-        return Promise.all(uris.map(async (uri) => ({
-          original: uri,
-          url: await getPresignedUrl(uri),
-        })));
-      }
-      return {
-        original: obj,
-        url: await getPresignedUrl(obj),
-      } as PresignedS3Result;
-    }
-    return obj;
-  }
-
-  // Handle arrays
-  if (Array.isArray(obj)) {
-    return Promise.all(obj.map((item) => processS3Uris(item)));
-  }
-
-  // Handle objects
-  if (typeof obj === "object" && obj !== null) {
-    const processed: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(obj)) {
-      if (typeof value === "string" && value.startsWith("s3://")) {
-        const uris = value.split(",");
-        processed[key] = value;
-        // For the '_url' helper, use the first one if multiple
-        processed[`${key}_url`] = await getPresignedUrl(uris[0]);
-      } else {
-        processed[key] = await processS3Uris(value);
-      }
-    }
-    return processed;
-  }
-
-  return obj;
-}
 
 export async function GET(
   _req: Request,
@@ -110,8 +58,11 @@ export async function GET(
       return NextResponse.json({ error: "Result not found" }, { status: 404 });
     }
 
+    // Extract the primary region from the comma-separated list
+    const resolvedRegion = result.regionName ? String(result.regionName).split(",")[0].trim() : undefined;
+
     // Process the JSON to include presigned URLs for all S3 URIs
-    const processedJson = (await processS3Uris(result.json)) as {
+    const processedJson = (await recursivePresign(result.json, resolvedRegion)) as {
       attributes?: Record<string, unknown>[];
       [key: string]: unknown;
     };
@@ -125,11 +76,13 @@ export async function GET(
       }));
     }
 
-    // Also process the main videoId if it's an S3 URI (Handle multi-video strings)
-    const videoUris = result.videoId?.split(",") || [];
-    const videoUrl = videoUris.length > 0 && videoUris[0].startsWith("s3://")
-      ? await getPresignedUrl(videoUris[0])
-      : null;
+    // Also process all videoId URIs (Handle multi-video strings)
+    const videoUris = result.videoId?.split(",").map((u: string) => u.trim()) || [];
+    const videoUrls = await Promise.all(
+      videoUris
+        .filter((uri: string) => uri.startsWith("s3://"))
+        .map((uri: string) => getPresignedUrl(uri, 3600, resolvedRegion))
+    );
 
     // Background self-healing for specialized table
     if (result.status === "completed" && Array.isArray(processedJson.attributes)) {
@@ -137,7 +90,7 @@ export async function GET(
       (async () => {
         try {
           await db.transaction(async (tx) => {
-            await syncResultAttributes(tx, id, attributes);
+            await syncResultAttributes(tx, id, processedJson);
           });
         } catch (e) {
           console.error("Self-healing sync failed for trace:", id, e);
@@ -148,7 +101,8 @@ export async function GET(
     return NextResponse.json({
       ...result,
       json: processedJson,
-      videoUrl: videoUrl,
+      videoUrls: videoUrls,
+      videoUrl: videoUrls[0] || null, // Keep for backward compatibility
     });
   } catch (error: unknown) {
     const errorMessage =
@@ -216,7 +170,7 @@ export async function PATCH(
         .where(eq(results.id, id));
 
       // 2. Sync specialized attributes table using centralized helper
-      await syncResultAttributes(tx, id, attributes);
+      await syncResultAttributes(tx, id, newJson);
     });
 
     return NextResponse.json({ success: true });

@@ -19,10 +19,16 @@ export function VideoPreviewPanel({
   seekTo,
 }: VideoPreviewPanelProps) {
   const [isBuffering, setIsBuffering] = useState(false);
+  const [activeVideoIndex, setActiveVideoIndex] = useState(0);
+
   const rawSource = (videoSource || "").trim();
-  const source = rawSource.split(',')[0].trim();
+  const sources = rawSource.split(',').map(s => s.trim()).filter(Boolean);
+  const source = sources[activeVideoIndex] || sources[0] || "";
+  
   const resolvedRaw = (regionName || "").trim();
-  const resolvedRegion = resolvedRaw.split(',')[0].trim() || undefined;
+  const regions = resolvedRaw.split(',').map(r => r.trim());
+  const resolvedRegion = regions[activeVideoIndex] || regions[0] || undefined;
+  
   const isS3Source = source.startsWith("s3://");
 
   const { currentUser } = useCurrentUser();
@@ -74,8 +80,31 @@ export function VideoPreviewPanel({
   }, [seekTo, videoRef, videoUrl]);
 
   return (
-    <div className="relative min-h-0 flex-1 h-full w-full">
-      <div className="h-full overflow-hidden bg-black flex items-center justify-center">
+    <div className="relative min-h-0 flex-1 h-full w-full flex flex-col">
+      {/* Multi-video selector overlay */}
+      {sources.length > 1 && (
+        <div className="absolute top-3 left-3 z-30 flex gap-1.5 p-1 bg-black/40 backdrop-blur-md rounded-lg border border-white/10 shadow-xl">
+          {sources.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => {
+                setActiveVideoIndex(idx);
+                setIsBuffering(false);
+              }}
+              className={cn(
+                "px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded transition-all",
+                activeVideoIndex === idx 
+                  ? "bg-blue-500 text-white shadow-[0_0_10px_rgba(59,130,246,0.5)]" 
+                  : "text-zinc-400 hover:text-white hover:bg-white/10"
+              )}
+            >
+              Part {idx + 1}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="flex-1 overflow-hidden bg-black flex items-center justify-center relative">
           {(isSigningVideo || isBuffering) && videoUrl ? (
             <div className="absolute inset-x-0 bottom-12 z-20 flex justify-center pointer-events-none">
               <div className="flex items-center bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -94,6 +123,7 @@ export function VideoPreviewPanel({
           
           {videoUrl ? (
             <video 
+              key={videoUrl} // Key change forces re-render/source reset
               ref={videoRef} 
               src={videoUrl}
               controls 

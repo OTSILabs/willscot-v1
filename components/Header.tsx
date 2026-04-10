@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { KeyRound, LogOut, Menu } from "lucide-react";
@@ -36,6 +36,7 @@ export function Header() {
   const router = useRouter();
   const { currentUser, setCurrentUser } = useCurrentUser();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
   // Password Change State
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
@@ -44,6 +45,11 @@ export function Header() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+
+  // Hydration fix: Only render the interactive header elements after mounting
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const navLinks = [
     { href: "/traces", label: "Traces" },
@@ -155,67 +161,84 @@ export function Header() {
         <div className="flex items-center gap-2 xl:gap-6">
 
           <div className="xl:hidden">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon" className="rounded-full" aria-label="Menu">
-                  <Menu className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-10">
-                {navLinks.map((link) => (
-                  <DropdownMenuItem key={link.href} asChild>
-                    <Link href={link.href} prefetch={false} className="w-full cursor-pointer">
-                      {link.label}
-                    </Link>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {!isMounted ? (
+              <Button variant="outline" size="icon" className="rounded-full" aria-label="Menu">
+                <Menu className="h-4 w-4" />
+              </Button>
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon" className="rounded-full" aria-label="Menu">
+                    <Menu className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-10">
+                  {navLinks.map((link) => (
+                    <DropdownMenuItem key={link.href} asChild>
+                      <Link href={link.href} prefetch={false} className="w-full cursor-pointer">
+                        {link.label}
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className="rounded-full"
-                aria-label="Open user menu"
-              >
-                <span className="text-xs font-normal xl:font-semibold">{userInitials}</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel className="space-y-1">
-                <p className="text-sm font-normal xl:font-medium leading-none">
-                  {currentUser?.name || "User"}
-                </p>
-                <p className="text-muted-foreground text-xs leading-none">
-                  {currentUser?.email || "Not available"}
-                </p>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => {
-                  setErrorMessage("");
-                  setSuccessMessage("");
-                  setNewPassword("");
-                  setConfirmPassword("");
-                  setIsPasswordDialogOpen(true);
-                }}
-              >
-                <KeyRound className="size-4 mr-2" />
-                Change Password
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                variant="destructive"
-                onClick={handleLogout}
-                disabled={isLoggingOut}
-              >
-                <LogOut className="size-4 mr-2" />
-                {isLoggingOut ? "Logging out..." : "Logout"}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {!isMounted ? (
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-full"
+              aria-label="Open user menu"
+            >
+              <span className="text-xs font-normal xl:font-semibold">{userInitials}</span>
+            </Button>
+          ) : (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="rounded-full"
+                  aria-label="Open user menu"
+                >
+                  <span className="text-xs font-normal xl:font-semibold">{userInitials}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="space-y-1">
+                  <p className="text-sm font-normal xl:font-medium leading-none">
+                    {currentUser?.name || "User"}
+                  </p>
+                  <p className="text-muted-foreground text-xs leading-none">
+                    {currentUser?.email || "Not available"}
+                  </p>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={() => {
+                    setErrorMessage("");
+                    setSuccessMessage("");
+                    setNewPassword("");
+                    setConfirmPassword("");
+                    setIsPasswordDialogOpen(true);
+                  }}
+                >
+                  <KeyRound className="size-4 mr-2" />
+                  Change Password
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
+                >
+                  <LogOut className="size-4 mr-2" />
+                  {isLoggingOut ? "Logging out..." : "Logout"}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
 

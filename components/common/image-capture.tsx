@@ -26,7 +26,7 @@ export function ImageCapture({
   onClose, 
   onCapture, 
   title = "Capture Photo", 
-  maxPhotos = 3,
+  maxPhotos = 1,
   initialCount = 0 
 }: ImageCaptureProps) {
   const [capturedImages, setCapturedImages] = useState<{ blob: Blob; preview: string; qualityScore: number }[]>([]);

@@ -22,6 +22,7 @@ import { RawJsonTab } from "./components/raw-json-tab";
 import { PhotoEvidenceItem } from "./components/photo-evidence-item";
 import { ResultDetail, TraceAttribute } from "./components/types";
 import { toast } from "sonner";
+import { getAttributeOrder } from "@/lib/constants";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -104,26 +105,44 @@ export default function ResultDetailPage() {
   const [activeSeek, setActiveSeek] = useState<{ timestamp: number; source: "interior" | "exterior"; id: number } | null>(null);
   const isMobileView = useIsMobile();
   const [isTableCompact, setIsTableCompact] = useState(false);
+  const [activeMainTab, setActiveMainTab] = useState("results");
 
   const { mutate: updateFeedback } = useMutation({
-    mutationFn: async ({ index, newAttribute }: { index: number; newAttribute: TraceAttribute }) => {
-      // Accessing current attributes using result?.json.attributes inside the async function is safe
+    mutationFn: async ({ newAttribute }: { newAttribute: TraceAttribute }) => {
+      // Find and update the attribute in the raw JSON structure
       const currentAttributes = [...(result?.json.attributes || [])] as TraceAttribute[];
-      if (index < 0 || index >= currentAttributes.length) return;
-      currentAttributes[index] = newAttribute;
+      
+      const existingIdx = currentAttributes.findIndex(
+        a => a.attribute === newAttribute.attribute && a.source === newAttribute.source
+      );
+
+      if (existingIdx !== -1) {
+        currentAttributes[existingIdx] = newAttribute;
+      } else {
+        // If it's a new attribute (e.g. from photo loads), add it to the main list
+        currentAttributes.push(newAttribute);
+      }
+
       const resp = await axios.patch(`/api/results/${id}`, { attributes: currentAttributes });
       return resp.data;
     },
-    onMutate: async ({ index, newAttribute }) => {
+    onMutate: async ({ newAttribute }) => {
       await queryClient.cancelQueries({ queryKey: ["result", currentUser?.id, id] });
       const previousResult = queryClient.getQueryData(["result", currentUser?.id, id]) as ResultDetail | undefined;
 
-      if (previousResult?.json?.attributes && Array.isArray(previousResult.json.attributes)) {
+      if (previousResult) {
         const optimisticResult = JSON.parse(JSON.stringify(previousResult)) as ResultDetail;
-        if (optimisticResult.json.attributes) {
-          optimisticResult.json.attributes[index] = newAttribute;
-          queryClient.setQueryData(["result", currentUser?.id, id], optimisticResult);
+        const attrs = [...(optimisticResult.json.attributes || [])];
+        const idx = attrs.findIndex(a => a.attribute === newAttribute.attribute && a.source === newAttribute.source);
+        
+        if (idx !== -1) {
+          attrs[idx] = newAttribute;
+        } else {
+          attrs.push(newAttribute);
         }
+        
+        optimisticResult.json.attributes = attrs;
+        queryClient.setQueryData(["result", currentUser?.id, id], optimisticResult);
       }
 
       return { previousResult };
@@ -141,37 +160,15 @@ export default function ResultDetailPage() {
     },
   });
 
-  // Flatten attributes: combine top-level video attributes with any nested image attributes in loads
-  // We place this above the early returns to comply with the Rules of Hooks
+  // Flatten attributes: combine top-level video attributes
   const attributes = useMemo(() => {
     if (!result?.json) return [] as TraceAttribute[];
     
     const list = [...(Array.isArray(result.json.attributes) ? result.json.attributes : [])];
     
-    // Add image-based attributes from loads if they exist and aren't already included
-    if (Array.isArray(result.json.loads)) {
-      result.json.loads.forEach((load: any) => {
-        if (load.loads && typeof load.loads === "object") {
-          Object.entries(load.loads).forEach(([key, val]: [string, any]) => {
-            if (val && typeof val === "object") {
-              // Only add if not already in the list (deduplication)
-              const attrName = val.attribute || key;
-              const exists = list.some(a => a.attribute === attrName && a.source === (val.source || "photo_evidence"));
-              
-              if (!exists) {
-                list.push({
-                  ...val,
-                  attribute: attrName,
-                  source: val.source || "photo_evidence",
-                });
-              }
-            }
-          });
-        }
-      });
-    }
-    
-    return list as TraceAttribute[];
+    return (list as TraceAttribute[]).sort((a, b) => 
+      getAttributeOrder(a.attribute) - getAttributeOrder(b.attribute)
+    );
   }, [result?.json]);
 
   if (isLoading) {
@@ -204,6 +201,10 @@ export default function ResultDetailPage() {
     if (isMobileView && videoSectionRef.current) {
       videoSectionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
     }
+  };
+
+  const handleViewImage = () => {
+    setActiveMainTab("photos");
   };
 
 
@@ -249,7 +250,7 @@ export default function ResultDetailPage() {
                   <p className="text-xs opacity-80 mb-2">The following process tasks encountered issues:</p>
                   <ul className="list-disc list-inside text-xs space-y-1">
                     {result.json.failures.map((fail: any, idx: number) => (
-                      <li key={idx}>
+                      <li key={`failure-${idx}-${fail.source}`}>
                         <span className="font-bold uppercase text-[10px]">{fail.source}:</span> {fail.error}
                       </li>
                     ))}
@@ -258,7 +259,7 @@ export default function ResultDetailPage() {
               </Alert>
             )}
 
-            <Tabs defaultValue="results" className="w-full">
+            <Tabs value={activeMainTab} onValueChange={setActiveMainTab} className="w-full">
             {isProcessing ? (
               <div className="xl:h-[calc(100vh-100px)] xl:min-h-[calc(100vh-100px)] rounded-md border p-8 xl:p-0">
                 <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
@@ -288,11 +289,18 @@ export default function ResultDetailPage() {
                               <TabsTrigger value="results">Results</TabsTrigger>
                               <TabsTrigger value="photos">
                                 Photos
-                                {result.json.evidencePhotos && result.json.evidencePhotos.length > 0 && (
-                                  <span className="ml-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
-                                    {result.json.evidencePhotos.length}
-                                  </span>
-                                )}
+                                {(() => {
+                                  const aiImage = result.json.video?.image_s3_uri ? 1 : 0;
+                                  const extraPhotos = (result.json.evidencePhotos?.length || 0);
+                                  // Since we now only allow 1 image total, we should show 1 if either exists.
+                                  // But for backward compatibility with older traces, we use Math.max(1, count) or deduplicate.
+                                  const photoCount = aiImage || extraPhotos ? Math.max(aiImage, extraPhotos) : 0;
+                                  return photoCount > 0 && (
+                                    <span className="ml-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+                                      {photoCount}
+                                    </span>
+                                  );
+                                })()}
                               </TabsTrigger>
                               <TabsTrigger value="raw-json">Raw Json</TabsTrigger>
                             </TabsList>
@@ -301,23 +309,34 @@ export default function ResultDetailPage() {
                           <TabsContent value="results" className="m-0 min-h-0 flex-1 overflow-auto">
                             <AttributesTable
                               attributes={attributes}
-                              onAttributeUpdate={(idx, attr) => updateFeedback({ index: idx, newAttribute: attr })}
+                              onAttributeUpdate={(attr) => updateFeedback({ newAttribute: attr })}
                               onTimestampClick={handleTimestampClick}
+                              onViewImage={handleViewImage}
                               isCompact={isTableCompact}
+                              imageS3Uri={result.json.video?.image_s3_uri_url || result.json.video?.image_s3_uri}
                             />
                           </TabsContent>
 
                           <TabsContent value="photos" className="m-0 min-h-0 flex-1 overflow-auto p-6">
-                            {result.json.evidencePhotos && result.json.evidencePhotos.length > 0 ? (
+                            {result.json.video?.image_s3_uri || (result.json.evidencePhotos && result.json.evidencePhotos.length > 0) ? (
                               <div className="grid grid-cols-2 gap-4">
-                                {result.json.evidencePhotos.map((url, idx) => (
+                                {result.json.video?.image_s3_uri ? (
                                   <PhotoEvidenceItem 
-                                    key={idx} 
-                                    s3Uri={url} 
-                                    index={idx} 
+                                    key="main-image-evidence"
+                                    s3Uri={result.json.video.image_s3_uri} 
+                                    index={0} 
                                     regionName={result.regionName} 
                                   />
-                                ))}
+                                ) : (
+                                  result.json.evidencePhotos?.map((photo: any, idx) => (
+                                    <PhotoEvidenceItem 
+                                      key={`photo-evidence-${idx}`} 
+                                      s3Uri={typeof photo === 'string' ? photo : photo.original} 
+                                      index={idx} 
+                                      regionName={result.regionName} 
+                                    />
+                                  ))
+                                )}
                               </div>
                             ) : (
                               <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
@@ -364,39 +383,55 @@ export default function ResultDetailPage() {
                     </div>
   
                     {/* Results / Photos Tabs for Mobile */}
-                    <Tabs defaultValue="results" className="w-full">
+                    <Tabs value={activeMainTab} onValueChange={setActiveMainTab} className="w-full">
                       <TabsList className="grid w-full grid-cols-2 mb-4">
                         <TabsTrigger value="results">Attributes</TabsTrigger>
                         <TabsTrigger value="photos">
                           Photos
-                          {result.json.evidencePhotos && result.json.evidencePhotos.length > 0 && (
-                            <span className="ml-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
-                              {result.json.evidencePhotos.length}
-                            </span>
-                          )}
+                          {(() => {
+                            const aiImage = result.json.video?.image_s3_uri ? 1 : 0;
+                            const extraPhotos = (result.json.evidencePhotos?.length || 0);
+                            const photoCount = aiImage || extraPhotos ? Math.max(aiImage, extraPhotos) : 0;
+                            return photoCount > 0 && (
+                              <span className="ml-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+                                {photoCount}
+                              </span>
+                            );
+                          })()}
                         </TabsTrigger>
                       </TabsList>
 
                       <TabsContent value="results">
                         <AttributesTable
                           attributes={attributes}
-                          onAttributeUpdate={(index, newAttr) => updateFeedback({ index, newAttribute: newAttr })}
+                          onAttributeUpdate={(newAttr) => updateFeedback({ newAttribute: newAttr })}
                           onTimestampClick={handleTimestampClick}
+                          onViewImage={handleViewImage}
                           isCompact={isTableCompact}
+                          imageS3Uri={result.json.video?.image_s3_uri_url || result.json.video?.image_s3_uri}
                         />
                       </TabsContent>
 
                       <TabsContent value="photos">
-                        {result.json.evidencePhotos && result.json.evidencePhotos.length > 0 ? (
+                        {result.json.video?.image_s3_uri || (result.json.evidencePhotos && result.json.evidencePhotos.length > 0) ? (
                           <div className="grid grid-cols-1 gap-4 pb-6">
-                            {result.json.evidencePhotos.map((url, idx) => (
+                            {result.json.video?.image_s3_uri ? (
                               <PhotoEvidenceItem 
-                                key={idx} 
-                                s3Uri={url} 
-                                index={idx} 
+                                key="mobile-main-image-evidence"
+                                s3Uri={result.json.video.image_s3_uri} 
+                                index={0} 
                                 regionName={result.regionName} 
                               />
-                            ))}
+                            ) : (
+                              result.json.evidencePhotos?.map((photo: any, idx) => (
+                                <PhotoEvidenceItem 
+                                  key={`mobile-photo-evidence-${idx}`} 
+                                  s3Uri={typeof photo === 'string' ? photo : photo.original} 
+                                  index={idx} 
+                                  regionName={result.regionName} 
+                                />
+                              ))
+                            )}
                           </div>
                         ) : (
                           <div className="flex min-h-[200px] flex-col items-center justify-center gap-3 text-muted-foreground border-2 border-dashed rounded-xl">

@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { formatInTimeZone } from "date-fns-tz";
+import { PRETTY_NAME_MAP, normalizeAttributeName } from "./constants";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -27,6 +28,13 @@ export function humanizeFileSize(size: number) {
 }
 export function humanizeString(s: string | null | undefined) {
   if (!s || s.trim().length === 0) return "N/A";
+  
+  // 1. Check if we have a predefined "Pretty Name" in our master list
+  const normalized = normalizeAttributeName(s);
+  const prettyMatch = PRETTY_NAME_MAP.get(normalized);
+  if (prettyMatch) return prettyMatch;
+
+  // 2. Fallback to generic humanization for unknown attributes
   return s
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .replace(/[_-]+/g, " ")
