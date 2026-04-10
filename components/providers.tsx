@@ -8,7 +8,6 @@ import {
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Toaster } from "@/components/ui/sonner";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -25,7 +24,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           onError: (error) => {
             const message =
               error instanceof Error ? error.message : "Something went wrong";
-            toast.error(message);
+            toast.error(message, { id: `global-error-${Date.now()}` });
           },
         }),
       }),
@@ -35,7 +34,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       {children}
       <ReactQueryDevtools initialIsOpen={false} />
-      <Toaster richColors closeButton />
     </QueryClientProvider>
   );
 }

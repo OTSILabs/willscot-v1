@@ -24,8 +24,14 @@ function formatValue(value?: string | null) {
 export function VideoInfoPanel({ result, type }: VideoInfoPanelProps) {
   const videoInfo = result.json.video || {};
 
-  const getProp = (val: string | null | undefined, index: number) => String(val || "").split(',')[index];
-  const rawName = getProp(result.videoName || extractFilenames(result.videoId), type === "interior" ? 0 : 1);
+  const getProp = (val: string | null | undefined, index: number) => String(val || "").split(',')[index]?.trim();
+  const rawNames = (result.videoName || extractFilenames(result.videoId) || "").split(',').map(n => n.trim()).filter(Boolean);
+  const rawName = type === "interior" ? rawNames[0] : rawNames[1];
+  
+  // If we have extra videos in this category (Assuming 0 is int, 1 is ext, and others might follow)
+  // Actually, let's just use rawNames.length if it's > 2 as a hint
+  const extraCount = rawNames.length > 2 ? ` (+${rawNames.length - 2} more)` : "";
+  const displayName = rawName ? `${rawName}${extraCount}` : "N/A";
 
   const items = [
     {
@@ -36,7 +42,7 @@ export function VideoInfoPanel({ result, type }: VideoInfoPanelProps) {
     },
     {
       label: "Video Source",
-      value: rawName || "N/A",
+      value: displayName,
       mono: false,
     },
     {

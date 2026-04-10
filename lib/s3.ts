@@ -242,3 +242,55 @@ export async function abortMultipartUpload(
     throw error;
   }
 }
+
+/**
+ * Recursively scans an object for S3 URIs (s3://...) and generates presigned URLs.
+ * Adds a `${key}_url` sibling for each S3 URI string found.
+ * Processes arrays and nested objects automatically.
+ */
+export async function recursivePresign(obj: any, region?: string): Promise<any> {
+  if (!obj) return obj;
+
+  // Handle strings
+  if (typeof obj === "string") {
+    if (obj.startsWith("s3://")) {
+      const uris = obj.split(",");
+      if (uris.length > 1) {
+        return Promise.all(
+          uris.map(async (uri) => ({
+            original: uri,
+            url: await getPresignedUrl(uri, 3600, region),
+          }))
+        );
+      }
+      return {
+        original: obj,
+        url: await getPresignedUrl(obj, 3600, region),
+      };
+    }
+    return obj;
+  }
+
+  // Handle arrays
+  if (Array.isArray(obj)) {
+    return Promise.all(obj.map((item) => recursivePresign(item, region)));
+  }
+
+  // Handle objects
+  if (typeof obj === "object" && obj !== null) {
+    const processed: Record<string, any> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (typeof value === "string" && value.startsWith("s3://")) {
+        const uris = value.split(",").map(u => u.trim());
+        processed[key] = value;
+        // Optimization: For the '_url' helper, use the first one if multiple are provided
+        processed[`${key}_url`] = await getPresignedUrl(uris[0].trim(), 3600, region);
+      } else {
+        processed[key] = await recursivePresign(value, region);
+      }
+    }
+    return processed;
+  }
+
+  return obj;
+}

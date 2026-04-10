@@ -63,6 +63,7 @@ import { PageTitle, PageDescription } from "@/components/typography";
 import { BackButton } from "@/components/back-button";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useCurrentUser } from "@/components/current-user-provider";
+import { getAttributeOrder } from "@/lib/constants";
 
 // Dashboard Components
 import { MetricCard } from "./components/metric-card";
@@ -144,6 +145,15 @@ function DashboardContent() {
     return undefined;
   });
 
+  const [isXL, setIsXL] = useState(false);
+
+  useEffect(() => {
+    const checkXL = () => setIsXL(window.innerWidth >= 1280);
+    checkXL();
+    window.addEventListener("resize", checkXL);
+    return () => window.removeEventListener("resize", checkXL);
+  }, []);
+
   const startDate = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : "";
   const endDate = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : "";
 
@@ -223,7 +233,10 @@ function DashboardContent() {
       const resp = await axios.get(`/api/stats/dashboard?${params.toString()}`);
       return resp.data;
     },
-    refetchInterval: 10000, 
+    refetchInterval: 5000, 
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    staleTime: 0,
     enabled: !!currentUser,
     placeholderData: keepPreviousData,
   });
@@ -244,7 +257,10 @@ function DashboardContent() {
 
   const sortedAttributes = useMemo(() => {
     const attrs = data?.attributes || [];
-    if (!sortOrder) return attrs;
+    if (!sortOrder) {
+      // Use master attribute order by default
+      return [...attrs].sort((a, b) => getAttributeOrder(a.name) - getAttributeOrder(b.name));
+    }
     return [...attrs].sort((a, b) => {
       if (sortOrder === "asc") return a.accuracy - b.accuracy;
       return b.accuracy - a.accuracy;
@@ -266,9 +282,9 @@ function DashboardContent() {
 
   return (
    <div className="container mx-auto px-4 xl:px-0 py-4 xl:py-10 space-y-6 xl:space-y-8 pb-16 xl:pb-10 animate-in fade-in duration-700 relative">      {/* Back Button and Header */}
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
-          <BackButton label="Back to Traces" className="xl:-ml-4" />
+          <BackButton label="Back" className="xl:-ml-4 scale-90 xl:scale-100" />
           {isFetching && (
             <div className="xl:hidden flex items-center gap-2 text-[10px] font-medium text-muted-foreground animate-pulse mt-1">
               <div className="h-1.5 w-1.5 rounded-full bg-primary" />
@@ -279,37 +295,41 @@ function DashboardContent() {
 
         <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4 xl:gap-0">
           <div className="space-y-1">
-            <PageTitle title={currentUser.role === "power_user" ? "Accuracy Dashboard" : "My Accuracy Performance"} />
+            <PageTitle 
+              title={currentUser.role === "power_user" ? "Accuracy Dashboard" : "My Performance"} 
+              className="text-2xl sm:text-3xl xl:text-4xl"
+            />
             <PageDescription 
               description={currentUser.role === "power_user" 
                 ? "Performance metrics and extraction precision across all processed traces." 
                 : "Your personal extraction precision and performance metrics tracker."
               } 
+              className="text-xs xl:text-sm line-clamp-2 xl:line-clamp-none max-w-sm xl:max-w-none"
             />
           </div>
           
-          <div className="flex items-center gap-3 self-end md:self-auto">
+          <div className="flex items-center gap-2 self-start xl:self-auto overflow-x-auto pb-1 xl:pb-0 w-full xl:w-auto no-scrollbar">
             {isFetching && (
               <div className="hidden xl:flex items-center gap-2 text-[10px] font-medium text-muted-foreground animate-pulse mr-2">
                 <div className="h-1.5 w-1.5 rounded-full bg-primary" />
                 Refreshing...
               </div>
             )}
-            <div className="flex items-center gap-3">
-              <Badge variant="outline" className="bg-emerald-500/5 text-emerald-600 border-emerald-200 animate-pulse px-3 py-1 hidden sm:flex">
-                <span className="relative flex h-2 w-2 mr-2">
+            <div className="flex items-center gap-2 shrink-0">
+              <Badge variant="outline" className="bg-emerald-500/5 text-emerald-600 border-emerald-200 animate-pulse px-2 py-0.5 xl:px-3 xl:py-1 text-[10px] xl:text-xs">
+                <span className="relative flex h-1.5 w-1.5 mr-1.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
                 </span>
-                Live Updates
+                Live
               </Badge>
               <Button 
                 variant="outline" 
                 size="sm" 
                 onClick={() => refetch()} 
-                className="w-fit shadow-sm h-9 xl:h-8"
+                className="h-8 xl:h-8 text-[11px] xl:text-xs shadow-sm bg-background/50 backdrop-blur-sm"
               >
-                <RotateCcw className="w-4 h-4 mr-2" />
+                <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
                 Refresh
               </Button>
             </div>
@@ -390,25 +410,28 @@ function DashboardContent() {
       <Tabs defaultValue="table" className="w-full">
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-4">
           <TabsList className={cn(
-            "grid w-full xl:w-auto",
-            currentUser.role === "power_user" ? "grid-cols-3 xl:min-w-[450px]" : "grid-cols-2 xl:min-w-[300px]"
+            "grid w-full xl:w-auto h-11 xl:h-10 p-1 bg-muted/40",
+            currentUser.role === "power_user" ? "grid-cols-3 xl:min-w-[480px]" : "grid-cols-2 xl:min-w-[320px]"
           )}>
-            <TabsTrigger value="table">
-              <TableProperties className="w-4 h-4 mr-2" />
-              Accuracy 
+            <TabsTrigger value="table" className="text-[11px] xl:text-sm px-2 xl:px-4">
+              <TableProperties className="w-3.5 h-3.5 xl:w-4 xl:h-4 mr-1.5 xl:mr-2" />
+              <span className="hidden xs:inline">Accuracy</span>
+              <span className="xs:hidden">Stats</span>
             </TabsTrigger>
             {currentUser.role === "power_user" && (
-              <TabsTrigger value="users">
-                <ShieldCheck className="w-4 h-4 mr-2" />
-                User Performance
+              <TabsTrigger value="users" className="text-[11px] xl:text-sm px-2 xl:px-4">
+                <ShieldCheck className="w-3.5 h-3.5 xl:w-4 xl:h-4 mr-1.5 xl:mr-2" />
+                <span className="hidden xs:inline">Performance</span>
+                <span className="xs:hidden">Users</span>
               </TabsTrigger>
             )}
-            <TabsTrigger value="chart">
-              <BarChart3 className="w-4 h-4 mr-2" />
-              Chart View
+            <TabsTrigger value="chart" className="text-[11px] xl:text-sm px-2 xl:px-4">
+              <BarChart3 className="w-3.5 h-3.5 xl:w-4 xl:h-4 mr-1.5 xl:mr-2" />
+              <span className="hidden xs:inline">Chart View</span>
+              <span className="xs:hidden">Charts</span>
             </TabsTrigger>
           </TabsList>
-          <div className="flex items-center justify-center xl:block text-[11px] xl:text-xs text-muted-foreground font-medium bg-muted/50 px-3 py-2 xl:py-1.5 rounded-full xl:rounded-lg">
+          <div className="flex items-center justify-center xl:block text-[10px] xl:text-xs text-muted-foreground font-semibold bg-muted/30 px-3 py-1.5 xl:py-1.5 rounded-full xl:rounded-lg border border-border/40 xl:border-none shadow-sm xl:shadow-none">
             {attributes.length} Monitoring Categories
           </div>
         </div>
@@ -474,8 +497,8 @@ function DashboardContent() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sortedAttributes.map((attr: DashboardStats["attributes"][0]) => (
-                    <TableRow key={attr.name} className="hover:bg-muted/10 transition-colors group border-b last:border-0">
+                  {sortedAttributes.map((attr: DashboardStats["attributes"][0], idx: number) => (
+                    <TableRow key={`attr-row-${attr.name}-${idx}`} className="hover:bg-muted/10 transition-colors group border-b last:border-0">
                       <TableCell className="pl-6 py-4 font-medium text-sm text-foreground/90">
                         {attr.name}
                       </TableCell>
@@ -507,8 +530,8 @@ function DashboardContent() {
 
             {/* Mobile Card View */}
             <div className="xl:hidden flex flex-col divide-y">
-              {sortedAttributes.map((attr: DashboardStats["attributes"][0]) => (
-                <div key={attr.name} className="p-4 bg-white/40 space-y-3">
+              {sortedAttributes.map((attr: DashboardStats["attributes"][0], idx: number) => (
+                <div key={`attr-card-${attr.name}-${idx}`} className="p-4 bg-white/40 space-y-3">
                   <div className="flex justify-between items-start">
                     <span className="text-sm font-semibold text-foreground/90 max-w-[70%]">{attr.name}</span>
                     <Badge 
@@ -588,8 +611,8 @@ function DashboardContent() {
                     <YAxis 
                       dataKey="name" 
                       type="category" 
-                      width={typeof window !== 'undefined' && window.innerWidth < 1280 ? 100 : 160} 
-                      fontSize={typeof window !== 'undefined' && window.innerWidth < 1280 ? 9 : 11} 
+                      width={isXL ? 160 : 100} 
+                      fontSize={isXL ? 11 : 9} 
                       axisLine={false}
                       tickLine={false}
                       className="font-medium text-foreground/70"

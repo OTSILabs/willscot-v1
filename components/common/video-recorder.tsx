@@ -176,7 +176,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
   const startCamera = async (isRefresh = false) => {
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        toast.error("Camera access is only available over a secure (HTTPS) connection.");
+        toast.error("Camera access is only available over a secure (HTTPS) connection.", { id: "camera-error-https" });
         onClose();
         return;
       }
@@ -229,7 +229,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
       return newStream;
     } catch (err) {
       console.error("Camera access error:", err);
-      toast.error("Could not access camera. Please check permissions.");
+      toast.error("Could not access camera. Please check permissions.", { id: `camera-error-${Date.now()}` });
       if (!isRefresh) onClose();
       return null;
     }
@@ -260,7 +260,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
 
       mediaRecorder.onerror = (e) => {
         console.error("MediaRecorder error detected:", e);
-        toast.error("Recording error occurred.");
+        toast.error("Recording error occurred.", { id: `recording-error-${Date.now()}` });
         stopRecording();
       };
       
@@ -285,7 +285,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
       
     } catch (err) {
       console.error("MediaRecorder error:", err);
-      toast.error("Failed to start recording.");
+      toast.error("Failed to start recording.", { id: `record-start-error-${Date.now()}` });
       setStatus("idle");
     }
   };
@@ -321,7 +321,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
           } else if (mediaRecorderRef.current.state === "inactive") {
             // If it stopped anyway, we need to let the user know
             console.error("MediaRecorder became inactive during resume");
-            toast.error("Recording was interrupted and could not be resumed.");
+            toast.error("Recording was interrupted and could not be resumed.", { id: `resume-error-${Date.now()}` });
             setStatus("preview"); 
           }
         }
@@ -336,6 +336,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
       toast.info("Recording Auto-Paused due to interruption", {
         description: "Please check your feed and resume when ready.",
         duration: 5000,
+        id: "auto-pause-info"
       });
     }
   }, []);
@@ -486,7 +487,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
         setRecordingTime((prev) => {
           if (prev >= RECORDING_LIMIT_SECONDS - 1) {
             stopRecording();
-            toast.info("Recording limit reached (5m)");
+            toast.info("Recording limit reached (5m)", { id: "recording-limit-info" });
             return RECORDING_LIMIT_SECONDS;
           }
           return prev + 1;
@@ -528,7 +529,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
     <Dialog open={isOpen} onOpenChange={(open) => {
       const isActive = status === "recording" || status === "paused";
       if (!open && !isActive) onClose();
-      else if (!open && isActive) toast.warning("Please stop recording first");
+      else if (!open && isActive) toast.warning("Please stop recording first", { id: "stop-warning-dialog" });
     }}>
       {/* 
         Changes for "Native Feel":
@@ -557,7 +558,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
             size="icon" 
             onClick={() => {
               if (status === "recording") {
-                toast.warning("Please stop recording first");
+                toast.warning("Please stop recording first", { id: "stop-warning-back" });
                 return;
               }
               onClose();

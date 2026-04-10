@@ -138,7 +138,10 @@ export function FileProcessingFormContent() {
 
   const processMutation = useMutation({
     mutationFn: async ({ filesToProcess, capturedPhotos }: { filesToProcess: FileToProcess[], capturedPhotos: { file: File }[] }) => {
-      const toastId = toast.loading("Processing upload...", { closeButton: false });
+      const toastId = toast.loading("Processing upload...", { 
+        closeButton: false, 
+        id: `main-process-${Date.now()}` 
+      });
 
       // Helper for Chunked Multipart Upload
       const uploadMultipart = async (
@@ -232,7 +235,7 @@ export function FileProcessingFormContent() {
         const uploadPromises = filesToProcess.map(async (item) => {
           const uploadToastId = toast.loading(`Uploading ${item.file.name}...`, {
             closeButton: false,
-            id: `upload-${item.file.name}`
+            id: `upload-${item.index}-${item.file.name}`
           });
 
           try {
@@ -248,11 +251,7 @@ export function FileProcessingFormContent() {
                 item.file.type,
                 (percent) => {
                   toast.loading(
-                    <div className="flex flex-col gap-2">
-                      <div className="text-sm text-muted-foreground">Uploading (Accelerated Chunks)</div>
-                      <div className="truncate max-w-md">{item.file.name}</div>
-                      <div className="text-sm text-muted-foreground">{percent}%</div>
-                    </div>,
+                    `Uploading ${item.file.name}: ${percent}%`,
                     { id: uploadToastId },
                   );
                 }
@@ -276,11 +275,7 @@ export function FileProcessingFormContent() {
                   if (p.total) {
                     const percent = Math.round((p.loaded * 100) / p.total);
                     toast.loading(
-                      <div className="flex flex-col gap-2">
-                        <div className="text-sm text-muted-foreground">Uploading</div>
-                        <div className="truncate max-w-md">{item.file.name}</div>
-                        <div className="text-sm text-muted-foreground">{percent}%</div>
-                      </div>,
+                      `Uploading ${item.file.name}: ${percent}%`,
                       { id: uploadToastId },
                     );
                   }
@@ -352,7 +347,7 @@ export function FileProcessingFormContent() {
     },
     onError: (error: any) => {
       const errorMessage = error.response?.data?.error || error.message || "Submission failed";
-      toast.error(`Failed to submit videos: ${errorMessage}`);
+      toast.error(`Failed to submit videos: ${errorMessage}`, { id: `error-${Date.now()}` });
     }
   });
 
@@ -360,7 +355,7 @@ export function FileProcessingFormContent() {
     e.preventDefault();
 
     if (filesToProcess.length === 0) {
-      toast.error("Please select at least one file.");
+      toast.error("Please select at least one file.", { id: "error-missing-files" });
       return;
     }
 
@@ -394,17 +389,22 @@ export function FileProcessingFormContent() {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    const remaining = 3 - capturedPhotos.length;
-    const filesToAdd = files.slice(0, remaining);
+    // Only allow 1 image total
+    const fileToAdd = files[0];
 
-    const newPhotos = filesToAdd.map(file => ({
-      file,
-      preview: URL.createObjectURL(file),
-      qualityScore: 100 // Default quality score for uploaded photos
-    }));
+    // Revoke old image if exists
+    if (capturedPhotos.length > 0) {
+      capturedPhotos.forEach(p => URL.revokeObjectURL(p.preview));
+    }
 
-    setCapturedPhotos(prev => [...prev, ...newPhotos]);
-    toast.success(`${filesToAdd.length} photo(s) added successfully.`);
+    const newPhoto = {
+      file: fileToAdd,
+      preview: URL.createObjectURL(fileToAdd),
+      qualityScore: 100
+    };
+
+    setCapturedPhotos([newPhoto]);
+    toast.success("Photo added successfully.", { id: `photo-added-${Date.now()}` });
     if (e.target) e.target.value = "";
   };
 
@@ -559,13 +559,13 @@ export function FileProcessingFormContent() {
                       type="button"
                       disabled={processMutation.isPending || (files.length === 0 && capturedPhotos.length === 0)}
                       className={cn("flex-1 xl:flex-none", (files.length === 0 && capturedPhotos.length === 0) && "opacity-50 pointer-events-none")}
-                      onClick={() => {
-                        handleClearFiles();
-                        capturedPhotos.forEach(p => URL.revokeObjectURL(p.preview));
-                        setCapturedPhotos([]);
-                        form.reset();
-                        toast.success("All files and evidence cleared.");
-                      }}
+                        onClick={() => {
+                          handleClearFiles();
+                          capturedPhotos.forEach(p => URL.revokeObjectURL(p.preview));
+                          setCapturedPhotos([]);
+                          form.reset();
+                          toast.success("All files and evidence cleared.", { id: "clear-all-success" });
+                        }}
                     >
                       <XIcon className="mr-1 h-4 w-4" />
                       Clear all
@@ -594,8 +594,8 @@ export function FileProcessingFormContent() {
                           <CameraIcon className="w-4 h-4" />
                         </div>
                         <div>
-                          <p className={`text-[10px] uppercase font-bold tracking-tight ${capturedPhotos.length > 0 ? "text-primary" : "text-muted-foreground"}`}>
-                            {capturedPhotos.length === 0 ? "Required Min 1 Max 3" : `${capturedPhotos.length} / 3 Captured`}
+                          <p className={`text-[10px] uppercase font-bold tracking-tight ${capturedPhotos.length === 1 ? "text-primary" : "text-muted-foreground"}`}>
+                            {capturedPhotos.length === 0 ? "Required Max 1" : "1 / 1 Captured"}
                           </p>
                         </div>
                     </div>
@@ -628,7 +628,7 @@ export function FileProcessingFormContent() {
                             </div>
                           ))}
                           
-                          {capturedPhotos.length < 3 && (
+                          {capturedPhotos.length < 1 && (
                             <button
                               type="button"
                               onClick={() => setIsCapturingPhoto(true)}
@@ -638,7 +638,7 @@ export function FileProcessingFormContent() {
                               <span className="text-[8px] font-bold uppercase">Capture</span>
                             </button>
                           )}
-                          {capturedPhotos.length < 3 && (
+                          {capturedPhotos.length < 1 && (
                             <button
                               type="button"
                               onClick={handleOpenImageInput}
@@ -655,7 +655,7 @@ export function FileProcessingFormContent() {
                             variant="outline"
                             className="w-full flex-1 min-h-[80px] lg:h-32 text-muted-foreground hover:text-foreground hover:bg-muted/50 shadow-sm flex flex-col gap-2 items-center justify-center p-3 relative transition-all"
                             onClick={handleOpenImageInput}
-                            disabled={processMutation.isPending}
+                            disabled={processMutation.isPending || capturedPhotos.length >= 1}
                             type="button"
                           >
                             <UploadIcon className="w-6 h-6 lg:w-8 lg:h-8 mb-0 lg:mb-1 shrink-0" />
@@ -666,7 +666,7 @@ export function FileProcessingFormContent() {
                             variant="outline"
                             className="w-full flex-1 min-h-[80px] lg:h-32 text-muted-foreground hover:text-foreground hover:bg-muted/50 shadow-sm flex flex-col gap-2 items-center justify-center p-3 transition-all"
                             onClick={() => setIsCapturingPhoto(true)}
-                            disabled={processMutation.isPending}
+                            disabled={processMutation.isPending || capturedPhotos.length >= 1}
                             type="button"
                           >
                             <CameraIcon className="w-6 h-6 lg:w-8 lg:h-8 mb-0 lg:mb-1 shrink-0" />
@@ -705,17 +705,18 @@ export function FileProcessingFormContent() {
         onClose={() => setRecordingType(null)}
         onCapture={(file) => {
           addFiles([file]);
-          toast.success("Live video captured and added!");
+          toast.success("Live video captured and added!", { id: `record-success-${Date.now()}` });
         }}
       />
 
       <ImageCapture 
         isOpen={isCapturingPhoto}
         onClose={() => setIsCapturingPhoto(false)}
+        maxPhotos={1}
         initialCount={capturedPhotos.length}
         onCapture={(photos) => {
-          setCapturedPhotos(prev => [...prev, ...photos].slice(0, 3));
-          toast.success("Shelf/Unit photos captured successfully.");
+          setCapturedPhotos(photos.slice(0, 1));
+          toast.success("Shelf/Unit photo captured successfully.", { id: `capture-success-${Date.now()}` });
         }}
       />
     </Form>

@@ -13,26 +13,23 @@ import {
 } from "@/components/ui/table";
 
 import { TraceAttribute } from "./types";
-import { CheckIcon, XIcon, PlayCircle } from "lucide-react";
+import { CheckIcon, XIcon, PlayCircle, Image as ImageIcon } from "lucide-react";
 import { FeedbackDialog, FeedbackFormValues } from "./feedback-dialog";
 import { ButtonGroup, ButtonGroupText } from "@/components/ui/button-group";
 import { TruncatedCell } from "@/components/common/truncated-cell";
 
 interface AttributesTableProps {
   attributes: TraceAttribute[];
-  onAttributeUpdate: (index: number, newAttribute: TraceAttribute) => void;
+  onAttributeUpdate: (newAttribute: TraceAttribute) => void;
   onTimestampClick?: (timestamp: number, source: string) => void;
+  onViewImage?: () => void;
   isCompact?: boolean;
+  imageS3Uri?: string | null;
 }
 
-// Memoized helper to humanize strings with caching
-const humanizeCache: Record<string, string> = {};
+// Memoized helper to humanize strings with fallback
 const fastHumanize = (str: string | null | undefined) => {
-  if (!str) return "N/A";
-  if (humanizeCache[str]) return humanizeCache[str];
-  const result = humanizeString(str);
-  humanizeCache[str] = result;
-  return result;
+  return humanizeString(str);
 };
 
 const AttributeRow = React.memo(({ 
@@ -41,14 +38,18 @@ const AttributeRow = React.memo(({
   isCompact, 
   onCorrect, 
   onWrong, 
-  onTimestampClick 
+  onTimestampClick,
+  onViewImage,
+  imageS3Uri 
 }: {
   attribute: TraceAttribute;
   index: number;
   isCompact: boolean;
-  onCorrect: (index: number) => void;
-  onWrong: (index: number) => void;
+  onCorrect: (attr: TraceAttribute) => void;
+  onWrong: (attr: TraceAttribute) => void;
   onTimestampClick?: (timestamp: number, source: string) => void;
+  onViewImage?: () => void;
+  imageS3Uri?: string | null;
 }) => {
   const isLocked = attribute.status === "correct" || attribute.status === "incorrect";
 
@@ -101,6 +102,22 @@ const AttributeRow = React.memo(({
               {attribute.timestamp_seconds.toFixed(2)}s
             </button>
           )}
+
+          {attribute.source === "image" && imageS3Uri && (
+             <button
+              onClick={() => {
+                if (onViewImage) {
+                  onViewImage();
+                } else {
+                  window.open(imageS3Uri, "_blank");
+                }
+              }}
+              className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-600 hover:text-amber-800 transition-colors w-fit bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100"
+            >
+              <ImageIcon className="w-3 h-3" />
+              View Image
+            </button>
+          )}
           
           {isLocked ? (
             attribute.status === "correct" ? (
@@ -123,7 +140,7 @@ const AttributeRow = React.memo(({
                   size="xs"
                   title="Mark as Correct"
                   className="bg-green-600 text-white hover:bg-green-700"
-                  onClick={() => onCorrect(index)}
+                  onClick={() => onCorrect(attribute)}
                 >
                   <CheckIcon className="w-3 h-3" />
                 </Button>
@@ -131,7 +148,7 @@ const AttributeRow = React.memo(({
                 <Button
                   size="xs"
                   title="Mark as Wrong"
-                  onClick={() => onWrong(index)}
+                  onClick={() => onWrong(attribute)}
                 >
                   <XIcon className="w-3 h-3" />
                 </Button>
@@ -150,7 +167,9 @@ export function AttributesTable({
   attributes, 
   onAttributeUpdate,
   onTimestampClick,
-  isCompact = false
+  onViewImage,
+  isCompact = false,
+  imageS3Uri,
 }: AttributesTableProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"correct" | "incorrect" | null>(null);
@@ -161,19 +180,19 @@ export function AttributesTable({
     setDialogOpen(false);
   };
 
-  const handleCorrectClick = React.useCallback((index: number) => {
+  const handleCorrectClick = React.useCallback((attr: TraceAttribute) => {
     setDialogMode("correct");
-    setSelectedIndex(index);
+    setSelectedIndex(attributes.indexOf(attr));
     setDialogStep("confirm");
     setDialogOpen(true);
-  }, []);
+  }, [attributes]);
 
-  const handleWrongClick = React.useCallback((index: number) => {
+  const handleWrongClick = React.useCallback((attr: TraceAttribute) => {
     setDialogMode("incorrect");
-    setSelectedIndex(index);
+    setSelectedIndex(attributes.indexOf(attr));
     setDialogStep("input");
     setDialogOpen(true);
-  }, []);
+  }, [attributes]);
 
   const handleFinalSave = (data: FeedbackFormValues | undefined) => {
     if (selectedIndex === null || !dialogMode) return;
@@ -181,7 +200,7 @@ export function AttributesTable({
     const attribute = attributes[selectedIndex];
 
     if (dialogMode === "correct") {
-      onAttributeUpdate(selectedIndex, {
+      onAttributeUpdate({
         ...attribute,
         feedback: null,
         status: "correct",
@@ -191,7 +210,7 @@ export function AttributesTable({
     }
 
     if (dialogMode === "incorrect") {
-      onAttributeUpdate(selectedIndex, {
+      onAttributeUpdate({
         ...attribute,
         feedback: data?.feedback,
         status: "incorrect",
@@ -231,13 +250,15 @@ export function AttributesTable({
         <TableBody className="[&_td]:whitespace-normal">
           {attributes.map((attribute, index) => (
             <AttributeRow 
-              key={`${index}-${attribute.status}-${attribute.feedback}`}
+              key={`attr-desktop-${index}-${attribute.status}-${attribute.feedback}`}
               attribute={attribute}
               index={index}
               isCompact={isCompact}
               onCorrect={handleCorrectClick}
               onWrong={handleWrongClick}
               onTimestampClick={onTimestampClick}
+              onViewImage={onViewImage}
+              imageS3Uri={imageS3Uri}
             />
           ))}
         </TableBody>
@@ -251,7 +272,7 @@ export function AttributesTable({
             attribute.status === "correct" || attribute.status === "incorrect";
 
           return (
-            <div key={index} className="flex flex-col gap-2 rounded-xl bg-card p-4 shadow-sm text-card-foreground">
+            <div key={`attr-mobile-${index}`} className="flex flex-col gap-2 rounded-xl bg-card p-4 shadow-sm text-card-foreground">
               <div>
                 <p className="text-xs font-normal text-muted-foreground uppercase pb-1 tracking-wide">
                   {fastHumanize(attribute.pipeline)} &gt; {fastHumanize(attribute.attribute)}
@@ -277,6 +298,21 @@ export function AttributesTable({
                     >
                       <PlayCircle className="w-3.5 h-3.5" />
                       {attribute.timestamp_seconds.toFixed(2)}s
+                    </button>
+                  )}
+                  {attribute.source === "image" && imageS3Uri && (
+                    <button
+                      onClick={() => {
+                        if (onViewImage) {
+                          onViewImage();
+                        } else {
+                          window.open(imageS3Uri, "_blank");
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 hover:text-amber-800 transition-colors bg-amber-50 px-2 py-1 rounded border border-amber-100"
+                    >
+                      <ImageIcon className="w-3.5 h-3.5" />
+                      View Image
                     </button>
                   )}
                 </div>
@@ -306,7 +342,7 @@ export function AttributesTable({
                         size="sm"
                         title="Mark as Correct"
                         className="bg-green-600 text-white hover:bg-green-700 h-9 px-4"
-                        onClick={() => handleCorrectClick(index)}
+                        onClick={() => handleCorrectClick(attribute)}
                       >
                         <CheckIcon className="w-4.5 h-4.5" />
                       </Button>
@@ -314,7 +350,7 @@ export function AttributesTable({
                         size="sm"
                         title="Mark as Wrong"
                         className="h-9 px-4"
-                        onClick={() => handleWrongClick(index)}
+                        onClick={() => handleWrongClick(attribute)}
                       >
                         <XIcon className="w-4.5 h-4.5" />
                       </Button>

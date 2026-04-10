@@ -29,6 +29,8 @@ export const metadata: Metadata = {
   description: "Willscot video analysis platform",
 };
 
+import { Toaster } from "@/components/ui/sonner";
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -46,6 +48,7 @@ export default async function RootLayout({
             <TooltipProvider>{children}</TooltipProvider>
           </CurrentUserProvider>
         </Providers>
+        <Toaster key="willscot-root-toaster" richColors closeButton />
       </body>
     </html>
   );

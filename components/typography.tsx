@@ -6,19 +6,21 @@ import { Skeleton } from "./ui/skeleton";
 
 interface PageTitleProps {
   title: ReactNode;
+  className?: string;
 }
 
-export function PageTitle({ title }: PageTitleProps) {
-  return <h1 className="text-xl md:text-2xl font-bold tracking-tight">{title}</h1>;
+export function PageTitle({ title, className }: PageTitleProps) {
+  return <h1 className={cn("text-xl md:text-2xl font-bold tracking-tight", className)}>{title}</h1>;
 }
 
 interface PageDescriptionProps {
   description: ReactNode;
+  className?: string;
 }
 
-export function PageDescription({ description }: PageDescriptionProps) {
+export function PageDescription({ description, className }: PageDescriptionProps) {
   return (
-    <p className="text-sm md:text-sm text-muted-foreground">{description}</p>
+    <p className={cn("text-sm md:text-sm text-muted-foreground", className)}>{description}</p>
   );
 }
 
@@ -54,7 +56,7 @@ export function PageDescriptiveSection({
   return <div className="[&_*]:leading-relaxed">{children}</div>;
 }
 
-
+//
 interface DataItemProps {
   label: ReactNode;
   value: ReactNode;

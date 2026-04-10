@@ -25,6 +25,9 @@ export interface TraceVideoInfo {
   local_video_path?: string | null;
   frames_root_dir?: string | null;
   prompt_docx?: string | null;
+  image_s3_uri?: string | null;
+  image_s3_uri_url?: string | null;
+  image_model_id?: string | null;
 }
 
 export interface ResultJson {

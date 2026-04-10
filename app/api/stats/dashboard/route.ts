@@ -5,6 +5,12 @@ import { and, eq, sql, count, desc, gte, lte, inArray } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { fromZonedTime } from "date-fns-tz";
 import { syncResultAttributes } from "@/lib/db/sync";
+import { getAttributeOrder, PRETTY_NAME_MAP } from "@/lib/constants";
+import { humanizeString } from "@/lib/utils";
+import { getDateRangeFilters } from "@/lib/db/filters";
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function GET(req: Request) {
   try {
@@ -22,22 +28,9 @@ export async function GET(req: Request) {
     // DATA ISOLATION: Normal users can only see their own statistics
     const userIds = currentUser.role === "power_user" ? rawUserIds : [currentUser.id];
 
-    const filters = [];
+    const filters = getDateRangeFilters(startDate, endDate, timezone);
     if (userIds.length > 0) {
       filters.push(inArray(results.createdByUserId, userIds));
-    }
-    
-    // Optimized: Pre-calculate UTC date ranges in JS instead of calling DATE() in SQL.
-    // We use date-fns-tz to ensure the boundaries are correct for the user's timezone.
-    if (startDate) {
-      // Start of the day in the user's timezone, converted to UTC
-      const startDateTime = fromZonedTime(`${startDate}T00:00:00`, timezone);
-      filters.push(gte(results.createdAt, startDateTime));
-    }
-    if (endDate) {
-      // End of the day in the user's timezone, converted to UTC
-      const endDateTime = fromZonedTime(`${endDate}T23:59:59.999`, timezone);
-      filters.push(lte(results.createdAt, endDateTime));
     }
 
     const whereClause = filters.length > 0 ? and(...filters) : undefined;
@@ -62,11 +55,12 @@ export async function GET(req: Request) {
           correct: sql`count(case when ${resultAttributes.status} = 'correct' then 1 end)`,
           incorrect: sql`count(case when ${resultAttributes.status} = 'incorrect' then 1 end)`,
           unmarked: sql`count(case when ${resultAttributes.status} = 'unmarked' then 1 end)`,
+          resultId: resultAttributes.resultId,
           orderIndex: sql<number>`min(${resultAttributes.orderIndex})`,
         })
         .from(resultAttributes)
     )
-      .groupBy(resultAttributes.name, resultAttributes.source)
+      .groupBy(resultAttributes.name, resultAttributes.source, resultAttributes.resultId)
       .orderBy(sql`min(${resultAttributes.orderIndex})`);
 
     const formatAccuracy = (correct: number | string, incorrect: number | string) => {
@@ -76,83 +70,138 @@ export async function GET(req: Request) {
       return denominator > 0 ? Math.round((c / denominator) * 100) : 0;
     };
 
-    // --- High Speed JS Aggregation ---
-    const summary = {
-      overall: { total: 0, correct: 0, incorrect: 0, unmarked: 0 },
-      interior: { total: 0, correct: 0, incorrect: 0, unmarked: 0 },
-      exterior: { total: 0, correct: 0, incorrect: 0, unmarked: 0 },
+    // --- High Speed JS Aggregation and Deduplication ---
+    const summaryData = {
+      overall: { total: new Set<string>(), correct: new Set<string>(), incorrect: new Set<string>(), unmarked: new Set<string>(), correctCount: 0, incorrectCount: 0 },
+      interior: { total: new Set<string>(), correct: new Set<string>(), incorrect: new Set<string>(), unmarked: new Set<string>(), correctCount: 0, incorrectCount: 0 },
+      exterior: { total: new Set<string>(), correct: new Set<string>(), incorrect: new Set<string>(), unmarked: new Set<string>(), correctCount: 0, incorrectCount: 0 },
     };
 
-    const formatAttributeName = (name: string) => {
-      return name
-        .replace(/_/g, ' ')
-        .replace(/([a-z])([A-Z])/g, '$1 $2')
-        .trim();
+    /**
+     * Creates a canonical key for aggregation by removing all spacers and forcing lowercase.
+     * This ensures "Exterior Color", "exterior_color", and "exteriorcolor" all merge.
+     */
+    const getCanonicalKey = (name: string) => {
+      return name.toLowerCase().replace(/[^a-z0-9]/g, '');
     };
 
-    const MASTER_ATTRIBUTE_ORDER = [
-      "Flooring", "Frame Type", "Exterior Color", "Exterior Finish", "Exterior Door", 
-      "Windows", "Interior Finish", "Interior Door", "Roof Design", "Ceiling Type", 
-      "Ceiling Height", "Restroom", "Restroom Water Closet", "Restroom Lavatory", 
-      "Restroom Shower", "Electrical Electric Board", "Electrical Load Center", 
-      "Electrical Lighting", "Emergency Exit Lighting", "Wiring", "Accessories", "Hvac"
-    ];
+    // Use a Map to aggregate stats by humanized name and track unique trace IDs
+    const attributeMap = new Map<string, {
+      name: string;
+      correctTraceIds: Set<string>;
+      incorrectTraceIds: Set<string>;
+      unmarkedTraceIds: Set<string>;
+      totalTraceIds: Set<string>;
+    }>();
 
-    const getOrderPriority = (name: string) => {
-      const index = MASTER_ATTRIBUTE_ORDER.indexOf(name);
-      return index === -1 ? 999 : index;
-    };
-
-    const attributes = attributeStats.map((attr: any) => {
-      const total = Number(attr.total);
-      const correct = Number(attr.correct);
-      const incorrect = Number(attr.incorrect);
-      const unmarked = Number(attr.unmarked);
-
-      // Add to overall
-      summary.overall.total += total;
-      summary.overall.correct += correct;
-      summary.overall.incorrect += incorrect;
-      summary.overall.unmarked += unmarked;
-
-      // Add to specific source
-      if (attr.source === 'interior' || attr.source === 'exterior') {
-        const target = attr.source === 'interior' ? summary.interior : summary.exterior;
-        target.total += total;
-        target.correct += correct;
-        target.incorrect += incorrect;
-        target.unmarked += unmarked;
+    attributeStats.forEach((attr: any) => {
+      const resultId = attr.resultId;
+      const rawName = attr.name || "Unknown";
+      
+      const canonicalKey = getCanonicalKey(rawName);
+      const humanizedName = humanizeString(rawName);
+      
+      // CRITICAL: Use the canonical key to ensure all variants (spacing/casing) merge
+      if (!attributeMap.has(canonicalKey)) {
+        // Preference: Use the MASTER list's pretty name if found, otherwise humanize our first encounter
+        const displayName = PRETTY_NAME_MAP.get(canonicalKey) || humanizedName;
+        
+        attributeMap.set(canonicalKey, {
+          name: displayName,
+          correctTraceIds: new Set(),
+          incorrectTraceIds: new Set(),
+          unmarkedTraceIds: new Set(),
+          totalTraceIds: new Set(),
+        });
       }
+      
+      const entry = attributeMap.get(canonicalKey)!;
+      
+      // Update the display name if we have a "better" one (has spaces) and we haven't found a MASTER match yet
+      if (!PRETTY_NAME_MAP.has(canonicalKey) && humanizedName.includes(' ') && !entry.name.includes(' ')) {
+        entry.name = humanizedName;
+      }
+      entry.totalTraceIds.add(resultId);
+      
+      if (Number(attr.correct) > 0) entry.correctTraceIds.add(resultId);
+      if (Number(attr.incorrect) > 0) entry.incorrectTraceIds.add(resultId);
+      if (Number(attr.unmarked) > 0) entry.unmarkedTraceIds.add(resultId);
 
-      return {
-        name: formatAttributeName(attr.name),
-        accuracy: formatAccuracy(correct, incorrect),
-        correct,
-        incorrect,
-        unmarked,
-        totalTraces: total
-      };
-    }).sort((a: any, b: any) => getOrderPriority(a.name) - getOrderPriority(b.name));
+      // Update summary unique trace tracking
+      summaryData.overall.total.add(resultId);
+      if (Number(attr.correct) > 0) summaryData.overall.correct.add(resultId);
+      if (Number(attr.incorrect) > 0) summaryData.overall.incorrect.add(resultId);
+      if (Number(attr.unmarked) > 0) summaryData.overall.unmarked.add(resultId);
+      
+      // Update raw instance counts for overall performance metrics
+      summaryData.overall.correctCount += Number(attr.correct);
+      summaryData.overall.incorrectCount += Number(attr.incorrect);
+
+      if (attr.source === 'interior' || attr.source === 'exterior') {
+        const target = attr.source === 'interior' ? summaryData.interior : summaryData.exterior;
+        target.total.add(resultId);
+        if (Number(attr.correct) > 0) target.correct.add(resultId);
+        if (Number(attr.incorrect) > 0) target.incorrect.add(resultId);
+        if (Number(attr.unmarked) > 0) target.unmarked.add(resultId);
+        
+        target.correctCount += Number(attr.correct);
+        target.incorrectCount += Number(attr.incorrect);
+      }
+    });
+
+    const summary = {
+      overall: {
+        total: summaryData.overall.total.size,
+        correct: summaryData.overall.correct.size,
+        incorrect: summaryData.overall.incorrect.size,
+        unmarked: summaryData.overall.unmarked.size,
+        accuracy: formatAccuracy(summaryData.overall.correctCount, summaryData.overall.incorrectCount)
+      },
+      interior: {
+        total: summaryData.interior.total.size,
+        correct: summaryData.interior.correct.size,
+        incorrect: summaryData.interior.incorrect.size,
+        unmarked: summaryData.interior.unmarked.size,
+        accuracy: formatAccuracy(summaryData.interior.correctCount, summaryData.interior.incorrectCount)
+      },
+      exterior: {
+        total: summaryData.exterior.total.size,
+        correct: summaryData.exterior.correct.size,
+        incorrect: summaryData.exterior.incorrect.size,
+        unmarked: summaryData.exterior.unmarked.size,
+        accuracy: formatAccuracy(summaryData.exterior.correctCount, summaryData.exterior.incorrectCount)
+      }
+    };
+
+    const attributes = Array.from(attributeMap.values())
+      .map(attr => ({
+        name: attr.name,
+        correct: attr.correctTraceIds.size,
+        incorrect: attr.incorrectTraceIds.size,
+        unmarked: attr.unmarkedTraceIds.size,
+        totalTraces: attr.totalTraceIds.size,
+        accuracy: formatAccuracy(attr.correctTraceIds.size, attr.incorrectTraceIds.size)
+      }))
+      .sort((a: any, b: any) => getAttributeOrder(a.name) - getAttributeOrder(b.name));
 
     return NextResponse.json({
       overview: {
         overall: {
-          accuracy: formatAccuracy(summary.overall.correct, summary.overall.incorrect),
           ...summary.overall
         },
         interior: {
-          accuracy: formatAccuracy(summary.interior.correct, summary.interior.incorrect),
           ...summary.interior
         },
         exterior: {
-          accuracy: formatAccuracy(summary.exterior.correct, summary.exterior.incorrect),
           ...summary.exterior
         },
       },
       attributes
     }, {
       headers: {
-        'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=59'
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
       }
     });
 

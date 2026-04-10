@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import axios from "axios";
 import { waitUntil } from "@vercel/functions";
+import { syncResultAttributes } from "@/lib/db/sync";
 
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
@@ -38,7 +39,7 @@ async function runBatchProcessingJob({
     const payload = {
       interior_jobs: mapJobs("interior"),
       exterior_jobs: mapJobs("exterior"),
-      image_s3_uris: (jobs.find(j => (j as any).evidencePhotos)?.evidencePhotos || []),
+      image_s3_uri: (jobs.find(j => (j as any).evidencePhotos)?.evidencePhotos?.[0] || null),
       temperature: 0.2,
     };
 
@@ -53,83 +54,30 @@ async function runBatchProcessingJob({
 
     const resultData = response.data;
     
-    const prunedResultData = {
-      ...resultData,
-      // If the user wants the raw JSON to look like Swagger, we should NOT prune 
-      // the 'results' key inside each load if they need it for verification.
-      loads: Array.isArray(resultData?.loads) 
-        ? resultData.loads.map((load: any) => ({
-            ...load,
-            // Only set results: undefined if you strictly want to hide massive raw prompts/outputs. 
-            // I will KEEP it preserved now to ensure the 'Raw JSON' is complete.
-          }))
-        : resultData?.loads,
-    };
-
-    // Collect attributes from top-level and also from each load (image results)
-    const attributes = [...(resultData?.attributes || [])];
-    if (Array.isArray(resultData?.loads)) {
-      resultData.loads.forEach((load: any) => {
-        // Handle the nested 'loads' object from image processing
-        if (load.loads && typeof load.loads === "object") {
-          Object.entries(load.loads).forEach(([key, val]: [string, any]) => {
-            if (val && typeof val === "object") {
-              attributes.push({
-                ...val,
-                attribute: val.attribute || key,
-                source: val.source || `photo_evidence`,
-              });
-            }
-          });
-        }
-        
-        // Handle legacy or alternative structures if present
-        if (load.results?.attributes && Array.isArray(load.results.attributes)) {
-          load.results.attributes.forEach((attr: any) => {
-            attributes.push({
-              ...attr,
-              source: attr.source || `photo_evidence`,
-            });
-          });
-        }
-      });
-    }
-
     await db.transaction(async (tx) => {
       // 1. Update the main record
+      const lambdaImage = resultData?.video?.image_s3_uri;
+      const fallbackImage = jobs.find(j => (j as any).evidencePhotos)?.evidencePhotos?.[0];
+      const finalImage = lambdaImage || fallbackImage;
+
       await tx
         .update(results)
         .set({
           status: "completed",
           json: {
-            ...prunedResultData,
-            // Keep evidencePhotos for UI compatibility by mapping from the new 'loads' structure
-            // or falling back to the original uploaded photos
-            evidencePhotos: (resultData?.loads && Array.isArray(resultData.loads))
-              ? resultData.loads.map((load: any) => ({
-                  original: load.image_s3_uri,
-                  url: load.image_s3_uri_url || load.original_url || null
-                }))
-              : (jobs.find(j => (j as any).evidencePhotos)?.evidencePhotos || []),
+            ...resultData,
+            evidencePhotos: finalImage 
+              ? [{
+                  original: finalImage,
+                  url: resultData?.video?.image_s3_uri_url || null
+                }]
+              : [],
           },
         })
         .where(eq(results.id, resultId));
 
-      // 2. Sync specialized attributes table if any
-      if (Array.isArray(attributes) && attributes.length > 0) {
-        type AttributeInput = { attribute?: string; label?: string; name?: string; source?: string; value?: string | number; confidence?: number; timestamp?: number };
-        await tx.insert(resultAttributes).values(
-          attributes.map((attr: AttributeInput) => ({
-            resultId: resultId,
-            name: attr.attribute || attr.label || attr.name || "Unknown",
-            source: attr.source || "interior",
-            value: String(attr.value || ""),
-            status: "unmarked" as const, // Initial state is unmarked
-            confidence: attr.confidence || null,
-            timestamp: attr.timestamp || null,
-          }))
-        );
-      }
+      // 2. Sync specialized attributes table using the simplified centralized helper
+      await syncResultAttributes(tx, resultId, resultData);
     });
   } catch (error: unknown) {
     const err = error as { response?: { data?: unknown }, message?: string };
