@@ -90,41 +90,51 @@ export function UserPerformanceTable({ stats }: UserPerformanceTableProps) {
 
 export function UserPerformanceMobile({ stats }: UserPerformanceTableProps) {
   return (
-    <div className="xl:hidden flex flex-col divide-y">
+    <div className="xl:hidden flex flex-col divide-y divide-border/40">
       {stats.map((user) => (
-        <div key={user.id} className="p-4 bg-white/40 space-y-3">
+        <div key={user.id} className="p-5 bg-white/40 dark:bg-muted/10 space-y-4 hover:bg-muted/5 transition-colors">
           <div className="flex justify-between items-start">
-            <div className="flex flex-col">
-              <span className="text-sm font-semibold text-foreground/90">{user.name}</span>
-              <span className="text-[10px] text-muted-foreground">{user.email}</span>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[15px] font-bold text-foreground tracking-tight">{user.name}</span>
+              <span className="text-[11px] text-muted-foreground font-medium truncate max-w-[200px]">{user.email}</span>
             </div>
             <Badge 
               variant={(user.accuracy > 80 ? "success" : user.accuracy > 50 ? "warning" : "destructive") as any}
-              className="font-bold"
+              className="font-extrabold text-[11px] px-2.5 py-0.5 shadow-sm"
             >
               {user.accuracy}%
             </Badge>
           </div>
           
-          <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
-            <div 
-              className={cn(
-                "h-full transition-all duration-500",
-                user.accuracy > 80 ? "bg-emerald-500" : user.accuracy > 50 ? "bg-amber-500" : "bg-red-500"
-              )}
-              style={{ width: `${user.accuracy}%` }}
-            />
+          <div className="space-y-1.5">
+            <div className="flex justify-between items-end">
+              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Marking Accuracy</span>
+            </div>
+            <div className="w-full h-2 bg-muted/50 rounded-full overflow-hidden shadow-inner border border-border/10">
+              <div 
+                className={cn(
+                  "h-full transition-all duration-700 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.1)]",
+                  user.accuracy > 80 ? "bg-emerald-500" : user.accuracy > 50 ? "bg-amber-500" : "bg-red-500"
+                )}
+                style={{ width: `${user.accuracy}%` }}
+              />
+            </div>
           </div>
 
-          <div className="flex items-center gap-4 pt-1">
-            <div className="flex items-center gap-1.5 font-bold text-emerald-600 text-xs text-[10px]">
-              {user.correct} Correct
+          <div className="flex items-center justify-between pt-1">
+            <div className="flex items-center gap-4">
+              <div className="flex flex-col">
+                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-tighter">Correct</span>
+                <span className="text-sm font-extrabold text-emerald-600">{user.correct}</span>
+              </div>
+              <div className="flex flex-col border-l border-border/40 pl-4">
+                <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-tighter">Incorrect</span>
+                <span className="text-sm font-extrabold text-red-600">{user.incorrect}</span>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5 font-bold text-red-600 text-xs text-[10px]">
-              {user.incorrect} Incorrect
-            </div>
-            <div className="flex items-center gap-1.5 font-bold text-muted-foreground text-xs text-[10px] ml-auto">
-              {user.totalTraces} Traces
+            <div className="flex flex-col items-end">
+              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-tighter">Total Traces</span>
+              <span className="text-sm font-extrabold text-foreground/80">{user.totalTraces}</span>
             </div>
           </div>
         </div>
