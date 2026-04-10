@@ -386,12 +386,12 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
       ctx.drawImage(videoRef.current, 0, 0, 150, 150);
       const imageData = ctx.getImageData(0, 0, 150, 150);
 
-      // Send pixel buffer to the background worker
+      // Send pixel buffer to the background worker as a Transferable for performance
       workerRef.current.postMessage({
-        imageData: imageData,
+        buffer: imageData.data.buffer,
         width: 150,
         height: 150
-      });
+      }, [imageData.data.buffer]);
     }, 200); // 5 FPS is enough for quality checking
   }, []);
 
