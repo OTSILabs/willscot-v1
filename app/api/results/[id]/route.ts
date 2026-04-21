@@ -59,7 +59,7 @@ export async function GET(
     }
 
     // Extract the primary region from the comma-separated list
-    const resolvedRegion = result.regionName ? String(result.regionName).split(",")[0].trim() : undefined;
+    const resolvedRegion = result.regionName ? String(result.regionName).split(",")[0].trim() : "us-west-2";
 
     // Process the JSON to include presigned URLs for all S3 URIs
     const processedJson = (await recursivePresign(result.json, resolvedRegion)) as {

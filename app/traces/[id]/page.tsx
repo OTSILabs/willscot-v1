@@ -20,6 +20,7 @@ import { AttributesTable } from "./components/attributes-table";
 import { VideoPreviewPanel } from "./components/video-preview-panel";
 import { RawJsonTab } from "./components/raw-json-tab";
 import { PhotoEvidenceItem } from "./components/photo-evidence-item";
+import { ImagePreviewPanel } from "./components/image-preview-panel";
 import { ResultDetail, TraceAttribute } from "./components/types";
 import { toast } from "sonner";
 import { getAttributeOrder } from "@/lib/constants";
@@ -106,6 +107,7 @@ export default function ResultDetailPage() {
   const isMobileView = useIsMobile();
   const [isTableCompact, setIsTableCompact] = useState(false);
   const [activeMainTab, setActiveMainTab] = useState("results");
+  const [selectedDamage, setSelectedDamage] = useState<TraceAttribute | null>(null);
 
   const { mutate: updateFeedback } = useMutation({
     mutationFn: async ({ newAttribute }: { newAttribute: TraceAttribute }) => {
@@ -113,7 +115,10 @@ export default function ResultDetailPage() {
       const currentAttributes = [...(result?.json.attributes || [])] as TraceAttribute[];
       
       const existingIdx = currentAttributes.findIndex(
-        a => a.attribute === newAttribute.attribute && a.source === newAttribute.source
+        a => a.attribute === newAttribute.attribute && 
+             a.source === newAttribute.source &&
+             a.value === newAttribute.value &&
+             a.timestamp_seconds === newAttribute.timestamp_seconds
       );
 
       if (existingIdx !== -1) {
@@ -133,7 +138,12 @@ export default function ResultDetailPage() {
       if (previousResult) {
         const optimisticResult = JSON.parse(JSON.stringify(previousResult)) as ResultDetail;
         const attrs = [...(optimisticResult.json.attributes || [])];
-        const idx = attrs.findIndex(a => a.attribute === newAttribute.attribute && a.source === newAttribute.source);
+        const idx = attrs.findIndex(
+          a => a.attribute === newAttribute.attribute && 
+               a.source === newAttribute.source &&
+               a.value === newAttribute.value &&
+               a.timestamp_seconds === newAttribute.timestamp_seconds
+        );
         
         if (idx !== -1) {
           attrs[idx] = newAttribute;
@@ -170,6 +180,21 @@ export default function ResultDetailPage() {
       getAttributeOrder(a.attribute) - getAttributeOrder(b.attribute)
     );
   }, [result?.json]);
+
+  const damageAttributes = useMemo(() => {
+    return attributes.filter(a => a.attribute === "DamageDetection");
+  }, [attributes]);
+
+  const standardAttributes = useMemo(() => {
+    return attributes.filter(a => a.attribute !== "DamageDetection");
+  }, [attributes]);
+
+  // Set initial selected damage when data loads or damage attributes change
+  useEffect(() => {
+    if (damageAttributes.length > 0 && !selectedDamage) {
+      setSelectedDamage(damageAttributes[0]);
+    }
+  }, [damageAttributes, selectedDamage]);
 
   if (isLoading) {
     return (
@@ -285,8 +310,16 @@ export default function ResultDetailPage() {
                       >
                         <div className="flex h-full min-h-0 flex-col">
                           <div className="border-b">
-                            <TabsList variant="line" className="grid w-[390px] grid-cols-3">
+                            <TabsList variant="line" className="grid w-[480px] grid-cols-4">
                               <TabsTrigger value="results">Results</TabsTrigger>
+                              <TabsTrigger value="damages">
+                                Damages
+                                {damageAttributes.length > 0 && (
+                                  <span className="ml-1.5 rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-bold text-blue-600">
+                                    {damageAttributes.length}
+                                  </span>
+                                )}
+                              </TabsTrigger>
                               <TabsTrigger value="photos">
                                 Photos
                                 {(() => {
@@ -296,7 +329,7 @@ export default function ResultDetailPage() {
                                   // But for backward compatibility with older traces, we use Math.max(1, count) or deduplicate.
                                   const photoCount = aiImage || extraPhotos ? Math.max(aiImage, extraPhotos) : 0;
                                   return photoCount > 0 && (
-                                    <span className="ml-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+                                    <span className="ml-1.5 rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-bold text-blue-600">
                                       {photoCount}
                                     </span>
                                   );
@@ -308,12 +341,24 @@ export default function ResultDetailPage() {
   
                           <TabsContent value="results" className="m-0 min-h-0 flex-1 overflow-auto">
                             <AttributesTable
-                              attributes={attributes}
+                              attributes={standardAttributes}
                               onAttributeUpdate={(attr) => updateFeedback({ newAttribute: attr })}
                               onTimestampClick={handleTimestampClick}
                               onViewImage={handleViewImage}
                               isCompact={isTableCompact}
                               imageS3Uri={result.json.video?.image_s3_uri_url || result.json.video?.image_s3_uri}
+                            />
+                          </TabsContent>
+
+                          <TabsContent value="damages" className="m-0 min-h-0 flex-1 overflow-auto">
+                            <AttributesTable
+                              attributes={damageAttributes}
+                              onAttributeUpdate={(attr) => updateFeedback({ newAttribute: attr })}
+                              onTimestampClick={handleTimestampClick}
+                              onViewImage={handleViewImage}
+                              onRowClick={(attr) => setSelectedDamage(attr)}
+                              selectedAttribute={selectedDamage}
+                              isCompact={isTableCompact}
                             />
                           </TabsContent>
 
@@ -355,14 +400,23 @@ export default function ResultDetailPage() {
                       <ResizableHandle withHandle />
   
                       <ResizablePanel defaultSize={30} minSize={0}>
-                        <VideoPreviewTabs 
-                          type={type} 
-                          setType={setType}
-                          interiorVideoRef={interiorVideoRef}
-                          exteriorVideoRef={exteriorVideoRef}
-                          result={result}
-                          activeSeek={activeSeek}
-                        />
+                        {activeMainTab === "damages" ? (
+                           <ImagePreviewPanel 
+                            s3Uri={selectedDamage?.frame_s3_uri} 
+                            signedUrl={selectedDamage?.frame_s3_uri_url}
+                            regionName={result.regionName}
+                            attributeName={selectedDamage?.value}
+                           />
+                        ) : (
+                          <VideoPreviewTabs 
+                            type={type} 
+                            setType={setType}
+                            interiorVideoRef={interiorVideoRef}
+                            exteriorVideoRef={exteriorVideoRef}
+                            result={result}
+                            activeSeek={activeSeek}
+                          />
+                        )}
                       </ResizablePanel>
                     </ResizablePanelGroup>
                   </div>
@@ -371,21 +425,40 @@ export default function ResultDetailPage() {
                   <div className="xl:hidden flex flex-col gap-6">
                     {/* Video Preview with Tab switch */}
                     <div ref={videoSectionRef} className="scroll-mt-4">
-                      <VideoPreviewTabs 
-                        isMobile 
-                        type={type} 
-                        setType={setType}
-                        interiorVideoRef={interiorVideoRef}
-                        exteriorVideoRef={exteriorVideoRef}
-                        result={result}
-                        activeSeek={activeSeek}
-                      />
+                      {activeMainTab === "damages" ? (
+                        <div className="aspect-video w-full rounded-lg overflow-hidden bg-black shadow-sm mt-4">
+                          <ImagePreviewPanel 
+                            s3Uri={selectedDamage?.frame_s3_uri} 
+                            signedUrl={selectedDamage?.frame_s3_uri_url}
+                            regionName={result.regionName}
+                            attributeName={selectedDamage?.value}
+                          />
+                        </div>
+                      ) : (
+                        <VideoPreviewTabs 
+                          isMobile 
+                          type={type} 
+                          setType={setType}
+                          interiorVideoRef={interiorVideoRef}
+                          exteriorVideoRef={exteriorVideoRef}
+                          result={result}
+                          activeSeek={activeSeek}
+                        />
+                      )}
                     </div>
   
                     {/* Results / Photos Tabs for Mobile */}
                     <Tabs value={activeMainTab} onValueChange={setActiveMainTab} className="w-full">
-                      <TabsList className="grid w-full grid-cols-2 mb-4">
+                      <TabsList className="grid w-full grid-cols-3 mb-4">
                         <TabsTrigger value="results">Attributes</TabsTrigger>
+                        <TabsTrigger value="damages">
+                          Damages
+                          {damageAttributes.length > 0 && (
+                            <span className="ml-1.5 rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-bold text-blue-600">
+                              {damageAttributes.length}
+                            </span>
+                          )}
+                        </TabsTrigger>
                         <TabsTrigger value="photos">
                           Photos
                           {(() => {
@@ -393,7 +466,7 @@ export default function ResultDetailPage() {
                             const extraPhotos = (result.json.evidencePhotos?.length || 0);
                             const photoCount = aiImage || extraPhotos ? Math.max(aiImage, extraPhotos) : 0;
                             return photoCount > 0 && (
-                              <span className="ml-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+                              <span className="ml-1.5 rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-bold text-blue-600">
                                 {photoCount}
                               </span>
                             );
@@ -403,12 +476,34 @@ export default function ResultDetailPage() {
 
                       <TabsContent value="results">
                         <AttributesTable
-                          attributes={attributes}
+                          attributes={standardAttributes}
                           onAttributeUpdate={(newAttr) => updateFeedback({ newAttribute: newAttr })}
                           onTimestampClick={handleTimestampClick}
                           onViewImage={handleViewImage}
+                          onRowClick={(attr) => {
+                            if (videoSectionRef.current) {
+                              videoSectionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+                            }
+                          }}
                           isCompact={isTableCompact}
                           imageS3Uri={result.json.video?.image_s3_uri_url || result.json.video?.image_s3_uri}
+                        />
+                      </TabsContent>
+
+                      <TabsContent value="damages">
+                        <AttributesTable
+                          attributes={damageAttributes}
+                          onAttributeUpdate={(newAttr) => updateFeedback({ newAttribute: newAttr })}
+                          onTimestampClick={handleTimestampClick}
+                          onViewImage={handleViewImage}
+                          onRowClick={(attr) => {
+                            setSelectedDamage(attr);
+                            if (videoSectionRef.current) {
+                              videoSectionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+                            }
+                          }}
+                          selectedAttribute={selectedDamage}
+                          isCompact={isTableCompact}
                         />
                       </TabsContent>
 

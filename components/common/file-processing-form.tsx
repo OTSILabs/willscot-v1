@@ -342,7 +342,7 @@ export function FileProcessingFormContent() {
       }
     },
     onSuccess: (data: { id: string; toastId: string }) => {
-      toast.success("Batch successfully submitted!", { id: data.toastId });
+      toast.success("Successfully submitted!", { id: data.toastId });
       if (data.id) router.push(`/traces/${data.id}`);
     },
     onError: (error: any) => {

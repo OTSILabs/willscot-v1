@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { humanizeString } from "@/lib/utils";
+import { humanizeString, cn } from "@/lib/utils";
 
 import {
   Table,
@@ -22,6 +22,8 @@ interface AttributesTableProps {
   attributes: TraceAttribute[];
   onAttributeUpdate: (newAttribute: TraceAttribute) => void;
   onTimestampClick?: (timestamp: number, source: string) => void;
+  onRowClick?: (attribute: TraceAttribute) => void;
+  selectedAttribute?: TraceAttribute | null;
   onViewImage?: () => void;
   isCompact?: boolean;
   imageS3Uri?: string | null;
@@ -39,6 +41,8 @@ const AttributeRow = React.memo(({
   onCorrect, 
   onWrong, 
   onTimestampClick,
+  onRowClick,
+  selectedAttribute,
   onViewImage,
   imageS3Uri 
 }: {
@@ -48,13 +52,25 @@ const AttributeRow = React.memo(({
   onCorrect: (attr: TraceAttribute) => void;
   onWrong: (attr: TraceAttribute) => void;
   onTimestampClick?: (timestamp: number, source: string) => void;
+  onRowClick?: (attribute: TraceAttribute) => void;
+  selectedAttribute?: TraceAttribute | null;
   onViewImage?: () => void;
   imageS3Uri?: string | null;
 }) => {
   const isLocked = attribute.status === "correct" || attribute.status === "incorrect";
+  const isSelected = selectedAttribute?.attribute === attribute.attribute && 
+                     selectedAttribute?.timestamp_seconds === attribute.timestamp_seconds &&
+                     selectedAttribute?.value === attribute.value;
 
   return (
-    <TableRow>
+    <TableRow 
+      className={cn(
+        "group transition-colors",
+        onRowClick && "cursor-pointer hover:bg-muted/30",
+        isSelected && "bg-blue-50/50 dark:bg-blue-900/10 border-l-2 border-l-blue-500"
+      )}
+      onClick={() => onRowClick?.(attribute)}
+    >
       <TableCell>
         {isCompact ? (
           <TruncatedCell content={fastHumanize(attribute.pipeline)} maxW="max-w-[120px]" />
@@ -167,6 +183,8 @@ export function AttributesTable({
   attributes, 
   onAttributeUpdate,
   onTimestampClick,
+  onRowClick,
+  selectedAttribute,
   onViewImage,
   isCompact = false,
   imageS3Uri,
@@ -257,6 +275,8 @@ export function AttributesTable({
               onCorrect={handleCorrectClick}
               onWrong={handleWrongClick}
               onTimestampClick={onTimestampClick}
+              onRowClick={onRowClick}
+              selectedAttribute={selectedAttribute}
               onViewImage={onViewImage}
               imageS3Uri={imageS3Uri}
             />
@@ -270,9 +290,20 @@ export function AttributesTable({
         {attributes.map((attribute, index) => {
           const isLocked =
             attribute.status === "correct" || attribute.status === "incorrect";
+          const isSelected = selectedAttribute?.attribute === attribute.attribute && 
+                            selectedAttribute?.timestamp_seconds === attribute.timestamp_seconds &&
+                            selectedAttribute?.value === attribute.value;
 
           return (
-            <div key={`attr-mobile-${index}`} className="flex flex-col gap-2 rounded-xl bg-card p-4 shadow-sm text-card-foreground">
+            <div 
+              key={`attr-mobile-${index}`} 
+              className={cn(
+                "flex flex-col gap-2 rounded-xl bg-card p-4 shadow-sm text-card-foreground border transition-all",
+                onRowClick && "active:scale-[0.98] cursor-pointer",
+                isSelected ? "border-blue-500 shadow-md ring-1 ring-blue-500/20" : "border-border"
+              )}
+              onClick={() => onRowClick?.(attribute)}
+            >
               <div>
                 <p className="text-xs font-normal text-muted-foreground uppercase pb-1 tracking-wide">
                   {fastHumanize(attribute.pipeline)} &gt; {fastHumanize(attribute.attribute)}

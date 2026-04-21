@@ -3,6 +3,7 @@ export interface TraceAttribute {
   attribute?: string | null;
   value?: string | null;
   evidence?: string | null;
+  severity?: string | null;
   frame_s3_uri?: string | null;
   frame_s3_uri_url?: string | null;
   timestamp_seconds?: number | null;
