@@ -41,6 +41,7 @@ async function runBatchProcessingJob({
       exterior_jobs: mapJobs("exterior"),
       image_s3_uri: (jobs.find(j => (j as any).evidencePhotos)?.evidencePhotos?.[0] || null),
       temperature: 0.2,
+      enable_damage_detection: true,
     };
 
     console.log("payload :", payload);
