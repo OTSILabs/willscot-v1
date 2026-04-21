@@ -290,13 +290,6 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
     }
   };
 
-  const pauseRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-      mediaRecorderRef.current.pause();
-      setStatus("paused");
-      stopAnalysis();
-    }
-  };
 
   const resumeRecording = async () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "paused") {
@@ -328,6 +321,46 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
       }, 100);
     }
   };
+
+  function stopAnalysis() {
+    if (analysisIntervalRef.current) {
+      clearInterval(analysisIntervalRef.current);
+      analysisIntervalRef.current = null;
+    }
+    setWarnings([]); // Clear warnings immediately on stop
+  }
+
+  function startAnalysis() {
+    if (analysisIntervalRef.current) clearInterval(analysisIntervalRef.current);
+    
+    analysisIntervalRef.current = setInterval(() => {
+      // Use ref to avoid stale closure on status
+      if (!videoRef.current || !canvasRef.current || !workerRef.current || statusRef.current !== "recording") return;
+      if (videoRef.current.readyState !== videoRef.current.HAVE_ENOUGH_DATA) return;
+
+      const ctx = canvasRef.current.getContext("2d", { willReadFrequently: true });
+      if (!ctx) return;
+
+      // Draw the current video frame downsampled to 150x150
+      ctx.drawImage(videoRef.current, 0, 0, 150, 150);
+      const imageData = ctx.getImageData(0, 0, 150, 150);
+
+      // Send pixel buffer to the background worker as a Transferable for performance
+      workerRef.current.postMessage({
+        buffer: imageData.data.buffer,
+        width: 150,
+        height: 150
+      }, [imageData.data.buffer]);
+    }, 200); // 5 FPS is enough for quality checking
+  }
+
+  function pauseRecording() {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      mediaRecorderRef.current.pause();
+      setStatus("paused");
+      stopAnalysis();
+    }
+  }
 
   const handleAutoPause = useCallback(() => {
     if (statusRef.current === "recording") {
@@ -369,39 +402,7 @@ export function VideoRecorder({ isOpen, onClose, onCapture, title = "Record Vide
       canvas.height = 150;
       canvasRef.current = canvas;
     }
-  }, []);
-
-  const startAnalysis = useCallback(() => {
-    if (analysisIntervalRef.current) clearInterval(analysisIntervalRef.current);
-    
-    analysisIntervalRef.current = setInterval(() => {
-      // Use ref to avoid stale closure on status
-      if (!videoRef.current || !canvasRef.current || !workerRef.current || statusRef.current !== "recording") return;
-      if (videoRef.current.readyState !== videoRef.current.HAVE_ENOUGH_DATA) return;
-
-      const ctx = canvasRef.current.getContext("2d", { willReadFrequently: true });
-      if (!ctx) return;
-
-      // Draw the current video frame downsampled to 150x150
-      ctx.drawImage(videoRef.current, 0, 0, 150, 150);
-      const imageData = ctx.getImageData(0, 0, 150, 150);
-
-      // Send pixel buffer to the background worker as a Transferable for performance
-      workerRef.current.postMessage({
-        buffer: imageData.data.buffer,
-        width: 150,
-        height: 150
-      }, [imageData.data.buffer]);
-    }, 200); // 5 FPS is enough for quality checking
-  }, []);
-
-  const stopAnalysis = useCallback(() => {
-    if (analysisIntervalRef.current) {
-      clearInterval(analysisIntervalRef.current);
-      analysisIntervalRef.current = null;
-    }
-    setWarnings([]); // Clear warnings immediately on stop
-  }, []);
+  }, [handleAutoPause]);
 
 
   const stopRecording = () => {
