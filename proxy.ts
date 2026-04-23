@@ -5,7 +5,7 @@ const LOGIN_API_PATH = "/api/auth/login";
 const HOME_AFTER_LOGIN = "/traces";
 const AUTH_COOKIE = "auth_user";
 
-export function middleware(req: NextRequest) {
+export default function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const isLoggedIn = Boolean(req.cookies.get(AUTH_COOKIE)?.value);
 
